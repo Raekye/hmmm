@@ -2,7 +2,7 @@
 #include "parser.h"
 #include "lexer.h"
 
-#include <stdio.h>
+#include <cstdlib>
 
 int yyparse(SExpression** expr, yyscan_t scanner);
 

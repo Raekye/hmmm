@@ -2,7 +2,7 @@
 
 #include "expression.h"
 #include "parser.h"
-#include <stdio.h>
+#include <cstdio>
 
 %}
 

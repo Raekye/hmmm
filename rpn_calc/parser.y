@@ -54,10 +54,10 @@ input
 	;
 
 expr
-	: expr TOKEN_ADD expr { $$ = createOperation(eADD, $1, $3); }
-	| expr TOKEN_MULTIPLY expr { $$ = createOperation(eMULTIPLY, $1, $3); }
-	| expr TOKEN_SUBTRACT expr { $$ = createOperation(eSUBTRACT, $1, $3); }
+	: expr TOKEN_MULTIPLY expr { $$ = createOperation(eMULTIPLY, $1, $3); }
 	| expr TOKEN_DIVIDE expr { $$ = createOperation(eDIVIDE, $1, $3); }
+	| expr TOKEN_ADD expr { $$ = createOperation(eADD, $1, $3); }
+	| expr TOKEN_SUBTRACT expr { $$ = createOperation(eSUBTRACT, $1, $3); }
 	| TOKEN_LPAREN expr TOKEN_RPAREN { $$ = $2; }
 	| TOKEN_NUMBER { $$ = createNumber($1); }
 	;

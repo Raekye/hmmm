@@ -1,6 +1,6 @@
 #include "expression.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 
 static SExpression* allocateExpression() {
 	SExpression* expr = (SExpression*) malloc(sizeof *expr);
