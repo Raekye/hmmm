@@ -1,7 +1,7 @@
 hmmm
 ====
 
-### RPN Calc
+### RPN Calc (actually prefix notation)
 ##### Todo
 - actual reverse polish notation
 - doubles

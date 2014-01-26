@@ -4,6 +4,8 @@
 #include "parser.h"
 #include <cstdio>
 
+#define SAVE_TOKEN yyval.string = new std::string(yytext, yyleng)
+
 %}
 
 %option outfile="lexer.c" header-file="lexer.h"
@@ -17,7 +19,9 @@ MULTIPLY "*"
 SUBTRACT "-"
 DIVIDE "/"
 
-NUMBER [0-9]+
+DIGIT [0-9]
+
+NUMBER {DIGIT}+
 WS [ \r\n\t]*
 
 %%

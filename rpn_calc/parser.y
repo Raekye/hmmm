@@ -30,6 +30,8 @@ typedef void* yyscan_t;
 %union {
 	int value;
 	SExpression* expression;
+	SExpression* single_element;
+	SExpression* multiple_elements;
 }
 
 %left '+' TOKEN_ADD
@@ -46,6 +48,8 @@ typedef void* yyscan_t;
 %token <value> TOKEN_NUMBER
 
 %type <expression> expr
+%type <single_element> single_element
+%type <multiple_elements> multiple_elements
 
 %%
 
@@ -54,10 +58,18 @@ input
 	;
 
 expr
-	: expr TOKEN_MULTIPLY expr { $$ = createOperation(eMULTIPLY, $1, $3); }
-	| expr TOKEN_DIVIDE expr { $$ = createOperation(eDIVIDE, $1, $3); }
-	| expr TOKEN_ADD expr { $$ = createOperation(eADD, $1, $3); }
-	| expr TOKEN_SUBTRACT expr { $$ = createOperation(eSUBTRACT, $1, $3); }
-	| TOKEN_LPAREN expr TOKEN_RPAREN { $$ = $2; }
+	: TOKEN_ADD single_element multiple_elements { $$ = createOperation(eADD, $2, $3); }
+	| TOKEN_SUBTRACT single_element multiple_elements { $$ = createOperation(eSUBTRACT, $2, $3); }
+	| TOKEN_MULTIPLY single_element multiple_elements { $$ = createOperation(eMULTIPLY, $2, $3); }
+	| TOKEN_DIVIDE single_element multiple_elements { $$ = createOperation(eDIVIDE, $2, $3); }
+	;
+
+single_element
+	: TOKEN_LPAREN expr TOKEN_RPAREN { $$ = $2; }
 	| TOKEN_NUMBER { $$ = createNumber($1); }
+	;
+
+multiple_elements
+	: single_element multiple_elements { $$ = appendVector($1, $2); }
+	| single_element { $$ = createVector($1); }
 	;
