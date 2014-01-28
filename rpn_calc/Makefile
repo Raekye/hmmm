@@ -1,4 +1,4 @@
-FILES = lexer.c parser.c expression.cpp main.c
+FILES = lexer.c parser.c expression.cpp main.c number.cpp
 CC = g++
 CFLAGS = -g -ansi
 
