@@ -1,5 +1,13 @@
 #include "node.h"
 
+Node::~Node() {
+	return;
+}
+
+NPrimitiveNumber::~NPrimitiveNumber() {
+	return;
+}
+
 NPrimitiveNumber::NPrimitiveNumber(UNumberValue val, ENumberType type) {
 	this->val = val;
 	this->type = type;
