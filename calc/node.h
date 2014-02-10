@@ -1,7 +1,7 @@
 #ifndef __NODE_H_
 #define __NODE_H_
 
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 #include <vector>
 #include <string>
 
