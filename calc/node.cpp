@@ -29,3 +29,10 @@ NPrimitiveNumber* NPrimitiveNumber::parse(std::string str) {
 	val.i = 32;
 	return new NPrimitiveNumber(val, eINT);
 }
+
+NPrimitiveNumber* NPrimitiveNumber_construct(UNumberValue val, ENumberType type) {
+	return new NPrimitiveNumber(val, type);
+}
+void NPrimitiveNumber_destruct(NPrimitiveNumber* num) {
+	num->~NPrimitiveNumber();
+}

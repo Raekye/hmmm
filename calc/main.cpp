@@ -15,7 +15,7 @@ int main() {
 	std::cout << programBlock << std::endl;
 
 	CodeGenContext context;
-	context.generateCode(programBlock);
-	context.runCode();
+	context.generate_code(programBlock);
+	context.run_code();
 	return 0;
 }
