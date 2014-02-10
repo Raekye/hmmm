@@ -19,28 +19,26 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/Support/raw_ostream.h>
-
-using namespace llvm;
+#include <map>
 
 class NBlock;
 
 class CodeGenBlock {
 public:
-	BasicBlock *block;
-	std::map<std::string, Value*> locals;
+	llvm::BasicBlock* block;
+	std::map<std::string, llvm::Value*> locals;
 };
 
 class CodeGenContext {
 private:
-	std::stack<CodeGenBlock *> blocks;
-	Function *mainFunction;
-
+	std::stack<CodeGenBlock*> blocks;
+	llvm::Function* main_function;
 public:
-	Module *module;
-	CodeGenContext() { module = new Module("main", getGlobalContext()); }
+	llvm::Module* module;
+	CodeGenContext();
 	
-	void generateCode(NExpression* root);
-	void runCode(); // GenericValue
+	void generate_code(NExpression* root);
+	void run_code(); // GenericValue
 };
 
 #endif // __CODEGEN_H_

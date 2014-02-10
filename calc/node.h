@@ -45,7 +45,7 @@ typedef enum tagNumberType {
 class Node {
 public:
 	virtual ~Node();
-	virtual llvm::Value* gen_code(CodeGenContext&) = 0;
+	virtual llvm::Value* gen_code(CodeGenContext*) = 0;
 };
 
 class NExpression : public Node {
@@ -59,7 +59,7 @@ public:
 	NPrimitiveNumber(UNumberValue, ENumberType);
 	UNumberValue val;
 	ENumberType type;
-	virtual llvm::Value* gen_code(CodeGenContext&);
+	virtual llvm::Value* gen_code(CodeGenContext*);
 	virtual ~NPrimitiveNumber();
 
 	static NPrimitiveNumber* parse(std::string);
@@ -71,11 +71,13 @@ public:
 	NExpression* lhs;
 	NExpression* rhs;
 	NBinaryOperator(EBinaryOperationType, NExpression*, NExpression*);
-	virtual llvm::Value* gen_code(CodeGenContext&);
+	virtual llvm::Value* gen_code(CodeGenContext*);
 	virtual ~NBinaryOperator();
 };
 
-void NPrimitiveNumber_construct(void*, UNumberValue, ENumberType);
-void NPrimitiveNumber_destruct(void*);
+extern "C" {
+	NPrimitiveNumber* NPrimitiveNumber_construct(UNumberValue, ENumberType);
+	void NPrimitiveNumber_destruct(NPrimitiveNumber*);
+}
 
 #endif // __NODE_H_
