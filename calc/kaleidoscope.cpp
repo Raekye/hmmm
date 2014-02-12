@@ -1,8 +1,15 @@
+#include <llvm/Analysis/Passes.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/IR/DataLayout.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
 #include <llvm/Analysis/Verifier.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Support/IRBuilder.h>
-#include <llvm/LLVMContext.h>
-#include <llvm/Module.h>
+#include <llvm/PassManager.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Transforms/Scalar.h>
 #include <cctype>
 #include <cstdio>
 #include <map>
@@ -14,7 +21,7 @@ using namespace llvm;
 // Lexer
 //===----------------------------------------------------------------------===//
 
-// The lexer revturns tokens [0-255] if it is an unknown character, otherwise one
+// The lexer returns tokens [0-255] if it is an unknown character, otherwise one
 // of these for known things.
 enum Token {
   tok_eof = -1,
@@ -350,6 +357,7 @@ static PrototypeAST *ParseExtern() {
 static Module *TheModule;
 static IRBuilder<> Builder(getGlobalContext());
 static std::map<std::string, Value*> NamedValues;
+static FunctionPassManager *TheFPM;
 
 Value *ErrorV(const char *Str) { Error(Str); return 0; }
 
@@ -460,6 +468,9 @@ Function *FunctionAST::Codegen() {
     // Validate the generated code, checking for consistency.
     verifyFunction(*TheFunction);
 
+    // Optimize the function.
+    TheFPM->run(*TheFunction);
+    
     return TheFunction;
   }
   
@@ -471,6 +482,8 @@ Function *FunctionAST::Codegen() {
 //===----------------------------------------------------------------------===//
 // Top-Level parsing and JIT Driver
 //===----------------------------------------------------------------------===//
+
+static ExecutionEngine *TheExecutionEngine;
 
 static void HandleDefinition() {
   if (FunctionAST *F = ParseDefinition()) {
@@ -500,8 +513,13 @@ static void HandleTopLevelExpression() {
   // Evaluate a top-level expression into an anonymous function.
   if (FunctionAST *F = ParseTopLevelExpr()) {
     if (Function *LF = F->Codegen()) {
-      fprintf(stderr, "Read top-level expression:");
-      LF->dump();
+      // JIT the function, returning a function pointer.
+      void *FPtr = TheExecutionEngine->getPointerToFunction(LF);
+      
+      // Cast it to the right type (takes no arguments, returns a double) so we
+      // can call it as a native function.
+      double (*FP)() = (double (*)())(intptr_t)FPtr;
+      fprintf(stderr, "Evaluated to %f\n", FP());
     }
   } else {
     // Skip token for error recovery.
@@ -539,6 +557,7 @@ double putchard(double X) {
 //===----------------------------------------------------------------------===//
 
 int main() {
+  InitializeNativeTarget();
   LLVMContext &Context = getGlobalContext();
 
   // Install standard binary operators.
@@ -555,8 +574,39 @@ int main() {
   // Make the module, which holds all the code.
   TheModule = new Module("my cool jit", Context);
 
+  // Create the JIT.  This takes ownership of the module.
+  std::string ErrStr;
+  TheExecutionEngine = EngineBuilder(TheModule).setErrorStr(&ErrStr).create();
+  if (!TheExecutionEngine) {
+    fprintf(stderr, "Could not create ExecutionEngine: %s\n", ErrStr.c_str());
+    exit(1);
+  }
+
+  FunctionPassManager OurFPM(TheModule);
+
+  // Set up the optimizer pipeline.  Start with registering info about how the
+  // target lays out data structures.
+  OurFPM.add(new DataLayout(*TheExecutionEngine->getDataLayout()));
+  // Provide basic AliasAnalysis support for GVN.
+  OurFPM.add(createBasicAliasAnalysisPass());
+  // Do simple "peephole" optimizations and bit-twiddling optzns.
+  OurFPM.add(createInstructionCombiningPass());
+  // Reassociate expressions.
+  OurFPM.add(createReassociatePass());
+  // Eliminate Common SubExpressions.
+  OurFPM.add(createGVNPass());
+  // Simplify the control flow graph (deleting unreachable blocks, etc).
+  OurFPM.add(createCFGSimplificationPass());
+
+  OurFPM.doInitialization();
+
+  // Set the global so the code gen can use this.
+  TheFPM = &OurFPM;
+
   // Run the main "interpreter loop" now.
   MainLoop();
+
+  TheFPM = 0;
 
   // Print out all of the generated code.
   TheModule->dump();

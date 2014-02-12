@@ -15,4 +15,4 @@ clean:
 	rm -f *.o *~ lexer.cpp lexer.h parser.cpp parser.hpp calc
 
 kaleidoscope:
-	clang++ -g kaleidoscope.cpp `llvm-config --cppflags --ldflags --libs core jit native` -O3 -o kaleidoscope.o
+	clang++ -g kaleidoscope.cpp `llvm-config --cppflags --ldflags --libs core jit native` -rdynamic -O3 -o kaleidoscope.o
