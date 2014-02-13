@@ -15,7 +15,7 @@
 #include <llvm/Assembly/PrintModulePass.h>
 #include <llvm/IR/IRBuilder.h>
 //#include <llvm/ModuleProvider.h>
-//#include <llvm/Target/TargetSelect.h>
+#include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/Support/raw_ostream.h>
@@ -30,12 +30,9 @@ public:
 };
 
 class CodeGenContext {
-private:
-	std::stack<CodeGenBlock*> blocks;
-	llvm::Function* main_function;
 public:
 	llvm::Module* module;
-	CodeGenContext();
+	CodeGenContext(llvm::Module*);
 	
 	void generate_code(NExpression* root);
 	void run_code(); // GenericValue

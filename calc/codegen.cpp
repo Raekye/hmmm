@@ -14,8 +14,8 @@ static llvm::Value* ErrorV(const char* str) {
 
 static llvm::IRBuilder<> builder(llvm::getGlobalContext());
 
-CodeGenContext::CodeGenContext() {
-	this->module = new llvm::Module("main", llvm::getGlobalContext());
+CodeGenContext::CodeGenContext(llvm::Module* module) {
+	this->module = module;
 }
 
 void CodeGenContext::generate_code(NExpression* root) {
@@ -50,4 +50,21 @@ llvm::Value* NBinaryOperator::gen_code(CodeGenContext* context) {
 			return builder.CreateAdd(l, r, "powtmp");
 	}
 	return ErrorV("Invalid binary operator.");
+}
+
+llvm::Value* NFunction::gen_code(CodeGenContext* context) {
+	std::vector<llvm::Type*> arg_types;
+	llvm::FunctionType* fn_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), arg_types, false);
+	llvm::Function* fn = llvm::Function::Create(fn_type, llvm::Function::ExternalLinkage, "", context->module);
+	
+	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", fn);
+	builder.SetInsertPoint(basic_block);
+
+	llvm::Value* ret_val = this->body->gen_code(context);
+	if (ret_val != NULL) {
+		builder.CreateRet(ret_val);
+		llvm::verifyFunction(*fn);
+		return fn;
+	}
+	return ErrorV("Error generating function");
 }

@@ -75,6 +75,14 @@ public:
 	virtual ~NBinaryOperator();
 };
 
+class NFunction : public NExpression {
+public:
+	NExpression* body;
+	NFunction(NExpression*);
+	virtual llvm::Value* gen_code(CodeGenContext*);
+	virtual ~NFunction();
+};
+
 extern "C" {
 	NPrimitiveNumber* NPrimitiveNumber_construct(UNumberValue, ENumberType);
 	void NPrimitiveNumber_destruct(NPrimitiveNumber*);

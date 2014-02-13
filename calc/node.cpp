@@ -30,6 +30,14 @@ NPrimitiveNumber* NPrimitiveNumber::parse(std::string str) {
 	return new NPrimitiveNumber(val, eINT);
 }
 
+NFunction::NFunction(NExpression* body) {
+	this->body = body;
+}
+
+NFunction::~NFunction() {
+	delete this->body;
+}
+
 NPrimitiveNumber* NPrimitiveNumber_construct(UNumberValue val, ENumberType type) {
 	return new NPrimitiveNumber(val, type);
 }

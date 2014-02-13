@@ -32,22 +32,37 @@ NExpression* getAST(const char* str) {
 }
 
 int main() {
-	// llvm::InitializeNativeTarget();
+	llvm::InitializeNativeTarget();
 	NExpression* root_expr = getAST("3 + 4");
 	if (root_expr == NULL) {
 		std::cout << "Root expression was null" << std::endl;
 		return 1;
 	}
 
-	CodeGenContext context;
+	std::string error_str;
+	llvm::Module* module = new llvm::Module("top", llvm::getGlobalContext());
+	llvm::ExecutionEngine* execution_engine = llvm::EngineBuilder(module).setErrorStr(&error_str).setEngineKind(llvm::EngineKind::JIT).create();
+	CodeGenContext context(module);
+
+	std::cout << "execution engine " << execution_engine << std::endl;
+	if (execution_engine == NULL) {
+		std::cout << "Unable to create execution engine." << std::endl;
+		return 1;
+	}
+
+	NFunction main_fn(root_expr);
 
 	llvm::Value* root_val = root_expr->gen_code(&context);
 
 	std::cout << "Root val code:" << std::endl;
 	root_val->dump();
 
-	llvm::Module* module = new llvm::Module("top", llvm::getGlobalContext());
-	llvm::ExecutionEngine* execution_engine = llvm::EngineBuilder(module).create();
+	llvm::Function* main_fn_val = (llvm::Function*) main_fn.gen_code(&context);
+	std::cout << "Main fn code:" << std::endl;
+	main_fn_val->dump();
+	void* fn_ptr = execution_engine->getPointerToFunction(main_fn_val);
+	int64_t (*fn_ptr_native)() = (int64_t (*)())(intptr_t) fn_ptr;
+	std::cout << "Main fn at " << fn_ptr << "; executed: " << fn_ptr_native() << std::endl;
 
 	// context.generate_code(programBlock);
 	// context.run_code();
