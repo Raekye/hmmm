@@ -54,7 +54,8 @@ program
 	;
 
 expr
-	: number binary_operator number { $$ = new NBinaryOperator($2, $1, $3); }
+	: expr binary_operator number { $$ = new NBinaryOperator($2, $1, $3); }
+	| number { $$ = $1; }
 	;
 
 number

@@ -33,9 +33,9 @@ NExpression* getAST(const char* str) {
 
 int main() {
 	llvm::InitializeNativeTarget();
-	NExpression* root_expr = getAST("3 + 4");
+	NExpression* root_expr = getAST("3 * 7 - 2");
 	if (root_expr == NULL) {
-		std::cout << "Root expression was null" << std::endl;
+		std::cout << "Root expression was null! Ahhhhhhhhhhhhh!" << std::endl;
 		return 1;
 	}
 

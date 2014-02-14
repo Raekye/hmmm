@@ -26,7 +26,7 @@ NBinaryOperator::~NBinaryOperator() {
 
 NPrimitiveNumber* NPrimitiveNumber::parse(std::string str) {
 	UNumberValue val;
-	val.i = 32;
+	val.i = atoi(str.c_str());
 	return new NPrimitiveNumber(val, eINT);
 }
 

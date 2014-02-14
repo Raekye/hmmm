@@ -14,10 +14,10 @@
 LPAREN "("
 RPAREN ")"
 ADD "+"
-MULTIPLY "\\*"
+MULTIPLY "*"
 SUBTRACT "-"
 DIVIDE "/"
-RAISE "\\*\\*"
+RAISE "*\\*"
 
 DIGIT [0-9]
 
