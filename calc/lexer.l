@@ -13,6 +13,7 @@
 
 LPAREN "("
 RPAREN ")"
+SEMICOLON ";"
 ADD "+"
 MULTIPLY "*"
 SUBTRACT "-"
@@ -36,6 +37,7 @@ WS [ \r\n\t]*
 {RAISE} { return TOKEN_RAISE; }
 {LPAREN} { return TOKEN_LPAREN; }
 {RPAREN} { return TOKEN_RPAREN; }
+{SEMICOLON} { return TOKEN_SEMICOLON; }
 . { printf("Unknown token!"); }
 
 %%

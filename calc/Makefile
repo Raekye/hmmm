@@ -1,4 +1,4 @@
-FILES = lexer.cpp parser.cpp main.cpp node.cpp codegen.cpp
+FILES = lexer.cpp parser.cpp main.cpp node.cpp codegen.cpp codescope.cpp
 CC = g++
 CFLAGS = -g -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS
 
@@ -16,3 +16,6 @@ clean:
 
 kaleidoscope:
 	clang++ -g kaleidoscope.cpp `llvm-config --cppflags --ldflags --libs core jit native` -rdynamic -O3 -o kaleidoscope.o
+
+playground:
+	g++ playground.cpp -o playground.o

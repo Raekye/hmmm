@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-class CodeGenContext;
+class CodeGen;
 class NExpression;
 
 typedef enum tagEBinaryOperationType {
@@ -45,7 +45,7 @@ typedef enum tagNumberType {
 class Node {
 public:
 	virtual ~Node();
-	virtual llvm::Value* gen_code(CodeGenContext*) = 0;
+	virtual llvm::Value* gen_code(CodeGen*) = 0;
 };
 
 class NExpression : public Node {
@@ -59,7 +59,7 @@ public:
 	NPrimitiveNumber(UNumberValue, ENumberType);
 	UNumberValue val;
 	ENumberType type;
-	virtual llvm::Value* gen_code(CodeGenContext*);
+	virtual llvm::Value* gen_code(CodeGen*);
 	virtual ~NPrimitiveNumber();
 
 	static NPrimitiveNumber* parse(std::string);
@@ -71,7 +71,7 @@ public:
 	NExpression* lhs;
 	NExpression* rhs;
 	NBinaryOperator(EBinaryOperationType, NExpression*, NExpression*);
-	virtual llvm::Value* gen_code(CodeGenContext*);
+	virtual llvm::Value* gen_code(CodeGen*);
 	virtual ~NBinaryOperator();
 };
 
@@ -79,7 +79,7 @@ class NFunction : public NExpression {
 public:
 	NExpression* body;
 	NFunction(NExpression*);
-	virtual llvm::Value* gen_code(CodeGenContext*);
+	virtual llvm::Value* gen_code(CodeGen*);
 	virtual ~NFunction();
 };
 

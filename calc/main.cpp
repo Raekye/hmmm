@@ -42,7 +42,7 @@ void run_code(const char* code) {
 	std::string error_str;
 	llvm::Module* module = new llvm::Module("top", llvm::getGlobalContext());
 	llvm::ExecutionEngine* execution_engine = llvm::EngineBuilder(module).setErrorStr(&error_str).setEngineKind(llvm::EngineKind::JIT).create();
-	CodeGenContext context(module);
+	CodeGen code_gen(module);
 
 	std::cout << "execution engine " << execution_engine << std::endl;
 	if (execution_engine == NULL) {
@@ -52,20 +52,20 @@ void run_code(const char* code) {
 
 	NFunction main_fn(root_expr);
 
-	llvm::Value* root_val = root_expr->gen_code(&context);
+	llvm::Value* root_val = root_expr->gen_code(&code_gen);
 
 	std::cout << "Root val code:" << std::endl;
 	root_val->dump();
 
-	llvm::Function* main_fn_val = (llvm::Function*) main_fn.gen_code(&context);
+	llvm::Function* main_fn_val = (llvm::Function*) main_fn.gen_code(&code_gen);
 	std::cout << "Main fn code:" << std::endl;
 	main_fn_val->dump();
 	void* fn_ptr = execution_engine->getPointerToFunction(main_fn_val);
 	int64_t (*fn_ptr_native)() = (int64_t (*)())(intptr_t) fn_ptr;
 	std::cout << "Main fn at " << fn_ptr << "; executed: " << fn_ptr_native() << std::endl;
 
-	// context.generate_code(programBlock);
-	// context.run_code();
+	// code_gen.generate_code(programBlock);
+	// code_gen.run_code();
 }
 
 int main(int argc, char* argv[]) {

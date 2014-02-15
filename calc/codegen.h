@@ -14,28 +14,24 @@
 #include <llvm/Analysis/Verifier.h>
 #include <llvm/Assembly/PrintModulePass.h>
 #include <llvm/IR/IRBuilder.h>
-//#include <llvm/ModuleProvider.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/Support/raw_ostream.h>
 #include <map>
 
-class NBlock;
-
-class CodeGenBlock {
-public:
-	llvm::BasicBlock* block;
-	std::map<std::string, llvm::Value*> locals;
-};
-
-class CodeGenContext {
+class CodeGen {
 public:
 	llvm::Module* module;
-	CodeGenContext(llvm::Module*);
+	std::stack<llvm::BasicBlock*> blocks;
+	CodeGen(llvm::Module*);
 	
 	void generate_code(NExpression* root);
 	void run_code(); // GenericValue
+
+	void push_block(llvm::BasicBlock*);
+	void pop_block();
+	llvm::BasicBlock* current_block();
 };
 
 #endif // __CODEGEN_H_
