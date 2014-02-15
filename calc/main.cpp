@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 
 int yyparse(NExpression** expression, yyscan_t scanner);
 
@@ -31,12 +32,11 @@ NExpression* getAST(const char* str) {
 	return expr;
 }
 
-int main() {
-	llvm::InitializeNativeTarget();
-	NExpression* root_expr = getAST("3 * 7 - 2");
+void run_code(const char* code) {
+	NExpression* root_expr = getAST(code);
 	if (root_expr == NULL) {
 		std::cout << "Root expression was null! Ahhhhhhhhhhhhh!" << std::endl;
-		return 1;
+		return;
 	}
 
 	std::string error_str;
@@ -47,7 +47,7 @@ int main() {
 	std::cout << "execution engine " << execution_engine << std::endl;
 	if (execution_engine == NULL) {
 		std::cout << "Unable to create execution engine." << std::endl;
-		return 1;
+		return;
 	}
 
 	NFunction main_fn(root_expr);
@@ -66,5 +66,32 @@ int main() {
 
 	// context.generate_code(programBlock);
 	// context.run_code();
+}
+
+int main(int argc, char* argv[]) {
+	llvm::InitializeNativeTarget();
+	std::cout << "Started." << std::endl;
+	if (argc > 1) {
+		std::string str = "";
+		std::ifstream f(argv[1]);
+		if (f.is_open()) {
+			std::string line;
+			while (std::getline(f, line)) {
+				str += line + "\n";
+			}
+		}
+		std::cout << "Reading from file, contents:\n" << str << std::endl;
+		run_code(str.c_str());
+	} else {
+		std::string line;
+		while (true) {
+			std::cout << "> ";
+			if (!std::getline(std::cin, line)) {
+				break;
+			}
+			run_code(line.c_str());
+		}
+	}
+	std::cout << "Done." << std::endl;
 	return 0;
 }

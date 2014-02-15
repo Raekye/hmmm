@@ -45,7 +45,7 @@ llvm::Value* NBinaryOperator::gen_code(CodeGenContext* context) {
 		case eMULTIPLY:
 			return builder.CreateMul(l, r, "multmp");
 		case eDIVIDE:
-			return builder.CreateAdd(l, r, "divtmp");
+			return builder.CreateSDiv(l, r, "divtmp");
 		case eRAISE:
 			return builder.CreateAdd(l, r, "powtmp");
 	}
