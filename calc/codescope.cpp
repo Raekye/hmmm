@@ -1,4 +1,5 @@
 #include "codescope.h"
+#include <iostream>
 
 // TODO: freeing stl
 
@@ -6,9 +7,9 @@ CodeScope::CodeScope() {
 }
 
 CodeScope::~CodeScope() {
-	while (this->stacks.size() > 0) {
-		this->pop();
-	}
+	// while (this->stacks.size() > 0) {
+	// 	this->pop();
+	// }
 }
 
 void CodeScope::put(std::string key, llvm::Value* val) {
@@ -36,7 +37,8 @@ void CodeScope::push() {
 
 void CodeScope::pop() {
 	for (std::map<std::string, llvm::Value*>::iterator it = this->stacks.back()->begin(); it != this->stacks.back()->end(); it++) {
-		delete it->second;
+		std::cout << "Deleting " << it->second << std::endl;
+		//delete it->second;
 	}
 	this->stacks.pop_back();
 }

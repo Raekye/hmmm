@@ -52,10 +52,10 @@ void run_code(const char* code) {
 
 	NFunction main_fn(root_expr);
 
-	llvm::Value* root_val = root_expr->gen_code(&code_gen);
+	// llvm::Value* root_val = root_expr->gen_code(&code_gen);
 
-	std::cout << "Root val code:" << std::endl;
-	root_val->dump();
+	// std::cout << "Root val code:" << std::endl;
+	// root_val->dump();
 
 	llvm::Function* main_fn_val = (llvm::Function*) main_fn.gen_code(&code_gen);
 	std::cout << "Main fn code:" << std::endl;

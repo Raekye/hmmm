@@ -16,6 +16,8 @@ static llvm::IRBuilder<> builder(llvm::getGlobalContext());
 
 CodeGen::CodeGen(llvm::Module* module) {
 	this->module = module;
+	//this->scope.push();
+	//this->blocks.push(llvm::BasicBlock::Create(llvm::getGlobalContext()));
 }
 
 void CodeGen::push_block(llvm::BasicBlock* block) {
@@ -23,7 +25,7 @@ void CodeGen::push_block(llvm::BasicBlock* block) {
 }
 
 void CodeGen::pop_block() {
-	delete this->blocks.top();
+	//delete this->blocks.top();
 	this->blocks.pop();
 }
 
@@ -49,7 +51,7 @@ llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
 	if (l == NULL || r == NULL) {
 		return NULL;
 	}
-
+	builder.SetInsertPoint(code_gen->current_block());
 	switch (this->op) {
 		case eADD:
 			return builder.CreateAdd(l, r, "addtmp");
@@ -71,14 +73,20 @@ llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 	llvm::Function* fn = llvm::Function::Create(fn_type, llvm::Function::ExternalLinkage, "", code_gen->module);
 	
 	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", fn);
+	code_gen->push_block(basic_block);
+	code_gen->scope.push();
 	builder.SetInsertPoint(basic_block);
 
 	llvm::Value* ret_val = this->body->gen_code(code_gen);
 	if (ret_val != NULL) {
 		builder.CreateRet(ret_val);
 		llvm::verifyFunction(*fn);
+		code_gen->pop_block();
+		code_gen->scope.pop();
 		return fn;
 	}
+	code_gen->pop_block();
+	code_gen->scope.pop();
 	return ErrorV("Error generating function");
 }
 
@@ -88,21 +96,29 @@ llvm::Value* NIdentifier::gen_code(CodeGen* code_gen) {
 		std::cout << "Undeclared variable " << this->name << std::endl;
 		return NULL;
 	}
+	//return builder.CreateLoad(val, false, "");
 	return new llvm::LoadInst(val, "", false, code_gen->current_block());
 }
 
 llvm::Value* NAssignment::gen_code(CodeGen* code_gen) {
+	std::cout << "Generating assignment for " << this->lhs->name << "..." << std::endl;
 	llvm::Value* val = code_gen->scope.get(this->lhs->name);
 	if (val == NULL) {
 		std::cout << "Undeclared variable " << this->lhs->name << std::endl;
 		return NULL;
 	}
-	return new llvm::StoreInst(this->rhs->gen_code(code_gen), val, false, code_gen->current_block());}
+	llvm::Value* rhs_val = this->rhs->gen_code(code_gen);
+	builder.SetInsertPoint(code_gen->current_block());
+	builder.CreateStore(rhs_val, val, false);
+	return rhs_val;
+}
 
 llvm::Value* NVariableDeclaration::gen_code(CodeGen* code_gen) {
-	llvm::AllocaInst* alloc = new llvm::AllocaInst(llvm::Type::getInt64Ty(llvm::getGlobalContext()), this->var_name->name.c_str(), code_gen->current_block());
+	std::cout << "Generating variable declaration for " << this->var_name->name << "..." << std::endl;
+	builder.SetInsertPoint(code_gen->current_block());
+	llvm::AllocaInst* alloc = new llvm::AllocaInst(llvm::Type::getInt64Ty(llvm::getGlobalContext()), this->var_name->name.c_str(), code_gen->current_block()); //builder.CreateAlloca(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, this->var_name->name.c_str());
 	code_gen->scope.put(this->var_name->name, alloc);
-	return alloc;
+	return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, true);
 }
 
 llvm::Value* NBlock::gen_code(CodeGen* code_gen) {

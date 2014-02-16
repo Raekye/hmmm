@@ -95,6 +95,7 @@ number_expr3
 
 number_expr4
 	: number { $$ = $1; }
+	| identifier { $$ = $1; }
 	| TOKEN_LPAREN number_expr TOKEN_RPAREN { $$ = $2; }
 	;
 
