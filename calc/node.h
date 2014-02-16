@@ -83,6 +83,38 @@ public:
 	virtual ~NFunction();
 };
 
+class NIdentifier : public NExpression {
+public:
+	std::string name;
+	NIdentifier(std::string);
+	virtual llvm::Value* gen_code(CodeGen*);
+};
+
+class NAssignment : public NExpression {
+public:
+	NIdentifier* lhs;
+	NExpression* rhs;
+	NAssignment(NIdentifier*, NExpression*);
+	~NAssignment();
+	virtual llvm::Value* gen_code(CodeGen*);
+};
+
+class NVariableDeclaration : public NExpression {
+public:
+	NIdentifier* type;
+	NIdentifier* var_name;
+	NVariableDeclaration(NIdentifier*, NIdentifier*);
+	~NVariableDeclaration();
+	virtual llvm::Value* gen_code(CodeGen*);
+};
+
+class NBlock : public NExpression {
+public:
+	std::vector<NExpression*> statements;
+	NBlock();
+	virtual llvm::Value* gen_code(CodeGen*);
+};
+
 extern "C" {
 	NPrimitiveNumber* NPrimitiveNumber_construct(UNumberValue, ENumberType);
 	void NPrimitiveNumber_destruct(NPrimitiveNumber*);

@@ -19,11 +19,13 @@
 #include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/Support/raw_ostream.h>
 #include <map>
+#include "codescope.h"
 
 class CodeGen {
 public:
 	llvm::Module* module;
 	std::stack<llvm::BasicBlock*> blocks;
+	CodeScope scope;
 	CodeGen(llvm::Module*);
 	
 	void generate_code(NExpression* root);

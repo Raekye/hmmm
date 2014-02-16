@@ -11,6 +11,7 @@ public:
 	~CodeScope();
 	void put(std::string, llvm::Value*);
 	llvm::Value* get(std::string);
+	bool contains(std::string);
 	void push();
 	void pop();
 private:

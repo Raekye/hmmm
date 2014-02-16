@@ -19,8 +19,10 @@ MULTIPLY "*"
 SUBTRACT "-"
 DIVIDE "/"
 RAISE "*\\*"
+EQUALS "="
 
 DIGIT [0-9]
+IDENTIFIER [a-zA-Z_][a-zA-Z0-9_]*
 
 NUMBER {DIGIT}+
 WS [ \r\n\t]*
@@ -38,6 +40,8 @@ WS [ \r\n\t]*
 {LPAREN} { return TOKEN_LPAREN; }
 {RPAREN} { return TOKEN_RPAREN; }
 {SEMICOLON} { return TOKEN_SEMICOLON; }
+{IDENTIFIER} { SAVE_TOKEN; return TOKEN_IDENTIFIER; }
+{EQUALS} { return TOKEN_EQUALS; }
 . { printf("Unknown token!"); }
 
 %%

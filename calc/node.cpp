@@ -38,6 +38,34 @@ NFunction::~NFunction() {
 	delete this->body;
 }
 
+NIdentifier::NIdentifier(std::string name) {
+	this->name = name;
+}
+
+NAssignment::NAssignment(NIdentifier* lhs, NExpression* rhs) {
+	this->lhs = lhs;
+	this->rhs = rhs;
+}
+
+NAssignment::~NAssignment() {
+	delete this->lhs;
+	delete this->rhs;
+}
+
+NVariableDeclaration::NVariableDeclaration(NIdentifier* type, NIdentifier* var_name) {
+	this->type = type;
+	this->var_name = var_name;
+}
+
+NVariableDeclaration::~NVariableDeclaration() {
+	delete this->type;
+	delete this->var_name;
+}
+
+NBlock::NBlock() {
+	return;
+}
+
 NPrimitiveNumber* NPrimitiveNumber_construct(UNumberValue val, ENumberType type) {
 	return new NPrimitiveNumber(val, type);
 }

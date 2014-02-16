@@ -30,27 +30,50 @@ typedef void* yyscan_t;
 %union {
 	Node* node;
 	NExpression* expr;
+	NBlock* block;
+	NIdentifier* identifier;
 	std::string* str;
 }
 
 %left TOKEN_ADD TOKEN_SUBTRACT TOKEN_MULTIPLY TOKEN_DIVIDE TOKEN_RAISE
 
-%token TOKEN_LPAREN TOKEN_RPAREN TOKEN_SEMICOLON
+%token TOKEN_LPAREN TOKEN_RPAREN TOKEN_SEMICOLON TOKEN_EQUALS
 %token <token> TOKEN_ADD TOKEN_MULTIPLY TOKEN_DIVIDE TOKEN_SUBTRACT TOKEN_RAISE
-%token <str> TOKEN_NUMBER
+%token <str> TOKEN_NUMBER TOKEN_IDENTIFIER
 
-%type <expr> program expr number_expr number_expr2 number_expr3 number_expr4 number
+%type <expr> program expr number_expr number_expr2 number_expr3 number_expr4 number assignment_expr variable_declaration_expr
+%type <block> stmts
+%type <identifier> identifier
 
 %start program
 
 %%
 
 program
-	: expr { *expression = $1; }
+	: stmts { *expression = $1; }
 	;
+
+stmts
+	: expr TOKEN_SEMICOLON { $$ = new NBlock(); $$->statements.push_back($1); }
+	| stmts expr TOKEN_SEMICOLON { $$->statements.push_back($2); }
 
 expr 
 	: number_expr { $$ = $1; }
+	| assignment_expr { $$ = $1; }
+	| variable_declaration_expr { $$ = $1; }
+	;
+
+identifier
+	: TOKEN_IDENTIFIER { $$ = new NIdentifier(*$1); delete $1; }
+	;
+
+assignment_expr
+	: identifier TOKEN_EQUALS expr { $$ = new NAssignment($1, $3); }
+	;
+
+variable_declaration_expr
+	: identifier identifier { $$ = new NVariableDeclaration($1, $2); }
+	| identifier identifier TOKEN_EQUALS expr { NBlock* block = new NBlock(); block->statements.push_back(new NVariableDeclaration($1, $2)); block->statements.push_back(new NAssignment($2, $4)); $$ = block; }
 	;
 
 number_expr

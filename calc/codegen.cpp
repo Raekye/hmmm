@@ -81,3 +81,34 @@ llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 	}
 	return ErrorV("Error generating function");
 }
+
+llvm::Value* NIdentifier::gen_code(CodeGen* code_gen) {
+	llvm::Value* val = code_gen->scope.get(this->name);
+	if (val == NULL) {
+		std::cout << "Undeclared variable " << this->name << std::endl;
+		return NULL;
+	}
+	return new llvm::LoadInst(val, "", false, code_gen->current_block());
+}
+
+llvm::Value* NAssignment::gen_code(CodeGen* code_gen) {
+	llvm::Value* val = code_gen->scope.get(this->lhs->name);
+	if (val == NULL) {
+		std::cout << "Undeclared variable " << this->lhs->name << std::endl;
+		return NULL;
+	}
+	return new llvm::StoreInst(this->rhs->gen_code(code_gen), val, false, code_gen->current_block());}
+
+llvm::Value* NVariableDeclaration::gen_code(CodeGen* code_gen) {
+	llvm::AllocaInst* alloc = new llvm::AllocaInst(llvm::Type::getInt64Ty(llvm::getGlobalContext()), this->var_name->name.c_str(), code_gen->current_block());
+	code_gen->scope.put(this->var_name->name, alloc);
+	return alloc;
+}
+
+llvm::Value* NBlock::gen_code(CodeGen* code_gen) {
+	llvm::Value* last = NULL;
+	for (std::vector<NExpression*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
+		last = (*it)->gen_code(code_gen);
+	}
+	return last;
+}

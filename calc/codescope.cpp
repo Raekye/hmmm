@@ -1,5 +1,7 @@
 #include "codescope.h"
 
+// TODO: freeing stl
+
 CodeScope::CodeScope() {
 }
 
@@ -21,6 +23,10 @@ llvm::Value* CodeScope::get(std::string key) {
 		}
 	}
 	return NULL;
+}
+
+bool CodeScope::contains(std::string key) {
+	return this->get(key) != NULL;
 }
 
 void CodeScope::push() {
