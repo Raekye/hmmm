@@ -2,6 +2,7 @@
 #include "codegen.h"
 #include "parser.hpp"
 #include <iostream>
+#include <boost/lexical_cast.hpp>
 
 static void Error(const char* str) {
 	std::cout << str << std::endl;
@@ -13,6 +14,117 @@ static llvm::Value* ErrorV(const char* str) {
 }
 
 static llvm::IRBuilder<> builder(llvm::getGlobalContext());
+
+// static llvm::Value* llvm_value_for_primitive_number(std::string type, NPrimitiveNumber* num) {
+// 	if (type == "byte") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt8Ty(llvm::getGlobalContext()), boost::lexical_cast<int8_t>(num->str), true);
+// 	} else if (type == "ubyte") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt8Ty(llvm::getGlobalContext()), boost::lexical_cast<uint8_t>(num->str), false);
+// 	} else if (type == "short") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt16Ty(llvm::getGlobalContext()), boost::lexical_cast<int16_t>(num->str), true);
+// 	} else if (type == "ushort") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt16Ty(llvm::getGlobalContext()), boost::lexical_cast<uint16_t>(num->str), false);
+// 	} else if (type == "int") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), boost::lexical_cast<int32_t>(num->str), true);
+// 	} else if (type == "uint") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), boost::lexical_cast<uint32_t>(num->str), false);
+// 	} else if (type == "long") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), boost::lexical_cast<int64_t>(num->str), true);
+// 	} else if (type == "ulong") {
+// 		return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), boost::lexical_cast<uint64_t>(num->str), false);
+// 	} if (type == "float") {
+// 		return llvm::ConstantFP::get(llvm::Type::getFloatTy(llvm::getGlobalContext()), boost::lexical_cast<float>(num->str));
+// 	} else if (type == "double") {
+// 		return llvm::ConstantFP::get(llvm::Type::getDoubleTy(llvm::getGlobalContext()), boost::lexical_cast<double>(num->str));
+// 	}
+// 	return NULL;
+// }
+
+static llvm::Value* llvm_value_for_primitive_number(NPrimitiveNumber* num) {
+	if (num->type == eBYTE) {
+		return llvm::ConstantInt::get(llvm::Type::getInt8Ty(llvm::getGlobalContext()), num->val.b, true);
+	} else if (num->type == eUBYTE) {
+		return llvm::ConstantInt::get(llvm::Type::getInt8Ty(llvm::getGlobalContext()), num->val.ub, false);
+	} else if (num->type == eSHORT) {
+		return llvm::ConstantInt::get(llvm::Type::getInt16Ty(llvm::getGlobalContext()), num->val.s, true);
+	} else if (num->type == eUSHORT) {
+		return llvm::ConstantInt::get(llvm::Type::getInt16Ty(llvm::getGlobalContext()), num->val.us, false);
+	} else if (num->type == eINT) {
+		return llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), num->val.i, true);
+	} else if (num->type == eUINT) {
+		return llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), num->val.ui, false);
+	} else if (num->type == eLONG) {
+		return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), num->val.l, true);
+	} else if (num->type == eULONG) {
+		return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), num->val.ul, false);
+	} else if (num->type == eFLOAT) {
+		return llvm::ConstantFP::get(llvm::Type::getFloatTy(llvm::getGlobalContext()), num->val.f);
+	} else if (num->type == eDOUBLE) {
+		return llvm::ConstantFP::get(llvm::Type::getDoubleTy(llvm::getGlobalContext()), num->val.d);
+	}
+	return NULL;
+}
+
+static llvm::Type* llvm_type_for_primitive_number(std::string type) {
+	if (type == "byte") {
+		return llvm::Type::getInt8Ty(llvm::getGlobalContext());
+	} else if (type == "ubyte") {
+		return llvm::Type::getInt8Ty(llvm::getGlobalContext());
+	} else if (type == "short") {
+		return llvm::Type::getInt16Ty(llvm::getGlobalContext());
+	} else if (type == "ushort") {
+		return llvm::Type::getInt16Ty(llvm::getGlobalContext());
+	} else if (type == "int") {
+		return llvm::Type::getInt32Ty(llvm::getGlobalContext());
+	} else if (type == "uint") {
+		return llvm::Type::getInt32Ty(llvm::getGlobalContext());
+	} else if (type == "long") {
+		return llvm::Type::getInt64Ty(llvm::getGlobalContext());
+	} else if (type == "ulong") {
+		return llvm::Type::getInt64Ty(llvm::getGlobalContext());
+	} if (type == "float") {
+		return llvm::Type::getFloatTy(llvm::getGlobalContext());
+	} else if (type == "double") {
+		return llvm::Type::getDoubleTy(llvm::getGlobalContext());
+	}
+	return NULL;
+}
+
+static ENumberType enumbertype_from_llvm_type(llvm::Type* t) {
+	if (t == llvm_type_for_primitive_number("byte")) {
+		return eBYTE;
+	} else if (t == llvm_type_for_primitive_number("ubyte")) {
+		return eUBYTE;
+	} else if (t == llvm_type_for_primitive_number("short")) {
+		return eSHORT;
+	} else if (t == llvm_type_for_primitive_number("ushort")) {
+		return eUSHORT;
+	} else if (t == llvm_type_for_primitive_number("int")) {
+		return eINT;
+	} else if (t == llvm_type_for_primitive_number("uint")) {
+		return eUINT;
+	} else if (t == llvm_type_for_primitive_number("long")) {
+		return eLONG;
+	} else if (t == llvm_type_for_primitive_number("ulong")) {
+		return eULONG;
+	} else if (t == llvm_type_for_primitive_number("float")) {
+		return eFLOAT;
+	} else if (t == llvm_type_for_primitive_number("double")) {
+		return eDOUBLE;
+	}
+	// throw std::invalid_argument("Unknown type.");
+	return eBYTE;
+}
+
+static bool llvm_type_can_assign_to(ENumberType source, ENumberType target) {
+	if (target == eDOUBLE) {
+		return true;
+	}
+	if (source > target) {
+		return false;
+	}
+	return true;
+}
 
 CodeGen::CodeGen(llvm::Module* module) {
 	this->module = module;
@@ -41,7 +153,7 @@ void CodeGen::run_code() {
 
 llvm::Value* NPrimitiveNumber::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating int..." << std::endl;
-	return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), this->val.i, true);
+	return llvm_value_for_primitive_number(this);
 }
 
 llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
@@ -69,7 +181,7 @@ llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
 
 llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 	std::vector<llvm::Type*> arg_types;
-	llvm::FunctionType* fn_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), arg_types, false);
+	llvm::FunctionType* fn_type = llvm::FunctionType::get(llvm::Type::getInt8Ty(llvm::getGlobalContext()), arg_types, false);
 	llvm::Function* fn = llvm::Function::Create(fn_type, llvm::Function::ExternalLinkage, "", code_gen->module);
 	
 	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", fn);
@@ -114,11 +226,13 @@ llvm::Value* NAssignment::gen_code(CodeGen* code_gen) {
 }
 
 llvm::Value* NVariableDeclaration::gen_code(CodeGen* code_gen) {
-	std::cout << "Generating variable declaration for " << this->var_name->name << "..." << std::endl;
+	std::cout << "Generating variable declaration for " << this->var_name->name << ", type " << this->type->name << "..." << std::endl;
 	builder.SetInsertPoint(code_gen->current_block());
-	llvm::AllocaInst* alloc = new llvm::AllocaInst(llvm::Type::getInt64Ty(llvm::getGlobalContext()), this->var_name->name.c_str(), code_gen->current_block()); //builder.CreateAlloca(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, this->var_name->name.c_str());
+	llvm::Type* declared_type = llvm_type_for_primitive_number(this->type->name);
+	llvm::AllocaInst* alloc = new llvm::AllocaInst(declared_type, this->var_name->name.c_str(), code_gen->current_block()); //builder.CreateAlloca(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, this->var_name->name.c_str());
 	code_gen->scope.put(this->var_name->name, alloc);
-	return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, true);
+	//return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, true);
+	return alloc;
 }
 
 llvm::Value* NBlock::gen_code(CodeGen* code_gen) {

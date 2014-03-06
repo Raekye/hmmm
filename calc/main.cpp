@@ -61,8 +61,8 @@ void run_code(const char* code) {
 	std::cout << "Main fn code:" << std::endl;
 	main_fn_val->dump();
 	void* fn_ptr = execution_engine->getPointerToFunction(main_fn_val);
-	int64_t (*fn_ptr_native)() = (int64_t (*)())(intptr_t) fn_ptr;
-	std::cout << "Main fn at " << fn_ptr << "; executed: " << fn_ptr_native() << std::endl;
+	int8_t (*fn_ptr_native)() = (int8_t (*)())(intptr_t) fn_ptr;
+	std::cout << "Main fn at " << fn_ptr << "; executed: " << (int64_t) fn_ptr_native() << std::endl;
 
 	// code_gen.generate_code(programBlock);
 	// code_gen.run_code();

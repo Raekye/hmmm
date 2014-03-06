@@ -19,7 +19,7 @@ typedef enum tagEBinaryOperationType {
 typedef union tagNumberValue {
 	int8_t b;
 	uint8_t ub;
-	int16_t is;
+	int16_t s;
 	uint16_t us;
 	int32_t i;
 	uint32_t ui;
@@ -30,16 +30,16 @@ typedef union tagNumberValue {
 } UNumberValue;
 
 typedef enum tagNumberType {
-	eBYTE,
-	eUBYTE,
-	eSHORT,
-	eUSHORT,
-	eINT,
-	eUINT,
-	eLONG,
-	eULONG,
-	eFLOAT,
-	eDOUBLE,
+	eBYTE = 0,
+	eUBYTE = 1,
+	eSHORT = 1 << 1,
+	eUSHORT = 1 << 1 | 1,
+	eINT = 1 << 2,
+	eUINT = 1 << 2 | 1,
+	eLONG = 1 << 3,
+	eULONG = 1 << 3 | 1,
+	eFLOAT = 1 << 4,
+	eDOUBLE = 1 << 5,
 } ENumberType;
 
 class Node {
@@ -56,9 +56,11 @@ class NNumber : public NExpression {
 
 class NPrimitiveNumber : public NNumber {
 public:
-	NPrimitiveNumber(UNumberValue, ENumberType);
+	//NPrimitiveNumber(UNumberValue, ENumberType);
+	NPrimitiveNumber(std::string str);
 	UNumberValue val;
 	ENumberType type;
+	std::string str;
 	virtual llvm::Value* gen_code(CodeGen*);
 	virtual ~NPrimitiveNumber();
 
