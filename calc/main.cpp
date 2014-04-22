@@ -42,6 +42,19 @@ void run_code(const char* code) {
 	std::string error_str;
 	llvm::Module* module = new llvm::Module("top", llvm::getGlobalContext());
 	llvm::ExecutionEngine* execution_engine = llvm::EngineBuilder(module).setErrorStr(&error_str).setEngineKind(llvm::EngineKind::JIT).create();
+	std::vector<llvm::Type*> number_binary_op_fn_args(2, llvm_pointer_ty());
+	llvm::FunctionType* number_binary_op_fn_ty = llvm::FunctionType::get(llvm_pointer_ty(), number_binary_op_fn_args, false);
+	llvm::Function* number_binary_op_add = llvm::Function::Create(number_binary_op_fn_ty, llvm::Function::ExternalLinkage, "number_add", module);
+	llvm::Function* number_binary_op_sub = llvm::Function::Create(number_binary_op_fn_ty, llvm::Function::ExternalLinkage, "number_sub", module);
+	llvm::Function* number_binary_op_mul = llvm::Function::Create(number_binary_op_fn_ty, llvm::Function::ExternalLinkage, "number_mul", module);
+	llvm::Function* number_binary_op_div = llvm::Function::Create(number_binary_op_fn_ty, llvm::Function::ExternalLinkage, "number_div", module);
+	llvm::FunctionType* number_create_fn_ty = llvm::FunctionType::get(llvm_pointer_ty(), std::vector<llvm::Type*>(), false);
+	llvm::Function* number_create_fn = llvm::Function::Create(number_create_fn_ty, llvm::Function::ExternalLinkage, "number_create", module);
+	execution_engine->addGlobalMapping(number_binary_op_add, (void*) &number_add);
+	execution_engine->addGlobalMapping(number_binary_op_sub, (void*) &number_sub);
+	execution_engine->addGlobalMapping(number_binary_op_mul, (void*) &number_mul);
+	execution_engine->addGlobalMapping(number_binary_op_div, (void*) &number_div);
+	execution_engine->addGlobalMapping(number_create_fn, (void*) &number_create);
 	CodeGen code_gen(module);
 
 	std::cout << "execution engine " << execution_engine << std::endl;
@@ -61,8 +74,10 @@ void run_code(const char* code) {
 	std::cout << "Main fn code:" << std::endl;
 	main_fn_val->dump();
 	void* fn_ptr = execution_engine->getPointerToFunction(main_fn_val);
-	int8_t (*fn_ptr_native)() = (int8_t (*)())(intptr_t) fn_ptr;
-	std::cout << "Main fn at " << fn_ptr << "; executed: " << (int64_t) fn_ptr_native() << std::endl;
+	int64_t (*fn_ptr_native)() = (int64_t (*)())(intptr_t) fn_ptr;
+	int64_t ret = fn_ptr_native();
+	PrimitiveNumber* pn = (PrimitiveNumber*) ret;
+	std::cout << "Main fn at " << fn_ptr << "; executed: " << ret << "; was " << pn->val.l << std::endl;
 
 	// code_gen.generate_code(programBlock);
 	// code_gen.run_code();

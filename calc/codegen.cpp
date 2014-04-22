@@ -3,6 +3,28 @@
 #include "parser.hpp"
 #include <iostream>
 #include <boost/lexical_cast.hpp>
+#include "number.h"
+#include "hm.h"
+
+extern "C" {
+	pointer_t number_add(Number* x, Number* y) {
+		return (pointer_t) x->add(y);
+	}
+	pointer_t number_sub(Number* x, Number* y) {
+		return (pointer_t) x->sub(y);
+	}
+	pointer_t number_mul(Number* x, Number* y) {
+		return (pointer_t) x->mul(y);
+	}
+	pointer_t number_div(Number* x, Number* y) {
+		return (pointer_t) x->div(y);
+	}
+	pointer_t number_create() {
+		UNumberValue val;
+		val.l = 17;
+		return (pointer_t) new PrimitiveNumber(eLONG, val);
+	}
+}
 
 static void Error(const char* str) {
 	std::cout << str << std::endl;
@@ -11,6 +33,20 @@ static void Error(const char* str) {
 static llvm::Value* ErrorV(const char* str) {
 	Error(str);
 	return NULL;
+}
+
+llvm::Type* llvm_pointer_ty() {
+	static llvm::Type* ty = NULL;
+	if (ty == NULL) {
+		if (sizeof(void*) == 8) {
+			ty = llvm::Type::getInt64Ty(llvm::getGlobalContext());
+		} else if (sizeof(void*) == 4) {
+			ty = llvm::Type::getInt32Ty(llvm::getGlobalContext());
+		} else {
+			// TODO: error
+		}
+	}
+	return ty;
 }
 
 static llvm::IRBuilder<> builder(llvm::getGlobalContext());
@@ -153,7 +189,12 @@ void CodeGen::run_code() {
 
 llvm::Value* NPrimitiveNumber::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating int..." << std::endl;
-	return llvm_value_for_primitive_number(this);
+	llvm::Function* number_create_fn = code_gen->module->getFunction("number_create");
+	if (number_create_fn == NULL) {
+		return ErrorV("Unable to create number");
+	}
+	return builder.CreateCall(number_create_fn, std::vector<llvm::Value*>(), "calltmp");
+	// return llvm_value_for_primitive_number(this);
 }
 
 llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
@@ -163,25 +204,38 @@ llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
 	if (l == NULL || r == NULL) {
 		return NULL;
 	}
+	llvm::Function* number_binary_op_fn = NULL;
 	builder.SetInsertPoint(code_gen->current_block());
 	switch (this->op) {
 		case eADD:
-			return builder.CreateAdd(l, r, "addtmp");
+			// return builder.CreateAdd(l, r, "addtmp");
+			number_binary_op_fn = code_gen->module->getFunction("number_add");
 		case eSUBTRACT:
-			return builder.CreateSub(l, r, "subtmp");
+			// return builder.CreateSub(l, r, "subtmp");
+			number_binary_op_fn = code_gen->module->getFunction("number_sub");
 		case eMULTIPLY:
-			return builder.CreateMul(l, r, "multmp");
+			// return builder.CreateMul(l, r, "multmp");
+			number_binary_op_fn = code_gen->module->getFunction("number_mul");
 		case eDIVIDE:
-			return builder.CreateSDiv(l, r, "divtmp");
+			// return builder.CreateSDiv(l, r, "divtmp");
+			number_binary_op_fn = code_gen->module->getFunction("number_div");
 		case eRAISE:
-			return builder.CreateAdd(l, r, "powtmp");
+			// return builder.CreateAdd(l, r, "powtmp");
+			number_binary_op_fn = code_gen->module->getFunction("number_add");
 	}
-	return ErrorV("Invalid binary operator.");
+	if (number_binary_op_fn == NULL) {
+		return ErrorV("Unable to get number binary operator");
+	}
+	std::vector<llvm::Value*> args;
+	args.push_back(l);
+	args.push_back(r);
+	return builder.CreateCall(number_binary_op_fn, args, "calltmp");
+	// return ErrorV("Invalid binary operator.");
 }
 
 llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 	std::vector<llvm::Type*> arg_types;
-	llvm::FunctionType* fn_type = llvm::FunctionType::get(llvm::Type::getInt8Ty(llvm::getGlobalContext()), arg_types, false);
+	llvm::FunctionType* fn_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), arg_types, false);
 	llvm::Function* fn = llvm::Function::Create(fn_type, llvm::Function::ExternalLinkage, "", code_gen->module);
 	
 	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", fn);

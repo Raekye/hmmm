@@ -6,7 +6,7 @@
 typedef union tagNumberValue {
 	int8_t b;
 	uint8_t ub;
-	int16_t is;
+	int16_t s;
 	uint16_t us;
 	int32_t i;
 	uint32_t ui;
@@ -17,16 +17,16 @@ typedef union tagNumberValue {
 } UNumberValue;
 
 typedef enum tagNumberType {
-	eBYTE,
-	eUBYTE,
-	eSHORT,
-	eUSHORT,
-	eINT,
-	eUINT,
-	eLONG,
-	eULONG,
-	eFLOAT,
-	eDOUBLE,
+	eBYTE = 0,
+	eUBYTE = 1,
+	eSHORT = (1 << 1),
+	eUSHORT = (1 << 1) | 1,
+	eINT = (1 << 2),
+	eUINT = (1 << 2) | 1,
+	eLONG = (1 << 3),
+	eULONG = (1 << 3) | 1,
+	eFLOAT = (1 << 4),
+	eDOUBLE = (1 << 5),
 } ENumberType;
 
 /*
@@ -45,31 +45,39 @@ typedef enum tagNumberType {
 
 class Number {
 public:
-	static virtual Number add(Number, Number);
-	static virtual Number subtract(Number, Number);
-	static virtual Number multiply(Number, Number);
-	static virtual Number divide(Number, Number);
-}
+	virtual Number* add(Number*) = 0;
+	virtual Number* sub(Number*) = 0;
+	virtual Number* mul(Number*) = 0;
+	virtual Number* div(Number*) = 0;
+	virtual Number* pow(Number*) = 0;
+};
 
 class PrimitiveNumber : Number {
-private:
-	UNumberValue val;
+public:
+	PrimitiveNumber(ENumberType, UNumberValue);
+	~PrimitiveNumber();
+	virtual Number* add(Number*) override;
+	virtual Number* sub(Number*) override;
+	virtual Number* mul(Number*) override;
+	virtual Number* div(Number*) override;
+	virtual Number* pow(Number*) override;
 	ENumberType type;
-}
+	UNumberValue val;
+};
 
 class ComplexNumber : Number {
 private:
-	Number real;
-	Number imaginary;
-}
+	Number* real;
+	Number* imag;
+};
 
 class RationalNumber : Number {
 private:
 
-}
+};
 
 class BigIntNumber : Number {
-
-}
+private:
+};
 
 #endif // __NUMBER_H_

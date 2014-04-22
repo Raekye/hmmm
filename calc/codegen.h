@@ -20,6 +20,8 @@
 #include <llvm/Support/raw_ostream.h>
 #include <map>
 #include "codescope.h"
+#include "hm.h"
+#include "number.h"
 
 class CodeGen {
 public:
@@ -35,5 +37,14 @@ public:
 	void pop_block();
 	llvm::BasicBlock* current_block();
 };
+
+extern "C" {
+	pointer_t number_add(Number* x, Number* y);
+	pointer_t number_sub(Number* x, Number* y);
+	pointer_t number_mul(Number* x, Number* y);
+	pointer_t number_div(Number* x, Number* y);
+	pointer_t number_create();
+}
+llvm::Type* llvm_pointer_ty();
 
 #endif // __CODEGEN_H_

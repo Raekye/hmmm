@@ -4,6 +4,7 @@
 #include <llvm/IR/Value.h>
 #include <vector>
 #include <string>
+#include "number.h"
 
 class CodeGen;
 class NExpression;
@@ -15,32 +16,6 @@ typedef enum tagEBinaryOperationType {
 	eDIVIDE,
 	eRAISE,
 } EBinaryOperationType;
-
-typedef union tagNumberValue {
-	int8_t b;
-	uint8_t ub;
-	int16_t s;
-	uint16_t us;
-	int32_t i;
-	uint32_t ui;
-	int64_t l;
-	uint64_t ul;
-	float f;
-	double d;
-} UNumberValue;
-
-typedef enum tagNumberType {
-	eBYTE = 0,
-	eUBYTE = 1,
-	eSHORT = 1 << 1,
-	eUSHORT = 1 << 1 | 1,
-	eINT = 1 << 2,
-	eUINT = 1 << 2 | 1,
-	eLONG = 1 << 3,
-	eULONG = 1 << 3 | 1,
-	eFLOAT = 1 << 4,
-	eDOUBLE = 1 << 5,
-} ENumberType;
 
 class Node {
 public:

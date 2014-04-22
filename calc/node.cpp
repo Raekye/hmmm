@@ -42,13 +42,13 @@ NPrimitiveNumber::NPrimitiveNumber(std::string str/*UNumberValue val, ENumberTyp
 	} else if (-1 << 31 <= d && d  < 1 << 31) {
 		this->type = eINT;
 		this->val.i = (int32_t) d;
-	} else if (0 <= d && d  < 1 << 32) {
+	} else if (0 <= d && d  < 1UL << 32) {
 		this->type = eUINT;
 		this->val.ui = (uint32_t) d;
-	} else if (-1 << 63 <= d && d  < 1 << 63) {
+	} else if (-1LL << 63 <= d && d  < 1LL << 63) {
 		this->type = eLONG;
 		this->val.l = (int64_t) d;
-	} else if (0 <= d && d  < 1 << 64) {
+	} else if (0 <= d && d  < (1ULL << 32) + ((1ULL << 32) - 1)) {
 		this->type = eULONG;
 		this->val.ul = (uint64_t) d;
 	} else if (FLT_MIN <= d && d  <= FLT_MAX) {
