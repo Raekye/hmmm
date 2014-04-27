@@ -50,7 +50,7 @@ void run_code(const char* code) {
 		return;
 	}
 
-	NFunction main_fn(root_expr);
+	NFunction main_fn(root_expr, NType::int_ty());
 
 	// llvm::Value* root_val = root_expr->gen_code(&code_gen);
 
@@ -61,10 +61,9 @@ void run_code(const char* code) {
 	std::cout << "Main fn code:" << std::endl;
 	main_fn_val->dump();
 	void* fn_ptr = execution_engine->getPointerToFunction(main_fn_val);
-	int64_t (*fn_ptr_native)() = (int64_t (*)())(intptr_t) fn_ptr;
-	int64_t ret = fn_ptr_native();
-	PrimitiveNumber* pn = (PrimitiveNumber*) ret;
-	std::cout << "Main fn at " << fn_ptr << "; executed: " << ret << "; was " << pn->val.l << std::endl;
+	int32_t (*fn_ptr_native)() = (int32_t (*)()) fn_ptr;
+	int32_t ret = fn_ptr_native();
+	std::cout << "Main fn at " << fn_ptr << "; executed: " << ret << std::endl;
 }
 
 int main(int argc, char* argv[]) {

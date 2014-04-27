@@ -11,13 +11,13 @@ CodeScope::~CodeScope() {
 	}
 }
 
-void CodeScope::put(std::string key, llvm::Value* val) {
+void CodeScope::put(std::string key, NExpression* val) {
 	(*this->stacks.back())[key] = val;
 }
 
-llvm::Value* CodeScope::get(std::string key) {
-	for (std::deque<std::map<std::string, llvm::Value*>*>::reverse_iterator it = this->stacks.rbegin(); it != this->stacks.rend(); it++) {
-		std::map<std::string, llvm::Value*>::iterator found = (*it)->find(key);
+NExpression* CodeScope::get(std::string key) {
+	for (std::deque<std::map<std::string, NExpression*>*>::reverse_iterator it = this->stacks.rbegin(); it != this->stacks.rend(); it++) {
+		std::map<std::string, NExpression*>::iterator found = (*it)->find(key);
 		if (found != (*it)->end()) {
 			return found->second;
 		}
@@ -30,7 +30,7 @@ bool CodeScope::contains(std::string key) {
 }
 
 void CodeScope::push() {
-	std::map<std::string, llvm::Value*>* scope = new std::map<std::string, llvm::Value*>();
+	std::map<std::string, NExpression*>* scope = new std::map<std::string, NExpression*>();
 	this->stacks.push_back(scope);
 }
 

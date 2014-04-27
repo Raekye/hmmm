@@ -38,54 +38,41 @@ void CodeGen::run_code() {
 }
 
 llvm::Value* NPrimitiveNumber::gen_code(CodeGen* code_gen) {
-	std::cout << "Generating int..." << std::endl;
-	llvm::Function* number_create_fn = code_gen->module->getFunction("number_create");
-	if (number_create_fn == NULL) {
-		error("Unable to create number");
-	}
-	return builder.CreateCall(number_create_fn, std::vector<llvm::Value*>(), "calltmp");
-	// return llvm_value_for_primitive_number(this);
+	std::cout << "Generating primitve number " << this->type->name << "..." << std::endl;
+	// TODO: cast
+	return llvm::ConstantInt::get(this->type->llvm_type, this->val.l, this->type->name[0] != 'u');
+	// return llvm::ConstantFP::get(this->type->llvm_type, this->val.d);
 }
 
 llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating binary operator..." << std::endl;
+	this->lhs->type = this->type;
+	this->rhs->type = this->type;
 	llvm::Value* l = this->lhs->gen_code(code_gen);
 	llvm::Value* r = this->rhs->gen_code(code_gen);
 	if (l == NULL || r == NULL) {
 		return NULL;
 	}
-	llvm::Function* number_binary_op_fn = NULL;
-	builder.SetInsertPoint(code_gen->current_block());
 	switch (this->op) {
 		case eADD:
 			// return builder.CreateAdd(l, r, "addtmp");
-			number_binary_op_fn = code_gen->module->getFunction("number_add");
 		case eSUBTRACT:
 			// return builder.CreateSub(l, r, "subtmp");
-			number_binary_op_fn = code_gen->module->getFunction("number_sub");
 		case eMULTIPLY:
 			// return builder.CreateMul(l, r, "multmp");
-			number_binary_op_fn = code_gen->module->getFunction("number_mul");
 		case eDIVIDE:
 			// return builder.CreateSDiv(l, r, "divtmp");
-			number_binary_op_fn = code_gen->module->getFunction("number_div");
 		case ePOW:
 			// return builder.CreateAdd(l, r, "powtmp");
-			number_binary_op_fn = code_gen->module->getFunction("number_add");
+			do { } while (0);
 	}
-	if (number_binary_op_fn == NULL) {
-		error("Unable to get number binary operator");
-		return NULL;
-	}
-	std::vector<llvm::Value*> args;
-	args.push_back(l);
-	args.push_back(r);
-	return builder.CreateCall(number_binary_op_fn, args, "calltmp");
+	return NULL;
 }
 
 llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
+	std::cout << "Generating function..." << std::endl;
 	std::vector<llvm::Type*> arg_types;
-	llvm::FunctionType* fn_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), arg_types, false);
+	llvm::FunctionType* fn_type = llvm::FunctionType::get(this->return_type->llvm_type, arg_types, false);
 	llvm::Function* fn = llvm::Function::Create(fn_type, llvm::Function::ExternalLinkage, "", code_gen->module);
 	
 	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", fn);
@@ -94,7 +81,9 @@ llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 
 	llvm::Value* ret_val = this->body->gen_code(code_gen);
 	if (ret_val != NULL) {
-		builder.CreateRet(ret_val);
+		// TODO: other casts
+		llvm::Value* ret_val_casted = builder.CreateIntCast(ret_val, this->return_type->llvm_type, this->return_type->name[0] != 'u');
+		builder.CreateRet(ret_val_casted);
 		llvm::verifyFunction(*fn);
 		code_gen->pop_block();
 		return fn;
@@ -105,42 +94,47 @@ llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 }
 
 llvm::Value* NIdentifier::gen_code(CodeGen* code_gen) {
-	llvm::Value* val = code_gen->scope.get(this->name);
+	std::cout << "Generating identifier " << this->name << std::endl;
+	NExpression* val = code_gen->scope.get(this->name);
 	if (val == NULL) {
 		std::stringstream ss;
 		ss << "Undeclared variable " << this->name;
 		error(ss.str());
 		return NULL;
 	}
-	//return builder.CreateLoad(val, false, "");
-	return new llvm::LoadInst(val, "", false, code_gen->current_block());
+	return new llvm::LoadInst(val->value, "", false, code_gen->current_block());
 }
 
 llvm::Value* NAssignment::gen_code(CodeGen* code_gen) {
-	std::cout << "Generating assignment for " << this->lhs->name << "..." << std::endl;
-	llvm::Value* val = code_gen->scope.get(this->lhs->name);
+	std::cout << "Generating assignment to " << this->lhs->name << "..." << std::endl;
+	NExpression* val = code_gen->scope.get(this->lhs->name);
 	if (val == NULL) {
 		std::cout << "Undeclared variable " << this->lhs->name << std::endl;
 		return NULL;
 	}
+	// TODO: cast
+	this->rhs->type = val->type;
 	llvm::Value* rhs_val = this->rhs->gen_code(code_gen);
 	builder.SetInsertPoint(code_gen->current_block());
-	builder.CreateStore(rhs_val, val, false);
+	builder.CreateStore(rhs_val, val->value, false);
 	return rhs_val;
 }
 
 llvm::Value* NVariableDeclaration::gen_code(CodeGen* code_gen) {
+	if (this->type == NULL || this->type->llvm_type == NULL) {
+		std::cout << "Unknown type " << this->type_name->name << std::endl;
+		return NULL;
+	}
 	std::cout << "Generating variable declaration for " << this->var_name->name << ", type " << this->type->name << "..." << std::endl;
 	builder.SetInsertPoint(code_gen->current_block());
-	// llvm::Type* declared_type = llvm_type_for_primitive_number(this->type->name);
-	llvm::Type* declared_type = NULL;
-	llvm::AllocaInst* alloc = new llvm::AllocaInst(declared_type, this->var_name->name.c_str(), code_gen->current_block()); //builder.CreateAlloca(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, this->var_name->name.c_str());
-	code_gen->scope.put(this->var_name->name, alloc);
-	//return llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvm::getGlobalContext()), 0, true);
+	llvm::AllocaInst* alloc = new llvm::AllocaInst(this->type->llvm_type, this->var_name->name.c_str(), code_gen->current_block());
+	this->value = alloc;
+	code_gen->scope.put(this->var_name->name, this);
 	return alloc;
 }
 
 llvm::Value* NBlock::gen_code(CodeGen* code_gen) {
+	std::cout << "Generating block..." << std::endl;
 	llvm::Value* last = NULL;
 	for (std::vector<NExpression*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
 		last = (*it)->gen_code(code_gen);

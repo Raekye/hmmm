@@ -5,6 +5,8 @@
 #include "lexer.h"
 #include <cstdio>
 
+// TODO: memory management
+
 void yyerror(NExpression**, yyscan_t scanner, const char *s) {
 	fprintf(stderr, "YYERROR: %s!", s);
 }
@@ -28,7 +30,6 @@ typedef void* yyscan_t;
 %parse-param { yyscan_t scanner }
 
 %union {
-	Node* node;
 	NExpression* expr;
 	NBlock* block;
 	NIdentifier* identifier;

@@ -1,9 +1,9 @@
 CC = g++
-CFLAGS = -g
+CFLAGS = -g -std=c++11 -fexceptions
 EXECUTABLE = madoka
 SRC_DIR = src
 BIN_DIR = bin
-FILES = lexer.cpp parser.cpp main.cpp node.cpp codegen.cpp codescope.cpp number.cpp
+FILES = lexer.cpp parser.cpp main.cpp node.cpp codegen.cpp codescope.cpp number.cpp hm.cpp
 SOURCES = $(FILES:%.cpp=$(SRC_DIR)/%.cpp)
 
 lexer.cpp: $(SRC_DIR)/lexer.l

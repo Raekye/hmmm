@@ -4,6 +4,7 @@
 #include <llvm/IR/Value.h>
 #include <vector>
 #include <string>
+#include <map>
 #include "number.h"
 
 class CodeGen;
@@ -25,7 +26,37 @@ public:
 	virtual llvm::Value* gen_code(CodeGen*) = 0;
 };
 
+class NType {
+public:
+	NType(std::string, std::vector<NType*>, std::vector<NType*>, llvm::Type*);
+	std::string name;
+	std::vector<NType*> extends;
+	std::vector<NType*> implements;
+	llvm::Type* llvm_type;
+
+	static NType* get(std::string);
+
+	static NType* byte_ty();
+	static NType* ubyte_ty();
+	static NType* short_ty();
+	static NType* ushort_ty();
+	static NType* int_ty();
+	static NType* uint_ty();
+	static NType* long_ty();
+	static NType* ulong_ty();
+	static NType* float_ty();
+	static NType* double_ty();
+
+private:
+	static std::map<std::string, NType*> types;
+	static int __STATIC_INIT;
+	static int __STATIC_INITIALIZER();
+};
+
 class NExpression : public Node {
+public:
+	NType* type;
+	llvm::Value* value;
 };
 
 class NNumber : public NExpression {
@@ -33,10 +64,8 @@ class NNumber : public NExpression {
 
 class NPrimitiveNumber : public NNumber {
 public:
-	NPrimitiveNumber(std::string str);
+	NPrimitiveNumber(std::string);
 	UNumberValue val;
-	ENumberType type;
-	std::string str;
 	virtual llvm::Value* gen_code(CodeGen*) override;
 	virtual ~NPrimitiveNumber();
 };
@@ -54,7 +83,8 @@ public:
 class NFunction : public NExpression {
 public:
 	NExpression* body;
-	NFunction(NExpression*);
+	NType* return_type;
+	NFunction(NExpression*, NType*);
 	virtual llvm::Value* gen_code(CodeGen*) override;
 	virtual ~NFunction();
 };
@@ -62,7 +92,6 @@ public:
 class NIdentifier : public NExpression {
 public:
 	std::string name;
-	std::string type;
 	NIdentifier(std::string);
 	virtual llvm::Value* gen_code(CodeGen*) override;
 };
@@ -78,8 +107,8 @@ public:
 
 class NVariableDeclaration : public NExpression {
 public:
-	NIdentifier* type;
 	NIdentifier* var_name;
+	NIdentifier* type_name;
 	NVariableDeclaration(NIdentifier*, NIdentifier*);
 	~NVariableDeclaration();
 	virtual llvm::Value* gen_code(CodeGen*) override;
