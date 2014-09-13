@@ -3,6 +3,7 @@
 #include <cfloat>
 #include <iostream>
 #include "codegen.h"
+#include <algorithm>
 
 Node::~Node() {
 	return;
@@ -13,7 +14,7 @@ NPrimitiveNumber::~NPrimitiveNumber() {
 }
 
 NPrimitiveNumber::NPrimitiveNumber(std::string str) {
-	this->val.l = boost::lexical_cast<int64_t>(str);
+	this->str = str;
 	this->type = NType::long_ty();
 }
 
@@ -74,6 +75,32 @@ NType::NType(std::string name, std::vector<NType*> extends = std::vector<NType*>
 	this->extends = extends;
 	this->implements = implements;
 	NType::types[this->name] = this;
+}
+
+bool NType::is_primitive() {
+	static std::vector<NType*> primitives { NType::byte_ty(), NType::ubyte_ty(), NType::short_ty(), NType::ushort_ty(), NType::int_ty(), NType::uint_ty(), NType::long_ty(), NType::ulong_ty(), NType::float_ty(), NType::double_ty() };
+	return std::find(primitives.begin(), primitives.end(), this) != primitives.end();
+}
+
+bool NType::is_signed() {
+	if (!this->is_primitive()) {
+		throw std::logic_error("Member function is_signed called on non primitive type");
+	}
+	return this->name[0] != 'u';
+}
+
+bool NType::is_integer() {
+	if (!this->is_primitive()) {
+		throw std::logic_error("Member function is_integer called on non primitive type");
+	}
+	return !this->is_floating();
+}
+
+bool NType::is_floating() {
+	if (!this->is_primitive()) {
+		throw std::logic_error("Member function is_floating called on non primitive type");
+	}
+	return this == NType::float_ty() || this == NType::double_ty();
 }
 
 NType* NType::byte_ty() {

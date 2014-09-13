@@ -34,6 +34,11 @@ public:
 	std::vector<NType*> implements;
 	llvm::Type* llvm_type;
 
+	bool is_primitive();
+	bool is_signed();
+	bool is_integer();
+	bool is_floating();
+
 	static NType* get(std::string);
 
 	static NType* byte_ty();
@@ -66,6 +71,7 @@ class NPrimitiveNumber : public NNumber {
 public:
 	NPrimitiveNumber(std::string);
 	UNumberValue val;
+	std::string str;
 	virtual llvm::Value* gen_code(CodeGen*) override;
 	virtual ~NPrimitiveNumber();
 };

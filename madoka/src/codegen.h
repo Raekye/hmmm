@@ -37,6 +37,10 @@ public:
 	llvm::BasicBlock* current_block();
 
 	static llvm::Type* llvm_pointer_ty();
+	static llvm::Value* llvm_implicit_cast_primitive_number(CodeGen*, NType*, llvm::Value*, NType*);
+	static llvm::Value* llvm_cast_primitive_number(CodeGen*, NType*, llvm::Value*, NType*);
+
+	llvm::IRBuilder<> builder;
 };
 
 #endif // __CODEGEN_H_

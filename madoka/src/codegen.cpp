@@ -6,13 +6,13 @@
 #include "number.h"
 #include <sstream>
 
-static llvm::IRBuilder<> builder(llvm::getGlobalContext());
+// TOOD: generalize/review type propagation
 
 static void error(std::string str) {
 	std::cout << str << std::endl;
 }
 
-CodeGen::CodeGen(llvm::Module* module) {
+CodeGen::CodeGen(llvm::Module* module) : builder(llvm::getGlobalContext()) {
 	this->module = module;
 	this->push_block(llvm::BasicBlock::Create(llvm::getGlobalContext()));
 }
@@ -39,9 +39,20 @@ void CodeGen::run_code() {
 
 llvm::Value* NPrimitiveNumber::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating primitve number " << this->type->name << "..." << std::endl;
-	// TODO: cast
-	return llvm::ConstantInt::get(this->type->llvm_type, this->val.l, this->type->name[0] != 'u');
-	// return llvm::ConstantFP::get(this->type->llvm_type, this->val.d);
+	if (this->type->name == "double") {
+		return llvm::ConstantFP::get(this->type->llvm_type, boost::lexical_cast<double>(this->str));
+	} else if (this->type->name == "float") {
+		return llvm::ConstantFP::get(this->type->llvm_type, boost::lexical_cast<float>(this->str));
+	}
+	if (this->type->is_primitive()) {
+		if (this->type->is_signed()) {
+			return llvm::ConstantInt::get(this->type->llvm_type, boost::lexical_cast<int64_t>(this->str), true);
+		} else {
+			return llvm::ConstantInt::get(this->type->llvm_type, boost::lexical_cast<uint64_t>(this->str), false);
+		}
+	}
+	std::cout << "Unknown primitive number type " << this->type->name << std::endl;
+	return NULL;
 }
 
 llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
@@ -55,17 +66,17 @@ llvm::Value* NBinaryOperator::gen_code(CodeGen* code_gen) {
 	}
 	switch (this->op) {
 		case eADD:
-			// return builder.CreateAdd(l, r, "addtmp");
+			return code_gen->builder.CreateAdd(l, r, "addtmp");
 		case eSUBTRACT:
-			// return builder.CreateSub(l, r, "subtmp");
+			return code_gen->builder.CreateSub(l, r, "subtmp");
 		case eMULTIPLY:
-			// return builder.CreateMul(l, r, "multmp");
+			return code_gen->builder.CreateMul(l, r, "multmp");
 		case eDIVIDE:
-			// return builder.CreateSDiv(l, r, "divtmp");
+			return code_gen->builder.CreateSDiv(l, r, "divtmp");
 		case ePOW:
-			// return builder.CreateAdd(l, r, "powtmp");
-			do { } while (0);
+			return code_gen->builder.CreateAdd(l, r, "powtmp"); // TODO: library function
 	}
+	std::cout << "Unknown binary operation" << std::endl;
 	return NULL;
 }
 
@@ -77,16 +88,18 @@ llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 	
 	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", fn);
 	code_gen->push_block(basic_block);
-	builder.SetInsertPoint(basic_block);
+	code_gen->builder.SetInsertPoint(basic_block);
 
 	llvm::Value* ret_val = this->body->gen_code(code_gen);
 	if (ret_val != NULL) {
 		// TODO: other casts
-		llvm::Value* ret_val_casted = builder.CreateIntCast(ret_val, this->return_type->llvm_type, this->return_type->name[0] != 'u');
-		builder.CreateRet(ret_val_casted);
-		llvm::verifyFunction(*fn);
-		code_gen->pop_block();
-		return fn;
+		llvm::Value* ret_val_casted = CodeGen::llvm_implicit_cast_primitive_number(code_gen, this->body->type, ret_val, this->return_type);
+		if (ret_val_casted != NULL) {
+			code_gen->builder.CreateRet(ret_val_casted);
+			llvm::verifyFunction(*fn);
+			code_gen->pop_block();
+			return fn;
+		}
 	}
 	code_gen->pop_block();
 	error("Error generating function");
@@ -113,10 +126,11 @@ llvm::Value* NAssignment::gen_code(CodeGen* code_gen) {
 		return NULL;
 	}
 	// TODO: cast
+	this->type = val->type;
 	this->rhs->type = val->type;
 	llvm::Value* rhs_val = this->rhs->gen_code(code_gen);
-	builder.SetInsertPoint(code_gen->current_block());
-	builder.CreateStore(rhs_val, val->value, false);
+	code_gen->builder.SetInsertPoint(code_gen->current_block());
+	code_gen->builder.CreateStore(rhs_val, val->value, false);
 	return rhs_val;
 }
 
@@ -126,7 +140,7 @@ llvm::Value* NVariableDeclaration::gen_code(CodeGen* code_gen) {
 		return NULL;
 	}
 	std::cout << "Generating variable declaration for " << this->var_name->name << ", type " << this->type->name << "..." << std::endl;
-	builder.SetInsertPoint(code_gen->current_block());
+	code_gen->builder.SetInsertPoint(code_gen->current_block());
 	llvm::AllocaInst* alloc = new llvm::AllocaInst(this->type->llvm_type, this->var_name->name.c_str(), code_gen->current_block());
 	this->value = alloc;
 	code_gen->scope.put(this->var_name->name, this);
@@ -138,6 +152,7 @@ llvm::Value* NBlock::gen_code(CodeGen* code_gen) {
 	llvm::Value* last = NULL;
 	for (std::vector<NExpression*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
 		last = (*it)->gen_code(code_gen);
+		this->type = (*it)->type;
 	}
 	return last;
 }
@@ -157,4 +172,54 @@ llvm::Type* CodeGen::llvm_pointer_ty() {
 		}
 	}
 	return ty;
+}
+
+llvm::Value* CodeGen::llvm_implicit_cast_primitive_number(CodeGen* code_gen, NType* source_type, llvm::Value* source_val, NType* dest_type) {
+	if (!source_type->is_primitive() || !dest_type->is_primitive()) {
+		throw std::logic_error("Can only implicit cast primitive number");
+	}
+	if (source_type == NType::double_ty()) {
+		if (dest_type == NType::double_ty()) {
+			return source_val;
+		} else {
+			return NULL;
+		}
+	} else if (source_type == NType::float_ty()) {
+		if (dest_type == NType::float_ty()) {
+			return source_val;
+		} else if (dest_type == NType::double_ty()) {
+			return code_gen->builder.CreateFPCast(source_val, dest_type->llvm_type);
+		} else {
+			return NULL;
+		}
+	}
+	if (((llvm::IntegerType*) source_type->llvm_type)->getBitWidth() <= ((llvm::IntegerType*) dest_type->llvm_type)->getBitWidth()) {
+		return CodeGen::llvm_cast_primitive_number(code_gen, source_type, source_val, dest_type);
+	}
+	return NULL;
+}
+
+llvm::Value* CodeGen::llvm_cast_primitive_number(CodeGen* code_gen, NType* source_type, llvm::Value* source_val, NType* dest_type) {
+	if (!source_type->is_primitive() || !dest_type->is_primitive()) {
+		throw std::logic_error("Can only cast primitive number");
+	}
+	if (source_type->is_floating()) {
+		if (dest_type->is_floating()) {
+			return code_gen->builder.CreateFPCast(source_val, dest_type->llvm_type);
+		} else if (dest_type->is_signed()) {
+			return code_gen->builder.CreateFPToSI(source_val, dest_type->llvm_type);
+		} else {
+			return code_gen->builder.CreateFPToUI(source_val, dest_type->llvm_type);
+		}
+	} else {
+		if (dest_type->is_floating()) {
+			if (source_type->is_signed()) {
+				return code_gen->builder.CreateSIToFP(source_val, dest_type->llvm_type);
+			} else {
+				return code_gen->builder.CreateUIToFP(source_val, dest_type->llvm_type);
+			}
+		} else {
+			return code_gen->builder.CreateIntCast(source_val, dest_type->llvm_type, dest_type->is_signed());
+		}
+	}
 }
