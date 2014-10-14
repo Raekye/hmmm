@@ -17,7 +17,7 @@ build: $(SOURCES)
 
 clean:
 	rm -rf $(BIN_DIR)/*
-	cd $(SRC_DIR) && rm lexer.cpp lexer.h parser.cpp parser.h
+	cd $(SRC_DIR) && rm -f lexer.cpp lexer.h parser.cpp parser.h
 
 playground:
 	$(CC) $(SRC_DIR)/playground.cpp -o $(BIN_DIR)/playground.o

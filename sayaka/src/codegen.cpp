@@ -157,8 +157,8 @@ llvm::Value* NCast::gen_code(CodeGen* code_gen) {
 	code_gen->builder.SetInsertPoint(code_gen->current_block());
 	if (this->val->type->is_primitive() && this->target_type->is_primitive()) {
 		llvm::Value* llvm_val = this->val->gen_code(code_gen);
-		if (this->val->type->is_integer()) {
-			if (this->target_type->is_integer()) {
+		if (this->val->type->is_integral()) {
+			if (this->target_type->is_integral()) {
 				return code_gen->builder.CreateIntCast(llvm_val, this->target_type->llvm_type, this->val->type->is_signed());
 			} else {
 				if (this->val->type->is_signed()) {
