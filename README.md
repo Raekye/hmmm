@@ -2,7 +2,9 @@ hmmm
 ====
 
 ### Dependencies
+- gcc-c++
 - llvm-devel
+- llvm-static
 - boost-devel
 - flex
 - bison
