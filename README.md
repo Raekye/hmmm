@@ -9,14 +9,8 @@ hmmm
 - flex
 - bison
 
-##### Stuff
-- variables
-- floats, 8, 16, 64 byte ints
-- library functions
-- scope
-- user functions
-- logical operators
-- conditionals
+# Flex and Bison stuff
+- hmmmm
 
 ### Resources
 - http://stackoverflow.com/questions/3104389/can-i-bind-an-existing-method-to-a-llvm-function-and-use-it-from-jit-compiled-c

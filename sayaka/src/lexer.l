@@ -4,12 +4,18 @@
 #include "parser.h"
 #include <cstdio>
 
+// yytext, yyleng globals (http://flex.sourceforge.net/manual/Matching.html)
 #define SAVE_TOKEN yylval->str = new std::string(yytext, yyleng)
 
 %}
 
-%option reentrant noyywrap never-interactive nounistd
+/* (http://flex.sourceforge.net/manual/Code_002dLevel-And-API-Options.html) */
+%option reentrant
+%option noyywrap
+%option never-interactive
+%option nounistd
 %option bison-bridge
+%option bison-locations
 
 LPAREN "("
 RPAREN ")"

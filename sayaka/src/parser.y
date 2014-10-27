@@ -3,18 +3,13 @@
 #include "node.h"
 #include "parser.h"
 #include "lexer.h"
-#include <cstdio>
 #include <map>
 #include <deque>
 #include <iostream>
 
-// TODO: memory management
-
-void yyerror(NExpression**, yyscan_t scanner, const char *s) {
-	fprintf(stderr, "YYERROR: %s!", s);
+void yyerror(YYLTYPE* llocp, NExpression**, yyscan_t scanner, const char *s) {
+	std::cerr << "YYERROR: " << s << std::endl;
 }
-
-NExpression* programBlock;
 
 static std::deque<std::map<std::string, NType*>*> identifier_stack;
 
@@ -23,7 +18,7 @@ static void identifier_stack_push() {
 }
 static void identifier_stack_pop() {
 	delete identifier_stack.back();
-	identifier_stack.pop_back(); // TODO: does this call destructors?
+	identifier_stack.pop_back();
 }
 
 static NType* identifier_stack_get(std::string name) {
@@ -53,7 +48,9 @@ typedef void* yyscan_t;
 }
 
 %define api.pure
-%lex-param   { yyscan_t scanner }
+//%define parse.error verbose
+%locations
+%lex-param { yyscan_t scanner }
 %parse-param { NExpression** expression }
 %parse-param { yyscan_t scanner }
 
@@ -65,13 +62,16 @@ typedef void* yyscan_t;
 	NType* type;
 }
 
-%left TOKEN_ADD TOKEN_SUBTRACT TOKEN_MULTIPLY TOKEN_DIVIDE TOKEN_POW
+%left TOKEN_ADD TOKEN_SUBTRACT
+%left TOKEN_MULTIPLY TOKEN_DIVIDE
+%left TOKEN_POW
+%left TOKEN_EQUALS TOKEN_RPAREN
 
 %token TOKEN_LPAREN TOKEN_RPAREN TOKEN_SEMICOLON TOKEN_EQUALS TOKEN_LBRACE TOKEN_RBRACE
 %token <token> TOKEN_ADD TOKEN_MULTIPLY TOKEN_DIVIDE TOKEN_SUBTRACT TOKEN_POW
 %token <str> TOKEN_NUMBER TOKEN_IDENTIFIER TOKEN_TYPE_NAME
 
-%type <expr> program expr number_expr number_expr2 number_expr3 number_expr4 number assignment_expr variable_declaration_expr cast_expr
+%type <expr> program expr number binary_operator_expr assignment_expr variable_declaration_expr cast_expr
 %type <block> stmts
 %type <identifier> identifier new_identifier
 %type <type> type_name
@@ -97,10 +97,13 @@ stmts
 	| stmts expr TOKEN_SEMICOLON { $$->push($2); }
 
 expr
-	: cast_expr { $$ = $1; }
-	| number_expr { $$ = $1; }
-	| assignment_expr { $$ = $1; }
+	: TOKEN_LPAREN expr TOKEN_RPAREN { $$ = $2; }
+	| number { $$ = $1; }
+	| identifier { $$ = $1; }
 	| variable_declaration_expr { $$ = $1; }
+	| assignment_expr { $$ = $1; }
+	| cast_expr { $$ = $1; }
+	| binary_operator_expr { $$ = $1; }
 	;
 
 identifier
@@ -131,25 +134,10 @@ cast_expr
 	: TOKEN_LPAREN type_name TOKEN_RPAREN expr { $$ = new NCast($4, $2); }
 	;
 
-number_expr
-	: number_expr2 { $$ = $1; }
-	| number_expr TOKEN_ADD number_expr2 { $$ = new NBinaryOperator(eADD, $1, $3); }
-	| number_expr TOKEN_SUBTRACT number_expr2 { $$ = new NBinaryOperator(eSUBTRACT, $1, $3); }
-	;
-
-number_expr2
-	: number_expr3 { $$ = $1; }
-	| number_expr2 TOKEN_DIVIDE number_expr3 { $$ = new NBinaryOperator(eDIVIDE, $1, $3); }
-	| number_expr2 TOKEN_MULTIPLY number_expr3 { $$ = new NBinaryOperator(eMULTIPLY, $1, $3); }
-	;
-
-number_expr3
-	: number_expr4 { $$ = $1; }
-	| number_expr3 TOKEN_POW number_expr4 { $$ = new NBinaryOperator(ePOW, $1, $3); }
-	;
-
-number_expr4
-	: number { $$ = $1; }
-	| identifier { $$ = $1; }
-	| TOKEN_LPAREN number_expr TOKEN_RPAREN { $$ = $2; }
+binary_operator_expr
+	: expr TOKEN_ADD expr { $$ = new NBinaryOperator(eADD, $1, $3); }
+	| expr TOKEN_SUBTRACT expr { $$ = new NBinaryOperator(eSUBTRACT, $1, $3); }
+	| expr TOKEN_DIVIDE expr { $$ = new NBinaryOperator(eDIVIDE, $1, $3); }
+	| expr TOKEN_MULTIPLY expr { $$ = new NBinaryOperator(eMULTIPLY, $1, $3); }
+	| expr TOKEN_POW expr { $$ = new NBinaryOperator(ePOW, $1, $3); }
 	;

@@ -10,7 +10,7 @@ lexer.cpp: $(SRC_DIR)/lexer.l
 	cd $(SRC_DIR) && flex --outfile=lexer.cpp --header-file=lexer.h lexer.l
 
 parser.cpp: $(SRC_DIR)/parser.y
-	cd $(SRC_DIR) && bison --defines=parser.h --output=parser.cpp parser.y
+	cd $(SRC_DIR) && bison --defines=parser.h --output=parser.cpp --verbose --report-file=parser.log parser.y
 
 build: $(SOURCES)
 	$(CC) $(SOURCES) -o $(BIN_DIR)/$(EXECUTABLE) `llvm-config --libs core jit native --cxxflags --ldflags` $(CFLAGS)

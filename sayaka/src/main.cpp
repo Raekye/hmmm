@@ -16,7 +16,6 @@ namespace boost {
 		throw e;
 	}
 }
-
 #endif // BOOST_NO_EXCEPTIONS
 
 int yyparse(NExpression** expression, yyscan_t scanner);
@@ -27,6 +26,7 @@ NExpression* getAST(const char* str) {
 	NExpression* expr;
 	yyscan_t scanner;
 	YY_BUFFER_STATE state;
+	// (http://flex.sourceforge.net/manual/Reentrant-Overview.html)
 	if (yylex_init(&scanner)) {
 		return NULL;
 	}
@@ -55,25 +55,13 @@ void run_code(const char* code) {
 	llvm::ExecutionEngine* execution_engine = llvm::EngineBuilder(module).setErrorStr(&error_str).setEngineKind(llvm::EngineKind::JIT).create();
 	CodeGen code_gen(module);
 
-	std::cout << "execution engine " << execution_engine << std::endl;
-	if (execution_engine == NULL) {
-		std::cout << "Unable to create execution engine." << std::endl;
-		return;
-	}
-
 	NFunction main_fn(root_expr, NType::int_ty());
-
-	// llvm::Value* root_val = root_expr->gen_code(&code_gen);
-
-	// std::cout << "Root val code:" << std::endl;
-	// root_val->dump();
 
 	llvm::Function* main_fn_val = (llvm::Function*) main_fn.gen_code(&code_gen);
 	std::cout << "Main fn code:" << std::endl;
 	main_fn_val->dump();
 	void* fn_ptr = execution_engine->getPointerToFunction(main_fn_val);
-	int32_t (*fn_ptr_native)() = (int32_t (*)()) fn_ptr;
-	int32_t ret = fn_ptr_native();
+	int32_t ret = ((int32_t (*)()) fn_ptr)();
 	std::cout << "Main fn at " << fn_ptr << "; executed: " << ret << std::endl;
 }
 
