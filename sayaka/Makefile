@@ -3,7 +3,7 @@ CFLAGS = -g -std=c++11 -fexceptions
 EXECUTABLE = sayaka
 SRC_DIR = src
 BIN_DIR = bin
-FILES = lexer.cpp parser.cpp main.cpp node.cpp codegen.cpp codescope.cpp
+FILES = lexer.cpp parser.cpp main.cpp ntype.cpp node.cpp codegen.cpp codescope.cpp
 SOURCES = $(FILES:%.cpp=$(SRC_DIR)/%.cpp)
 
 lexer.cpp: $(SRC_DIR)/lexer.l

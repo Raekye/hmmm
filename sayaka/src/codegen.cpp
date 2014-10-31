@@ -5,15 +5,13 @@
 #include <boost/lexical_cast.hpp>
 #include <sstream>
 
-// TOOD: generalize/review type propagation
-
-static void error(std::string str) {
-	std::cout << str << std::endl;
-}
-
 CodeGen::CodeGen(llvm::Module* module) : builder(llvm::getGlobalContext()) {
 	this->module = module;
 	this->push_block(llvm::BasicBlock::Create(llvm::getGlobalContext()));
+}
+
+CodeGen::~CodeGen() {
+	return;
 }
 
 void CodeGen::push_block(llvm::BasicBlock* block) {
@@ -36,7 +34,7 @@ void CodeGen::gen_code(NExpression* root) {
 void CodeGen::run_code() {
 }
 
-llvm::Value* NPrimitiveNumber::gen_code(CodeGen* code_gen) {
+llvm::Value* NPrimitive::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating primitve number " << this->type->name << "..." << std::endl;
 	if (this->type == NType::double_ty()) {
 		return llvm::ConstantFP::get(this->type->llvm_type, boost::lexical_cast<double>(this->str));
@@ -91,14 +89,13 @@ llvm::Value* NFunction::gen_code(CodeGen* code_gen) {
 
 	llvm::Value* ret_val = this->body->gen_code(code_gen);
 	if (ret_val != NULL) {
-		// TODO: other casts
 		code_gen->builder.CreateRet(ret_val);
 		llvm::verifyFunction(*fn);
 		code_gen->pop_block();
 		return fn;
 	}
 	code_gen->pop_block();
-	error("Error generating function");
+	std::cerr << "Error generating function" << std::endl;
 	return NULL;
 }
 
@@ -108,7 +105,7 @@ llvm::Value* NIdentifier::gen_code(CodeGen* code_gen) {
 	if (val == NULL) {
 		std::stringstream ss;
 		ss << "Undeclared variable " << this->name;
-		error(ss.str());
+		std::cerr << ss.str() << std::endl;
 		return NULL;
 	}
 	return new llvm::LoadInst(val->value, "", false, code_gen->current_block());
@@ -193,7 +190,7 @@ llvm::Type* CodeGen::llvm_pointer_ty() {
 		} else {
 			std::stringstream ss;
 			ss << "Unknown pointer size " << sizeof(void*);
-			error(ss.str());
+			std::cerr << ss.str() << std::endl;
 			return NULL;
 		}
 	}

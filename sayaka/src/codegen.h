@@ -27,7 +27,9 @@ public:
 	llvm::Module* module;
 	std::stack<llvm::BasicBlock*> blocks;
 	CodeScope scope;
+
 	CodeGen(llvm::Module*);
+	~CodeGen();
 	
 	void gen_code(NExpression* root);
 	void run_code(); // GenericValue

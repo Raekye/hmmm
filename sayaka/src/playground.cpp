@@ -24,7 +24,37 @@ void test_string_concat() {
 void test_string_stream() {
 	std::cout << "Testing string stream" << std::endl;
 	std::stringstream ss;
-	std::cout << { ss << "Hello " << "World"; ss.str() } << std::endl;
+	//std::cout << { ss << "Hello " << "World"; ss.str() } << std::endl;
+}
+
+class A {
+public:
+	virtual ~A() { std::cout << "A" << std::endl; };
+};
+
+class B : public A {
+};
+
+class C : public B {
+public:
+	~C() { std::cout << "C" << std::endl; };
+};
+
+class D : public C {
+public:
+	~D() { std::cout << "D" << std::endl; };
+};
+
+void test_virtual_destructors() {
+	std::cout << "Testing virtual destructors" << std::endl;
+	{
+		D d;
+	}
+	std::cout << "---" << std::endl;
+	{
+		B b;
+	}
+	std::cout << "---" << std::endl;
 }
 
 int main() {
@@ -32,5 +62,6 @@ int main() {
 	test_pointer_size();
 	test_string_concat();
 	test_string_stream();
+	test_virtual_destructors();
 	return 0;
 }

@@ -1,5 +1,6 @@
 %{
 
+#include "ntype.h"
 #include "node.h"
 #include "parser.h"
 #include "lexer.h"
@@ -119,7 +120,7 @@ type_name
 	;
 
 number
-	: TOKEN_NUMBER { $$ = new NPrimitiveNumber(*$1); delete $1; }
+	: TOKEN_NUMBER { $$ = new NPrimitive(*$1); delete $1; }
 	;
 
 assignment_expr
