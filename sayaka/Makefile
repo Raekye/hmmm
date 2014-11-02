@@ -3,13 +3,13 @@ CFLAGS = -g -std=c++11 -fexceptions
 EXECUTABLE = sayaka
 SRC_DIR = src
 BIN_DIR = bin
-FILES = lexer.cpp parser.cpp main.cpp ntype.cpp node.cpp codegen.cpp codescope.cpp
-SOURCES = $(FILES:%.cpp=$(SRC_DIR)/%.cpp)
+SOURCES := $(wildcard $(SRC_DIR)/*.cpp)
+SOURCES := $(filter-out $(SRC_DIR)/playground.cpp, $(SOURCES))
 
-lexer.cpp: $(SRC_DIR)/lexer.l
+$(SRC_DIR)/lexer.cpp: $(SRC_DIR)/lexer.l
 	cd $(SRC_DIR) && flex --outfile=lexer.cpp --header-file=lexer.h lexer.l
 
-parser.cpp: $(SRC_DIR)/parser.y
+$(SRC_DIR)/parser.cpp: $(SRC_DIR)/parser.y
 	cd $(SRC_DIR) && bison --defines=parser.h --output=parser.cpp --verbose --report-file=parser.log parser.y
 
 build: $(SOURCES)
@@ -20,9 +20,12 @@ prepare:
 
 clean:
 	rm -rf $(BIN_DIR)/*
-	cd $(SRC_DIR) && rm -f lexer.cpp lexer.h parser.cpp parser.h
+	cd $(SRC_DIR) && rm -f lexer.cpp lexer.h parser.cpp parser.h parser.log
 
 playground:
 	$(CC) $(SRC_DIR)/playground.cpp -o $(BIN_DIR)/playground.o
 
-all: prepare clean lexer.cpp parser.cpp build
+all: prepare clean build
+
+debug: all
+	gdb $(BIN_DIR)/$(EXECUTABLE)

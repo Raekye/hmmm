@@ -9,6 +9,10 @@ hmmm
 - flex
 - bison
 
+### Passes
+- types (primitive literals)
+- scope
+
 # Flex and Bison stuff
 - hmmmm
 

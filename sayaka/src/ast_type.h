@@ -1,5 +1,5 @@
-#ifndef __NTYPE_H_
-#define __NTYPE_H_
+#ifndef __AST_TYPE_H_
+#define __AST_TYPE_H_
 
 #include <string>
 #include <vector>
@@ -43,12 +43,12 @@ typedef enum tagEBinaryOperationType {
 	ePOW,
 } EBinaryOperationType;
 
-class NType {
+class ASTType {
 public:
-	NType(std::string, std::vector<NType*>, std::vector<NType*>, llvm::Type*);
+	ASTType(std::string, std::vector<ASTType*>, std::vector<ASTType*>, llvm::Type*);
 	std::string name;
-	std::vector<NType*> extends;
-	std::vector<NType*> implements;
+	std::vector<ASTType*> extends;
+	std::vector<ASTType*> implements;
 	llvm::Type* llvm_type;
 
 	bool is_primitive();
@@ -56,21 +56,21 @@ public:
 	bool is_integral();
 	bool is_floating();
 
-	static NType* get(std::string);
+	static ASTType* get(std::string);
 
-	static NType* byte_ty();
-	static NType* ubyte_ty();
-	static NType* short_ty();
-	static NType* ushort_ty();
-	static NType* int_ty();
-	static NType* uint_ty();
-	static NType* long_ty();
-	static NType* ulong_ty();
-	static NType* float_ty();
-	static NType* double_ty();
+	static ASTType* byte_ty();
+	static ASTType* ubyte_ty();
+	static ASTType* short_ty();
+	static ASTType* ushort_ty();
+	static ASTType* int_ty();
+	static ASTType* uint_ty();
+	static ASTType* long_ty();
+	static ASTType* ulong_ty();
+	static ASTType* float_ty();
+	static ASTType* double_ty();
 
 private:
-	static std::map<std::string, NType*> types;
+	static std::map<std::string, ASTType*> types;
 	static int __STATIC_INIT;
 	static int __STATIC_INITIALIZER();
 };

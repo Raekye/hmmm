@@ -4,3 +4,4 @@ lexer.cpp
 parser.h
 parser.cpp
 parser.log
+*.pyc

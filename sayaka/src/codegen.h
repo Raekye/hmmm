@@ -20,27 +20,24 @@
 #include <map>
 #include <stack>
 #include "codescope.h"
-#include "node.h"
 
 class CodeGen {
 public:
 	llvm::Module* module;
+	llvm::ExecutionEngine* execution_engine;
 	std::stack<llvm::BasicBlock*> blocks;
+	llvm::IRBuilder<> builder;
+	std::string execution_engine_error_str;
 	CodeScope scope;
 
-	CodeGen(llvm::Module*);
+	CodeGen();
 	~CodeGen();
 	
-	void gen_code(NExpression* root);
-	void run_code(); // GenericValue
-
 	void push_block(llvm::BasicBlock*);
 	void pop_block();
 	llvm::BasicBlock* current_block();
 
 	static llvm::Type* llvm_pointer_ty();
-
-	llvm::IRBuilder<> builder;
 };
 
 #endif // __CODEGEN_H_

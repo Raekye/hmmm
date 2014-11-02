@@ -1,14 +1,7 @@
-#include "node.h"
-#include "parser.h"
-#include "codegen.h"
-#include "lexer.h"
-
-#include <cstdlib>
-#include <cstdio>
 #include <iostream>
 #include <fstream>
-
 #include <boost/throw_exception.hpp>
+#include "compiler.h"
 
 #ifdef BOOST_NO_EXCEPTIONS
 namespace boost {
@@ -18,55 +11,9 @@ namespace boost {
 }
 #endif // BOOST_NO_EXCEPTIONS
 
-int yyparse(NExpression** expression, yyscan_t scanner);
-
-extern NExpression* programBlock;
-
-NExpression* getAST(const char* str) {
-	NExpression* expr;
-	yyscan_t scanner;
-	YY_BUFFER_STATE state;
-	// (http://flex.sourceforge.net/manual/Reentrant-Overview.html)
-	if (yylex_init(&scanner)) {
-		return NULL;
-	}
-
-	state = yy_scan_string(str, scanner);
-
-	if (yyparse(&expr, scanner)) {
-		return NULL;
-	}
-
-	yy_delete_buffer(state, scanner);
-	yylex_destroy(scanner);
-
-	return expr;
-}
-
-void run_code(const char* code) {
-	NExpression* root_expr = getAST(code);
-	if (root_expr == NULL) {
-		std::cout << "Root expression was null! Ahhhhhhhhhhhhh!" << std::endl;
-		return;
-	}
-
-	std::string error_str;
-	llvm::Module* module = new llvm::Module("top", llvm::getGlobalContext());
-	llvm::ExecutionEngine* execution_engine = llvm::EngineBuilder(module).setErrorStr(&error_str).setEngineKind(llvm::EngineKind::JIT).create();
-	CodeGen code_gen(module);
-
-	NFunction main_fn(root_expr, NType::int_ty());
-
-	llvm::Function* main_fn_val = (llvm::Function*) main_fn.gen_code(&code_gen);
-	std::cout << "Main fn code:" << std::endl;
-	main_fn_val->dump();
-	void* fn_ptr = execution_engine->getPointerToFunction(main_fn_val);
-	int32_t ret = ((int32_t (*)()) fn_ptr)();
-	std::cout << "Main fn at " << fn_ptr << "; executed: " << ret << std::endl;
-}
-
 int main(int argc, char* argv[]) {
-	llvm::InitializeNativeTarget();
+	Compiler::initialize();
+	Compiler compiler;
 	std::cout << "Started." << std::endl;
 	if (argc > 1) {
 		std::string str = "";
@@ -78,7 +25,13 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		std::cout << "Reading from file, contents:\n" << str << std::endl;
-		run_code(str.c_str());
+
+		ASTNode* node = compiler.parse(str);
+		if (node == NULL) {
+			std::cout << "Root node was null" << std::endl;
+		} else {
+			compiler.run_code(node);
+		}
 	} else {
 		std::string line;
 		while (true) {
@@ -86,7 +39,12 @@ int main(int argc, char* argv[]) {
 			if (!std::getline(std::cin, line)) {
 				break;
 			}
-			run_code(line.c_str());
+			ASTNode* node = compiler.parse(line);
+			if (node == NULL) {
+				std::cout << "Root node was null" << std::endl;
+			} else {
+				compiler.run_code(node);
+			}
 		}
 	}
 	std::cout << "Done." << std::endl;

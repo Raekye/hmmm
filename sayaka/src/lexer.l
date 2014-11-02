@@ -1,8 +1,7 @@
 %{
 
-#include "node.h"
+#include <iostream>
 #include "parser.h"
-#include <cstdio>
 
 // yytext, yyleng globals (http://flex.sourceforge.net/manual/Matching.html)
 #define SAVE_TOKEN yylval->str = new std::string(yytext, yyleng)
@@ -21,6 +20,8 @@ LPAREN "("
 RPAREN ")"
 LBRACE "{"
 RBRACE "}"
+LBRACKET "\["
+RBRACKET "\]"
 SEMICOLON ";"
 ADD "+"
 MULTIPLY "*"
@@ -49,10 +50,12 @@ WS [ \r\n\t]+
 {RPAREN} { return TOKEN_RPAREN; }
 {LBRACE} { return TOKEN_LBRACE; }
 {RBRACE} { return TOKEN_RBRACE; }
+{LBRACKET} { return TOKEN_LBRACKET; }
+{RBRACKET} { return TOKEN_RBRACKET; }
 {SEMICOLON} { return TOKEN_SEMICOLON; }
 {EQUALS} { return TOKEN_EQUALS; }
 {IDENTIFIER} { SAVE_TOKEN; return TOKEN_IDENTIFIER; }
 {TYPE_NAME} { SAVE_TOKEN; return TOKEN_TYPE_NAME; }
-. { printf("Unknown token!"); }
+. { std::cout << "Unknown token!" << std::endl; }
 
 %%
