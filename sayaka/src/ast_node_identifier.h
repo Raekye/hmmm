@@ -9,8 +9,9 @@ public:
 
 	ASTNodeIdentifier(std::string, ASTType*);
 
-	virtual llvm::Value* gen_code(CodeGen*) override;
 	virtual ~ASTNodeIdentifier();
+	virtual llvm::Value* gen_code(CodeGen*) override;
+	virtual ASTNodeIdentifier* pass_types(ASTType*, IdentifierScope) override;
 };
 
 #endif /* __AST_NODE_IDENTIFIER_H_ */

@@ -9,7 +9,9 @@
 %}
 
 /* (http://flex.sourceforge.net/manual/Code_002dLevel-And-API-Options.html) */
+/* (http://flex.sourceforge.net/manual/Index-of-Scanner-Options.html#Index-of-Scanner-Options) */
 %option reentrant
+%option debug
 %option noyywrap
 %option never-interactive
 %option nounistd

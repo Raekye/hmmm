@@ -2,7 +2,6 @@
 
 CodeGen::CodeGen() : builder(llvm::getGlobalContext()) {
 	this->module = new llvm::Module("top", llvm::getGlobalContext());
-	this->execution_engine = llvm::EngineBuilder(this->module).setErrorStr(&this->execution_engine_error_str).setEngineKind(llvm::EngineKind::JIT).create();
 	this->push_block(llvm::BasicBlock::Create(llvm::getGlobalContext()));
 }
 

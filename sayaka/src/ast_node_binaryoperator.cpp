@@ -13,6 +13,12 @@ ASTNodeBinaryOperator::~ASTNodeBinaryOperator() {
 	delete this->rhs;
 }
 
+ASTNodeBinaryOperator* ASTNodeBinaryOperator::pass_types(ASTType* type, IdentifierScope scope) {
+	this->lhs = this->lhs->pass_types(type, scope);
+	this->rhs = this->rhs->pass_types(type, scope);
+	return this;
+}
+
 llvm::Value* ASTNodeBinaryOperator::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating binary operator..." << std::endl;
 	this->lhs->type = this->type;

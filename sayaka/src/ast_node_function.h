@@ -10,8 +10,9 @@ public:
 
 	ASTNodeFunction(ASTNode*, ASTType*);
 
-	virtual llvm::Value* gen_code(CodeGen*) override;
 	virtual ~ASTNodeFunction();
+	virtual llvm::Value* gen_code(CodeGen*) override;
+	virtual ASTNodeFunction* pass_types(ASTType*, IdentifierScope) override;
 };
 
 #endif /* __AST_NODE_FUNCTION_H_ */

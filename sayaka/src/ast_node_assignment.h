@@ -11,8 +11,9 @@ public:
 
 	ASTNodeAssignment(ASTNodeIdentifier*, ASTNode*);
 
-	virtual llvm::Value* gen_code(CodeGen*) override;
 	virtual ~ASTNodeAssignment();
+	virtual llvm::Value* gen_code(CodeGen*) override;
+	virtual ASTNodeAssignment* pass_types(ASTType*, IdentifierScope) override;
 };
 
 #endif /* __AST_NODE_ASSIGNMENT_H_ */

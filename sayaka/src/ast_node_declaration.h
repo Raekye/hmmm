@@ -10,8 +10,9 @@ public:
 
 	ASTNodeDeclaration(ASTType*, ASTNodeIdentifier*);
 
-	virtual llvm::Value* gen_code(CodeGen*) override;
 	virtual ~ASTNodeDeclaration();
+	virtual llvm::Value* gen_code(CodeGen*) override;
+	virtual ASTNodeDeclaration* pass_types(ASTType*, IdentifierScope) override;
 };
 
 #endif /* __AST_NODE_DECLARATION_H_ */

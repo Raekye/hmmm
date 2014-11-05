@@ -44,11 +44,10 @@ typedef enum tagEBinaryOperationType {
 } EBinaryOperationType;
 
 class ASTType {
+private:
+	ASTType(std::string, llvm::Type*);
 public:
-	ASTType(std::string, std::vector<ASTType*>, std::vector<ASTType*>, llvm::Type*);
 	std::string name;
-	std::vector<ASTType*> extends;
-	std::vector<ASTType*> implements;
 	llvm::Type* llvm_type;
 
 	bool is_primitive();

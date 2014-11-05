@@ -12,6 +12,10 @@ ASTNodeIdentifier::~ASTNodeIdentifier() {
 	return;
 }
 
+ASTNodeIdentifier* ASTNodeIdentifier::pass_types(ASTType* type, IdentifierScope scope) {
+	return this;
+}
+
 llvm::Value* ASTNodeIdentifier::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating identifier " << this->name << std::endl;
 	ASTNode* val = code_gen->scope.get(this->name);

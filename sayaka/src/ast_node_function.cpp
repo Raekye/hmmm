@@ -11,6 +11,10 @@ ASTNodeFunction::~ASTNodeFunction() {
 	delete this->body;
 }
 
+ASTNodeFunction* ASTNodeFunction::pass_types(ASTType* type, IdentifierScope scope) {
+	return this;
+}
+
 llvm::Value* ASTNodeFunction::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating function..." << std::endl;
 	std::vector<llvm::Type*> arg_types;

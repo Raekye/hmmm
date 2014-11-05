@@ -6,12 +6,23 @@ ASTNodeBlock::ASTNodeBlock() {
 	return;
 }
 
-void ASTNodeBlock::push(ASTNode* node) {
-	this->statements.push_back(node);
+ASTNodeBlock::~ASTNodeBlock() {
+	for (std::vector<ASTNode*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
+		delete *it;
+	}
 }
 
-ASTNodeBlock::~ASTNodeBlock() {
-	return;
+ASTNodeBlock* ASTNodeBlock::pass_types(ASTType* type, IdentifierScope scope) {
+	scope.push();
+	for (std::vector<ASTNode*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
+		(*it) = (*it)->pass_types(type, scope);
+	}
+	scope.pop();
+	return this;
+}
+
+void ASTNodeBlock::push(ASTNode* node) {
+	this->statements.push_back(node);
 }
 
 llvm::Value* ASTNodeBlock::gen_code(CodeGen* code_gen) {

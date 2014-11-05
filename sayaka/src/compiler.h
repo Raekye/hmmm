@@ -3,9 +3,14 @@
 
 #include <string>
 #include "ast_node.h"
+#include "codegen.h"
 
 class Compiler {
 public:
+	llvm::ExecutionEngine* execution_engine;
+	CodeGen code_gen;
+	std::string execution_engine_error_str;
+
 	Compiler();
 	ASTNode* parse(std::string);
 	void run_code(ASTNode*);

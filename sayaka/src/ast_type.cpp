@@ -1,13 +1,8 @@
 #include "ast_type.h"
 #include <algorithm>
 
-ASTType::ASTType(std::string name, std::vector<ASTType*> extends = std::vector<ASTType*>(), std::vector<ASTType*> implements = std::vector<ASTType*>(), llvm::Type* llvm_type = NULL) {
-	if (ASTType::get(name) != NULL) {
-		// TODO: badness
-	}
+ASTType::ASTType(std::string name, llvm::Type* type = NULL) {
 	this->name = name;
-	this->extends = extends;
-	this->implements = implements;
 	ASTType::types[this->name] = this;
 }
 

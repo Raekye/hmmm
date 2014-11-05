@@ -19,16 +19,14 @@
 #include <llvm/Support/raw_ostream.h>
 #include <map>
 #include <stack>
-#include "codescope.h"
+#include "identifier_scope.h"
 
 class CodeGen {
 public:
 	llvm::Module* module;
-	llvm::ExecutionEngine* execution_engine;
 	std::stack<llvm::BasicBlock*> blocks;
 	llvm::IRBuilder<> builder;
-	std::string execution_engine_error_str;
-	CodeScope scope;
+	IdentifierScope scope;
 
 	CodeGen();
 	~CodeGen();

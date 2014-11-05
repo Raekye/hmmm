@@ -61,12 +61,13 @@ typedef void* yyscan_t;
 
 }
 
-%define api.pure
-//%define parse.error verbose
+%define api.pure full
+/*%define parse.error verbose*/
+%error-verbose
 %locations
-%lex-param { yyscan_t scanner }
+%lex-param { yyscan_t yyscanner }
 %parse-param { ASTNode** root }
-%parse-param { yyscan_t scanner }
+%parse-param { yyscan_t yyscanner }
 
 %union {
 	ASTNode* node;

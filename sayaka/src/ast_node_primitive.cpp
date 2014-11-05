@@ -15,6 +15,10 @@ ASTNodePrimitive::~ASTNodePrimitive() {
 	return;
 }
 
+ASTNodePrimitive* ASTNodePrimitive::pass_types(ASTType* type, IdentifierScope scope) {
+	return this;
+}
+
 llvm::Value* ASTNodePrimitive::gen_code(CodeGen* code_gen) {
 	std::cout << "Generating primitve number " << this->type->name << "..." << std::endl;
 	if (this->type == ASTType::double_ty()) {
