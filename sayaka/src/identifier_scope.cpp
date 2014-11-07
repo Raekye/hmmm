@@ -11,13 +11,13 @@ IdentifierScope::~IdentifierScope() {
 	}
 }
 
-void IdentifierScope::put(std::string key, ASTNodeIdentifier* val) {
-	(*this->stacks.back())[key] = val;
+void IdentifierScope::put(std::string key, CodeGenVariable* var) {
+	(*this->stacks.back())[key] = var;
 }
 
-ASTNodeIdentifier* IdentifierScope::get(std::string key) {
-	for (std::deque<std::map<std::string, ASTNodeIdentifier*>*>::reverse_iterator it = this->stacks.rbegin(); it != this->stacks.rend(); it++) {
-		std::map<std::string, ASTNodeIdentifier*>::iterator found = (*it)->find(key);
+CodeGenVariable* IdentifierScope::get(std::string key) {
+	for (std::deque<std::map<std::string, CodeGenVariable*>*>::reverse_iterator it = this->stacks.rbegin(); it != this->stacks.rend(); it++) {
+		std::map<std::string, CodeGenVariable*>::iterator found = (*it)->find(key);
 		if (found != (*it)->end()) {
 			return found->second;
 		}
@@ -34,11 +34,13 @@ bool IdentifierScope::in_top(std::string key) {
 }
 
 void IdentifierScope::push() {
-	std::map<std::string, ASTNodeIdentifier*>* scope = new std::map<std::string, ASTNodeIdentifier*>();
-	this->stacks.push_back(scope);
+	this->stacks.push_back(new std::map<std::string, CodeGenVariable*>());
 }
 
 void IdentifierScope::pop() {
+	for (std::map<std::string, CodeGenVariable*>::iterator it = this->stacks.back()->begin(); it != this->stacks.back()->end(); it++) {
+		delete it->second;
+	}
 	delete this->stacks.back();
 	this->stacks.pop_back();
 }

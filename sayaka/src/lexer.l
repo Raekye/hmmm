@@ -41,7 +41,6 @@ WS [ \r\n\t]+
 %%
 
 {WS} { /* pass */ }
-{NUMBER} { SAVE_TOKEN; return TOKEN_NUMBER; }
 
 {MULTIPLY} { return TOKEN_MULTIPLY; }
 {DIVIDE} { return TOKEN_DIVIDE; }
@@ -56,8 +55,11 @@ WS [ \r\n\t]+
 {RBRACKET} { return TOKEN_RBRACKET; }
 {SEMICOLON} { return TOKEN_SEMICOLON; }
 {EQUALS} { return TOKEN_EQUALS; }
+
+{NUMBER} { SAVE_TOKEN; return TOKEN_NUMBER; }
 {IDENTIFIER} { SAVE_TOKEN; return TOKEN_IDENTIFIER; }
 {TYPE_NAME} { SAVE_TOKEN; return TOKEN_TYPE_NAME; }
+
 . { std::cout << "Unknown token!" << std::endl; }
 
 %%

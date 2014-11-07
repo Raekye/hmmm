@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 		} else {
 			compiler.run_code(node);
 		}
-		delete node;
+		//delete node;
 	} else {
 		std::string line;
 		while (true) {
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 			} else {
 				compiler.run_code(node);
 			}
-			delete node;
+			//delete node;
 		}
 	}
 	std::cout << "Done." << std::endl;

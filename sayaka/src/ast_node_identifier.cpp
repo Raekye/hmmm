@@ -1,29 +1,30 @@
-#include "ast_node_identifier.h"
+#include "ast_node.h"
 
 #include <iostream>
 #include <sstream>
 
-ASTNodeIdentifier::ASTNodeIdentifier(std::string name, ASTType* type) {
+ASTNodeIdentifier::ASTNodeIdentifier(std::string name) {
 	this->name = name;
-	this->type = type;
 }
 
 ASTNodeIdentifier::~ASTNodeIdentifier() {
 	return;
 }
 
-ASTNodeIdentifier* ASTNodeIdentifier::pass_types(ASTType* type, IdentifierScope scope) {
+ASTNodeIdentifier* ASTNodeIdentifier::pass_types(CodeGenContext* code_gen_context, ASTType* type) {
+	CodeGenVariable* var = code_gen_context->scope.get(this->name);
+	if (var == NULL) {
+		throw std::runtime_error("Undeclared identifier");
+	}
+	this->type = std::get<0>(*var);
 	return this;
 }
 
-llvm::Value* ASTNodeIdentifier::gen_code(CodeGen* code_gen) {
-	std::cout << "Generating identifier " << this->name << std::endl;
-	ASTNode* val = code_gen->scope.get(this->name);
-	if (val == NULL) {
-		std::stringstream ss;
-		ss << "Undeclared variable " << this->name;
-		throw std::runtime_error(ss.str());
+llvm::Value* ASTNodeIdentifier::gen_code(CodeGenContext* code_gen_context) {
+	std::cout << "Generating identifier" << std::endl;
+	CodeGenVariable* var = code_gen_context->scope.get(this->name);
+	if (var == NULL) {
+		throw std::runtime_error("Undeclared variable");
 	}
-	//return new llvm::LoadInst(val->value, "", false, code_gen->current_block());
-	return NULL;
+	return code_gen_context->builder.CreateLoad(std::get<1>(*var), false, this->name);
 }

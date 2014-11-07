@@ -3,12 +3,12 @@
 
 #include <string>
 #include "ast_node.h"
-#include "codegen.h"
+#include "code_gen_context.h"
 
 class Compiler {
 public:
 	llvm::ExecutionEngine* execution_engine;
-	CodeGen code_gen;
+	CodeGenContext code_gen_context;
 	std::string execution_engine_error_str;
 
 	Compiler();

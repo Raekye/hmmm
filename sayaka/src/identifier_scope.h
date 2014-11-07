@@ -3,16 +3,22 @@
 
 #include <map>
 #include <deque>
-#include <llvm/IR/Value.h>
+#include <tuple>
+
+class ASTType;
+namespace llvm {
+	class Value;
+}
 
 class ASTNodeIdentifier;
+typedef std::tuple<ASTType*, llvm::Value*> CodeGenVariable;
 
 class IdentifierScope {
 public:
 	IdentifierScope();
 
-	void put(std::string, ASTNodeIdentifier*);
-	ASTNodeIdentifier* get(std::string);
+	void put(std::string, CodeGenVariable*);
+	CodeGenVariable* get(std::string);
 	bool contains(std::string);
 	bool in_top(std::string);
 	void push();
@@ -20,7 +26,7 @@ public:
 
 	~IdentifierScope();
 private:
-	std::deque<std::map<std::string, ASTNodeIdentifier*>*> stacks;
+	std::deque<std::map<std::string, CodeGenVariable*>*> stacks;
 };
 
 #endif // __IDENTIFIER_SCOPE_H_

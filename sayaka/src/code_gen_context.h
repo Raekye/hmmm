@@ -1,6 +1,7 @@
-#ifndef __CODEGEN_H_
-#define __CODEGEN_H_
+#ifndef __CODE_GEN_CONTEXT_H_
+#define __CODE_GEN_CONTEXT_H_
 
+#include <stack>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Type.h>
@@ -17,25 +18,27 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/Support/raw_ostream.h>
-#include <map>
-#include <stack>
 #include "identifier_scope.h"
+#include "ast_types_resolver.h"
 
-class CodeGen {
+class CodeGenContext {
 public:
 	llvm::Module* module;
-	std::stack<llvm::BasicBlock*> blocks;
 	llvm::IRBuilder<> builder;
+	llvm::LLVMContext& llvm_context;
+	std::stack<llvm::BasicBlock*> blocks;
 	IdentifierScope scope;
+	ASTTypesResolver ast_types_resolver;
 
-	CodeGen();
-	~CodeGen();
-	
+	CodeGenContext(llvm::LLVMContext& = llvm::getGlobalContext());
+	~CodeGenContext();
+
+	void push_block();
 	void push_block(llvm::BasicBlock*);
 	void pop_block();
 	llvm::BasicBlock* current_block();
 
-	static llvm::Type* llvm_pointer_ty();
+	llvm::Type* llvm_pointer_ty();
 };
 
-#endif // __CODEGEN_H_
+#endif /* __CODE_GEN_CONTEXT_H_ */
