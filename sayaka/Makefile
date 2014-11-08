@@ -13,6 +13,12 @@ OBJS = $(subst $(SRC_DIR),$(BIN_DIR),$(subst .cpp,.o,$(SOURCES)))
 
 all: $(BIN_DIR) $(PARSER_SOURCE) $(LEXER_SOURCE) $(BIN_DIR)/$(EXECUTABLE)
 
+debug: all
+	gdb $(BIN_DIR)/$(EXECUTABLE)
+
+valgrind: all
+	valgrind --leak-check=yes $(BIN_DIR)/$(EXECUTABLE)
+
 $(BIN_DIR)/$(EXECUTABLE): $(OBJS)
 	$(CC) $(OBJS) -o $(BIN_DIR)/$(EXECUTABLE) $(LLVM_LINKER_FLAGS) $(LDFLAGS)
 

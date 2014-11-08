@@ -18,7 +18,6 @@ ASTNode* Compiler::parse(std::string code) {
 	ASTNode* root;
 	yyscan_t scanner;
 	YY_BUFFER_STATE buffer;
-	// (http://flex.sourceforge.net/manual/Reentrant-Overview.html)
 	if (yylex_init(&scanner)) {
 		return NULL;
 	}
