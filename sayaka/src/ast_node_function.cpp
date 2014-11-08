@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-ASTNodeFunction::ASTNodeFunction(ASTNode* body, std::string return_type) {
+ASTNodeFunction::ASTNodeFunction(ASTNodeBlock* body, std::string return_type) {
 	this->body = body;
 	this->return_type = return_type;
 }

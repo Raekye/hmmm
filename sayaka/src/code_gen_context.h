@@ -2,6 +2,7 @@
 #define __CODE_GEN_CONTEXT_H_
 
 #include <stack>
+#include <list>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Type.h>
@@ -33,9 +34,10 @@ public:
 	CodeGenContext(llvm::LLVMContext& = llvm::getGlobalContext());
 	~CodeGenContext();
 
-	void push_block();
 	void push_block(llvm::BasicBlock*);
 	void pop_block();
+	void push_scope();
+	void pop_scope();
 	llvm::BasicBlock* current_block();
 
 	llvm::Type* llvm_pointer_ty();

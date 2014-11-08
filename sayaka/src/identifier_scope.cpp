@@ -1,5 +1,4 @@
 #include "identifier_scope.h"
-#include <iostream>
 
 IdentifierScope::IdentifierScope() {
 	return;

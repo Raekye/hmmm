@@ -140,10 +140,10 @@ public:
 
 class ASTNodeFunction : public ASTNode {
 public:
-	ASTNode* body;
+	ASTNodeBlock* body;
 	std::string return_type;
 
-	ASTNodeFunction(ASTNode*, std::string);
+	ASTNodeFunction(ASTNodeBlock*, std::string);
 
 	virtual ~ASTNodeFunction();
 	virtual llvm::Value* gen_code(CodeGenContext*) override;

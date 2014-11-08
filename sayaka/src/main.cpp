@@ -12,11 +12,11 @@ namespace boost {
 #endif // BOOST_NO_EXCEPTIONS
 
 int main(int argc, char* argv[]) {
-	Compiler::initialize();
 	Compiler compiler;
+	compiler.llvm_initialize();
+	compiler.initialize();
 	std::cout << "Started." << std::endl;
-	if (argc > 1) {
-		std::string str = "";
+	if (argc > 1) { std::string str = "";
 		std::ifstream f(argv[1]);
 		if (f.is_open()) {
 			std::string line;
@@ -49,6 +49,8 @@ int main(int argc, char* argv[]) {
 			//delete node;
 		}
 	}
+	compiler.shutdown();
+	compiler.llvm_shutdown();
 	std::cout << "Done." << std::endl;
 	return 0;
 }

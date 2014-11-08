@@ -28,11 +28,11 @@ ASTNodeBlock* ASTNodeBlock::pass_types(CodeGenContext* code_gen_context, ASTType
 
 llvm::Value* ASTNodeBlock::gen_code(CodeGenContext* code_gen_context) {
 	std::cout << "Generating block" << std::endl;
-	//code_gen_context->push_block();
+	code_gen_context->push_scope();
 	llvm::Value* last = NULL;
 	for (std::vector<ASTNode*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
 		last = (*it)->gen_code(code_gen_context);
 	}
-	//code_gen_context->pop_block();
+	code_gen_context->pop_scope();
 	return last;
 }
