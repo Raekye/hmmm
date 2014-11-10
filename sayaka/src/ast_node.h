@@ -2,36 +2,11 @@
 #define __AST_NODE_H_
 
 #include <iostream>
+#include <vector>
+#include <tuple>
 #include <llvm/IR/Value.h>
 #include "ast_type.h"
 #include "code_gen_context.h"
-
-union tagUNumberValue {
-	int8_t b;
-	uint8_t ub;
-	int16_t s;
-	uint16_t us;
-	int32_t i;
-	uint32_t ui;
-	int64_t l;
-	uint64_t ul;
-	float f;
-	double d;
-};
-
-
-enum tagENumberType {
-	eBYTE = 0,
-	eUBYTE = 1,
-	eSHORT = (1 << 1),
-	eUSHORT = (1 << 1) | 1,
-	eINT = (1 << 2),
-	eUINT = (1 << 2) | 1,
-	eLONG = (1 << 3),
-	eULONG = (1 << 3) | 1,
-	eFLOAT = (1 << 4),
-	eDOUBLE = (1 << 5),
-};
 
 enum tagEBinaryOperationType {
 	eMULTIPLY,
@@ -41,8 +16,6 @@ enum tagEBinaryOperationType {
 	ePOW,
 };
 
-typedef union tagUNumberValue UNumberValue;
-typedef enum tagENumberType ENumberType;
 typedef enum tagEBinaryOperationType EBinaryOperationType;
 
 class ASTNode {
@@ -67,7 +40,6 @@ public:
 
 class ASTNodePrimitive : public ASTNode {
 public:
-	UNumberValue val;
 	std::string str;
 
 	ASTNodePrimitive(std::string);
@@ -148,6 +120,31 @@ public:
 	virtual ~ASTNodeFunction();
 	virtual llvm::Value* gen_code(CodeGenContext*) override;
 	virtual ASTNodeFunction* pass_types(CodeGenContext*, ASTType*) override;
+};
+
+class ASTNodeFunctionPrototype : public ASTNode {
+public:
+	std::string return_type;
+	std::string function_name;
+	std::vector<std::tuple<std::string, std::string>>* args;
+
+	ASTNodeFunctionPrototype(std::string, std::string, std::vector<std::tuple<std::string, std::string>>*);
+
+	virtual ~ASTNodeFunctionPrototype();
+	virtual llvm::Value* gen_code(CodeGenContext*) override;
+	virtual ASTNodeFunctionPrototype* pass_types(CodeGenContext*, ASTType*) override;
+};
+
+class ASTNodeFunctionCall : public ASTNode {
+public:
+	std::string function_name;
+	std::vector<ASTNode*>* args;
+
+	ASTNodeFunctionCall(std::string, std::vector<ASTNode*>*);
+
+	virtual ~ASTNodeFunctionCall();
+	virtual llvm::Value* gen_code(CodeGenContext*) override;
+	virtual ASTNodeFunctionCall* pass_types(CodeGenContext*, ASTType*) override;
 };
 
 #endif /* __AST_NODE_H_ */

@@ -2,6 +2,8 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/ManagedStatic.h>
 
 void test_map_nonexisting_key() {
 	std::cout << "Testing map non-existing key" << std::endl;
@@ -57,11 +59,17 @@ void test_virtual_destructors() {
 	std::cout << "---" << std::endl;
 }
 
+void test_llvm_memory() {
+	llvm::InitializeNativeTarget();
+	llvm::llvm_shutdown();
+}
+
 int main() {
 	test_map_nonexisting_key();
 	test_pointer_size();
 	test_string_concat();
 	test_string_stream();
 	test_virtual_destructors();
+	test_llvm_memory();
 	return 0;
 }

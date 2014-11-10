@@ -15,6 +15,9 @@ void yyerror(YYLTYPE* llocp, ASTNode**, yyscan_t scanner, const char *s) {
 
 %code requires {
 
+#include <vector>
+#include <tuple>
+
 class ASTNode;
 class ASTNodeBlock;
 class ASTNodeIdentifier;
@@ -38,6 +41,8 @@ typedef void* yyscan_t;
 	ASTNode* node;
 	ASTNodeBlock* block;
 	ASTNodeIdentifier* identifier;
+	std::vector<std::tuple<std::string, std::string>>* typed_args_list;
+	std::vector<ASTNode*>* args_list;
 	std::string* str;
 }
 
@@ -48,11 +53,14 @@ typedef void* yyscan_t;
 
 %token TOKEN_LPAREN TOKEN_RPAREN TOKEN_SEMICOLON TOKEN_EQUALS TOKEN_LBRACE TOKEN_RBRACE TOKEN_LBRACKET TOKEN_RBRACKET
 %token TOKEN_ADD TOKEN_MULTIPLY TOKEN_DIVIDE TOKEN_SUBTRACT TOKEN_POW
+%token TOKEN_COMMA
 %token <str> TOKEN_NUMBER TOKEN_IDENTIFIER TOKEN_TYPE_NAME
 
-%type <node> program expr number binary_operator_expr assignment_expr variable_declaration_expr cast_expr
+%type <node> program expr number binary_operator_expr assignment_expr variable_declaration_expr cast_expr function_call_expr function_prototype_expr
 %type <block> stmts
 %type <identifier> identifier
+%type <typed_args_list> typed_args_list
+%type <args_list> args_list
 
 %start program
 
@@ -77,6 +85,8 @@ expr
 	| variable_declaration_expr { $$ = $1; }
 	| assignment_expr { $$ = $1; }
 	| cast_expr { $$ = $1; }
+	| function_prototype_expr { $$ = $1; }
+	| function_call_expr { $$ = $1; }
 	| binary_operator_expr { $$ = $1; }
 	;
 
@@ -119,4 +129,44 @@ binary_operator_expr
 	| expr TOKEN_DIVIDE expr { $$ = new ASTNodeBinaryOperator(eDIVIDE, $1, $3); }
 	| expr TOKEN_MULTIPLY expr { $$ = new ASTNodeBinaryOperator(eMULTIPLY, $1, $3); }
 	| expr TOKEN_POW expr { $$ = new ASTNodeBinaryOperator(ePOW, $1, $3); }
+	;
+
+function_prototype_expr
+	: TOKEN_TYPE_NAME TOKEN_IDENTIFIER TOKEN_LPAREN typed_args_list TOKEN_RPAREN {
+		$$ = new ASTNodeFunctionPrototype(*$1, *$2, $4);
+		delete $1;
+		delete $2;
+	}
+	;
+
+
+typed_args_list
+	: TOKEN_TYPE_NAME TOKEN_IDENTIFIER {
+		$$ = new std::vector<std::tuple<std::string, std::string>>();
+		$$->push_back(std::make_tuple(*$1, *$2));
+		delete $1;
+		delete $2;
+	}
+	| typed_args_list TOKEN_COMMA TOKEN_TYPE_NAME TOKEN_IDENTIFIER {
+		$$->push_back(std::make_tuple(*$3, *$4));
+		delete $3;
+		delete $4;
+	}
+	;
+
+args_list
+	: expr {
+		$$ = new std::vector<ASTNode*>();
+		$$->push_back($1);
+	}
+	| args_list TOKEN_COMMA expr {
+		$$->push_back($3);
+	}
+	;
+
+function_call_expr
+	: TOKEN_IDENTIFIER TOKEN_LPAREN args_list TOKEN_RPAREN {
+		$$ = new ASTNodeFunctionCall(*$1, $3);
+		delete $1;
+	}
 	;

@@ -29,6 +29,7 @@ SUBTRACT "-"
 DIVIDE "/"
 POW "*\\*"
 EQUALS "="
+COMMA ","
 
 IDENTIFIER [a-z_][a-zA-Z0-9_]*
 TYPE_NAME [A-Z][a-zA-Z0-9_]*
@@ -53,6 +54,7 @@ WS [ \r\n\t]+
 {RBRACKET} { return TOKEN_RBRACKET; }
 {SEMICOLON} { return TOKEN_SEMICOLON; }
 {EQUALS} { return TOKEN_EQUALS; }
+{COMMA} { return TOKEN_COMMA; }
 
 {NUMBER} { SAVE_TOKEN; return TOKEN_NUMBER; }
 {IDENTIFIER} { SAVE_TOKEN; return TOKEN_IDENTIFIER; }

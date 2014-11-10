@@ -11,6 +11,12 @@ namespace boost {
 }
 #endif // BOOST_NO_EXCEPTIONS
 
+extern "C" {
+	int32_t test_fn(int32_t x) {
+		return x * 2;
+	}
+}
+
 int main(int argc, char* argv[]) {
 	Compiler compiler;
 	compiler.llvm_initialize();
