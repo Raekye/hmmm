@@ -27,7 +27,7 @@ ADD "+"
 MULTIPLY "*"
 SUBTRACT "-"
 DIVIDE "/"
-POW "*\\*"
+POW "\\*\\*"
 EQUALS "="
 COMMA ","
 
@@ -55,6 +55,8 @@ WS [ \r\n\t]+
 {SEMICOLON} { return TOKEN_SEMICOLON; }
 {EQUALS} { return TOKEN_EQUALS; }
 {COMMA} { return TOKEN_COMMA; }
+if { return TOKEN_IF; }
+else { return TOKEN_ELSE; }
 
 {NUMBER} { SAVE_TOKEN; return TOKEN_NUMBER; }
 {IDENTIFIER} { SAVE_TOKEN; return TOKEN_IDENTIFIER; }

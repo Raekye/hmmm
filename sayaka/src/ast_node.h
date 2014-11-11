@@ -147,4 +147,17 @@ public:
 	virtual ASTNodeFunctionCall* pass_types(CodeGenContext*, ASTType*) override;
 };
 
+class ASTNodeIfElse : public ASTNode {
+public:
+	ASTNode* cond;
+	ASTNode* if_true;
+	ASTNode* if_false;
+
+	ASTNodeIfElse(ASTNode* cond, ASTNode* if_true, ASTNode* if_false);
+
+	virtual ~ASTNodeIfElse();
+	virtual llvm::Value* gen_code(CodeGenContext*) override;
+	virtual ASTNodeIfElse* pass_types(CodeGenContext*, ASTType*) override;
+};
+
 #endif /* __AST_NODE_H_ */

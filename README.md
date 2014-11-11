@@ -16,13 +16,13 @@ hmmm
 	- http://flex.sourceforge.net/manual/Reentrant.html
 	- http://flex.sourceforge.net/manual/Scanner-Options.html
 	- http://flex.sourceforge.net/manual/Index-of-Scanner-Options.html
-- https://www.gnu.org/software/bison/manual/html\_node/index.html
-	- https://www.gnu.org/software/bison/manual/html\_node/Grammar-File.html
-	- https://www.gnu.org/software/bison/manual/html\_node/Declarations.html (see "%define Summary", "%define api.pure")
-	- https://www.gnu.org/software/bison/manual/html\_node/Pure-Decl.html
-	- https://www.gnu.org/software/bison/manual/html\_node/Pure-Calling.html
-	- https://www.gnu.org/software/bison/manual/html\_node/Error-Reporting.html
-	- https://www.gnu.org/software/bison/manual/html\_node/Interface.html
+- https://www.gnu.org/software/bison/manual/html_node/index.html
+	- https://www.gnu.org/software/bison/manual/html_node/Grammar-File.html
+	- https://www.gnu.org/software/bison/manual/html_node/Declarations.html (see "%define Summary", "%define api.pure")
+	- https://www.gnu.org/software/bison/manual/html_node/Pure-Decl.html
+	- https://www.gnu.org/software/bison/manual/html_node/Pure-Calling.html
+	- https://www.gnu.org/software/bison/manual/html_node/Error-Reporting.html
+	- https://www.gnu.org/software/bison/manual/html_node/Interface.html
 
 ### Resources
 - http://stackoverflow.com/questions/3104389/can-i-bind-an-existing-method-to-a-llvm-function-and-use-it-from-jit-compiled-c

@@ -16,7 +16,6 @@ void yyerror(YYLTYPE* llocp, ASTNode**, yyscan_t scanner, const char *s) {
 %code requires {
 
 #include <vector>
-#include <tuple>
 
 class ASTNode;
 class ASTNodeBlock;
@@ -47,17 +46,18 @@ typedef void* yyscan_t;
 	std::string* str;
 }
 
+%right TOKEN_EQUALS
 %left TOKEN_ADD TOKEN_SUBTRACT
 %left TOKEN_MULTIPLY TOKEN_DIVIDE
 %left TOKEN_POW
-%left TOKEN_EQUALS TOKEN_RPAREN
+%left TOKEN_RPAREN
 
 %token TOKEN_LPAREN TOKEN_RPAREN TOKEN_SEMICOLON TOKEN_EQUALS TOKEN_LBRACE TOKEN_RBRACE TOKEN_LBRACKET TOKEN_RBRACKET
 %token TOKEN_ADD TOKEN_MULTIPLY TOKEN_DIVIDE TOKEN_SUBTRACT TOKEN_POW
-%token TOKEN_COMMA
+%token TOKEN_COMMA TOKEN_IF TOKEN_ELSE
 %token <str> TOKEN_NUMBER TOKEN_IDENTIFIER TOKEN_TYPE_NAME
 
-%type <node> program expr number binary_operator_expr assignment_expr variable_declaration_expr cast_expr function_call_expr function_prototype_expr function_expr
+%type <node> program expr number binary_operator_expr assignment_expr variable_declaration_expr cast_expr function_call_expr function_prototype_expr function_expr if_else_expr
 %type <block> stmts
 %type <identifier> identifier
 %type <typed_args_list> typed_args_list
@@ -86,6 +86,7 @@ expr
 	| variable_declaration_expr { $$ = $1; }
 	| assignment_expr { $$ = $1; }
 	| cast_expr { $$ = $1; }
+	| if_else_expr { $$ = $1; }
 	| function_expr { $$ = $1; }
 	| function_prototype_expr { $$ = $1; }
 	| function_call_expr { $$ = $1; }
@@ -122,6 +123,12 @@ cast_expr
 	: TOKEN_LPAREN TOKEN_TYPE_NAME TOKEN_RPAREN expr {
 		$$ = new ASTNodeCast(*$2, $4);
 		delete $2;
+	}
+	;
+
+if_else_expr
+	: TOKEN_IF TOKEN_LPAREN expr[cond] TOKEN_RPAREN TOKEN_LBRACE stmts[if_true] TOKEN_RBRACE TOKEN_ELSE TOKEN_LBRACE stmts[if_false] TOKEN_RBRACE {
+		$$ = new ASTNodeIfElse($cond, $if_true, $if_false);
 	}
 	;
 

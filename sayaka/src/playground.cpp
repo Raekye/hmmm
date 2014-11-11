@@ -4,6 +4,9 @@
 #include <sstream>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/ManagedStatic.h>
+#include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
 
 void test_map_nonexisting_key() {
 	std::cout << "Testing map non-existing key" << std::endl;
@@ -61,6 +64,10 @@ void test_virtual_destructors() {
 
 void test_llvm_memory() {
 	llvm::InitializeNativeTarget();
+	llvm::ExecutionEngine* a = llvm::EngineBuilder(new llvm::Module("a", llvm::getGlobalContext())).setEngineKind(llvm::EngineKind::JIT).create();
+	llvm::ExecutionEngine* b = llvm::EngineBuilder(new llvm::Module("b", llvm::getGlobalContext())).setEngineKind(llvm::EngineKind::JIT).create();
+	delete a;
+	delete b;
 	llvm::llvm_shutdown();
 }
 

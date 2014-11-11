@@ -7,6 +7,9 @@ ASTNodeFunctionPrototype::ASTNodeFunctionPrototype(std::string return_type, std:
 }
 
 ASTNodeFunctionPrototype::~ASTNodeFunctionPrototype() {
+	for (std::vector<ASTNodeDeclaration*>::iterator it = this->args->begin(); it != this->args->end(); it++) {
+		delete *it;
+	}
 	delete this->args;
 }
 

@@ -13,6 +13,7 @@ namespace boost {
 
 extern "C" {
 	int32_t test_fn(int32_t x) {
+		std::cout << (char) x << std::endl;
 		return x * 2;
 	}
 }
