@@ -21,10 +21,14 @@ ASTNodeIdentifier* ASTNodeIdentifier::pass_types(CodeGenContext* code_gen_contex
 }
 
 llvm::Value* ASTNodeIdentifier::gen_code(CodeGenContext* code_gen_context) {
-	std::cout << "Generating identifier" << std::endl;
+	std::cout << "Generating identifier " << this->name << std::endl;
 	CodeGenVariable* var = code_gen_context->scope.get(this->name);
 	if (var == NULL) {
 		throw std::runtime_error("Undeclared variable");
 	}
-	return code_gen_context->builder.CreateLoad(std::get<1>(*var), false, this->name);
+	llvm::Value* val = std::get<1>(*var);
+	if (llvm::AllocaInst* alloc = dynamic_cast<llvm::AllocaInst*>(val)) {
+		return code_gen_context->builder.CreateLoad(alloc, false, this->name);
+	}
+	return val;
 }

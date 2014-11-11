@@ -12,12 +12,10 @@ CodeGenContext::~CodeGenContext() {
 void CodeGenContext::push_block(llvm::BasicBlock* block) {
 	std::cout << "Pushing block" << std::endl;
 	this->blocks.push(block);
-	this->push_scope();
 	this->builder.SetInsertPoint(this->current_block());
 }
 
 void CodeGenContext::pop_block() {
-	this->pop_scope();
 	std::cout << "Popping block" << std::endl;
 	this->blocks.pop();
 	this->builder.SetInsertPoint(this->current_block());

@@ -29,11 +29,11 @@ ASTNode* Compiler::parse(std::string code) {
 }
 
 void Compiler::run_code(ASTNode* root) {
-	ASTNodeFunction main_fn((ASTNodeBlock*) root, "Int");
+	std::vector<ASTNodeDeclaration*>* args = new std::vector<ASTNodeDeclaration*>();
+	ASTNodeFunctionPrototype* main_fn_prototype = new ASTNodeFunctionPrototype("Int", "main", args);
+	ASTNodeFunction main_fn(main_fn_prototype, (ASTNodeBlock*) root);
 	main_fn.pass_types(&this->code_gen_context, NULL);
 	llvm::Function* main_fn_val = (llvm::Function*) main_fn.gen_code(&this->code_gen_context);
-	std::cout << "Main fn code:" << std::endl;
-	main_fn_val->dump();
 	void* fn_ptr = this->execution_engine->getPointerToFunction(main_fn_val);
 	int32_t ret = ((int32_t (*)()) fn_ptr)();
 	std::cout << "Main fn at " << fn_ptr << "; executed: " << ret << std::endl;

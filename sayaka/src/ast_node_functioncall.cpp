@@ -21,6 +21,7 @@ ASTNodeFunctionCall* ASTNodeFunctionCall::pass_types(CodeGenContext* code_gen_co
 }
 
 llvm::Value* ASTNodeFunctionCall::gen_code(CodeGenContext* code_gen_context) {
+	std::cout << "Generating function call" << std::endl;
 	llvm::Function* callee = code_gen_context->module->getFunction(this->function_name);
 	if (callee == NULL) {
 		throw std::runtime_error("Unknown function called");

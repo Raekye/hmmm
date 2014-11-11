@@ -21,6 +21,7 @@ void yyerror(YYLTYPE* llocp, ASTNode**, yyscan_t scanner, const char *s) {
 class ASTNode;
 class ASTNodeBlock;
 class ASTNodeIdentifier;
+class ASTNodeDeclaration;
 
 #ifndef YY_TYPEDEF_YY_SCANNER_T
 #define YY_TYPEDEF_YY_SCANNER_T
@@ -41,7 +42,7 @@ typedef void* yyscan_t;
 	ASTNode* node;
 	ASTNodeBlock* block;
 	ASTNodeIdentifier* identifier;
-	std::vector<std::tuple<std::string, std::string>>* typed_args_list;
+	std::vector<ASTNodeDeclaration*>* typed_args_list;
 	std::vector<ASTNode*>* args_list;
 	std::string* str;
 }
@@ -56,7 +57,7 @@ typedef void* yyscan_t;
 %token TOKEN_COMMA
 %token <str> TOKEN_NUMBER TOKEN_IDENTIFIER TOKEN_TYPE_NAME
 
-%type <node> program expr number binary_operator_expr assignment_expr variable_declaration_expr cast_expr function_call_expr function_prototype_expr
+%type <node> program expr number binary_operator_expr assignment_expr variable_declaration_expr cast_expr function_call_expr function_prototype_expr function_expr
 %type <block> stmts
 %type <identifier> identifier
 %type <typed_args_list> typed_args_list
@@ -85,6 +86,7 @@ expr
 	| variable_declaration_expr { $$ = $1; }
 	| assignment_expr { $$ = $1; }
 	| cast_expr { $$ = $1; }
+	| function_expr { $$ = $1; }
 	| function_prototype_expr { $$ = $1; }
 	| function_call_expr { $$ = $1; }
 	| binary_operator_expr { $$ = $1; }
@@ -139,18 +141,19 @@ function_prototype_expr
 	}
 	;
 
+function_expr
+	: function_prototype_expr TOKEN_LBRACE stmts TOKEN_RBRACE {
+		$$ = new ASTNodeFunction((ASTNodeFunctionPrototype*) $1, $3);
+	}
+	;
 
 typed_args_list
-	: TOKEN_TYPE_NAME TOKEN_IDENTIFIER {
-		$$ = new std::vector<std::tuple<std::string, std::string>>();
-		$$->push_back(std::make_tuple(*$1, *$2));
-		delete $1;
-		delete $2;
+	: variable_declaration_expr {
+		$$ = new std::vector<ASTNodeDeclaration*>();
+		$$->push_back((ASTNodeDeclaration*) $1);
 	}
-	| typed_args_list TOKEN_COMMA TOKEN_TYPE_NAME TOKEN_IDENTIFIER {
-		$$->push_back(std::make_tuple(*$3, *$4));
-		delete $3;
-		delete $4;
+	| typed_args_list TOKEN_COMMA variable_declaration_expr {
+		$$->push_back((ASTNodeDeclaration*) $3);
 	}
 	;
 

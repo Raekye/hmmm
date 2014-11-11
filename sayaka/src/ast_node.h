@@ -110,29 +110,29 @@ public:
 	virtual ASTNodeBinaryOperator* pass_types(CodeGenContext*, ASTType*) override;
 };
 
-class ASTNodeFunction : public ASTNode {
-public:
-	ASTNodeBlock* body;
-	std::string return_type;
-
-	ASTNodeFunction(ASTNodeBlock*, std::string);
-
-	virtual ~ASTNodeFunction();
-	virtual llvm::Value* gen_code(CodeGenContext*) override;
-	virtual ASTNodeFunction* pass_types(CodeGenContext*, ASTType*) override;
-};
-
 class ASTNodeFunctionPrototype : public ASTNode {
 public:
 	std::string return_type;
 	std::string function_name;
-	std::vector<std::tuple<std::string, std::string>>* args;
+	std::vector<ASTNodeDeclaration*>* args;
 
-	ASTNodeFunctionPrototype(std::string, std::string, std::vector<std::tuple<std::string, std::string>>*);
+	ASTNodeFunctionPrototype(std::string, std::string, std::vector<ASTNodeDeclaration*>*);
 
 	virtual ~ASTNodeFunctionPrototype();
 	virtual llvm::Value* gen_code(CodeGenContext*) override;
 	virtual ASTNodeFunctionPrototype* pass_types(CodeGenContext*, ASTType*) override;
+};
+
+class ASTNodeFunction : public ASTNode {
+public:
+	ASTNodeFunctionPrototype* prototype;
+	ASTNodeBlock* body;
+
+	ASTNodeFunction(ASTNodeFunctionPrototype*, ASTNodeBlock*);
+
+	virtual ~ASTNodeFunction();
+	virtual llvm::Value* gen_code(CodeGenContext*) override;
+	virtual ASTNodeFunction* pass_types(CodeGenContext*, ASTType*) override;
 };
 
 class ASTNodeFunctionCall : public ASTNode {

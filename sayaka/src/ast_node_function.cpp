@@ -2,30 +2,31 @@
 
 #include <iostream>
 
-ASTNodeFunction::ASTNodeFunction(ASTNodeBlock* body, std::string return_type) {
+ASTNodeFunction::ASTNodeFunction(ASTNodeFunctionPrototype* prototype, ASTNodeBlock* body) {
+	this->prototype = prototype;
 	this->body = body;
-	this->return_type = return_type;
 }
 
 ASTNodeFunction::~ASTNodeFunction() {
+	delete this->prototype;
 	delete this->body;
 }
 
 ASTNodeFunction* ASTNodeFunction::pass_types(CodeGenContext* code_gen_context, ASTType* ignore) {
 	this->type = NULL; // TODO;
-	this->body = this->body->pass_types(code_gen_context, code_gen_context->ast_types_resolver.get(this->return_type));
+	this->prototype = this->prototype->pass_types(code_gen_context, NULL);
+	this->body = this->body->pass_types(code_gen_context, code_gen_context->ast_types_resolver.get(this->prototype->return_type));
 	return this;
 }
 
 llvm::Value* ASTNodeFunction::gen_code(CodeGenContext* code_gen_context) {
-	std::cout << "Generating function" << std::endl;
+	std::cout << "Generating function " << this->prototype->function_name << std::endl;
 	std::vector<llvm::Type*> arg_types;
-	ASTType* type = code_gen_context->ast_types_resolver.get(this->return_type);
+	ASTType* type = code_gen_context->ast_types_resolver.get(this->prototype->return_type);
 	if (type == NULL) {
 		throw std::runtime_error("Unknown type");
 	}
-	llvm::FunctionType* fn_type = llvm::FunctionType::get(type->llvm_type, arg_types, false);
-	llvm::Function* fn = llvm::Function::Create(fn_type, llvm::Function::ExternalLinkage, "", code_gen_context->module);
+	llvm::Function* fn = (llvm::Function*) this->prototype->gen_code(code_gen_context);
 	
 	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", fn);
 	code_gen_context->push_block(basic_block);
@@ -35,6 +36,7 @@ llvm::Value* ASTNodeFunction::gen_code(CodeGenContext* code_gen_context) {
 		code_gen_context->builder.CreateRet(ret_val);
 		llvm::verifyFunction(*fn);
 		code_gen_context->pop_block();
+		fn->dump();
 		return fn;
 	}
 	code_gen_context->pop_block();
