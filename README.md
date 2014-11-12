@@ -11,6 +11,9 @@ hmmm
 - gdb (debug)
 - valgrind (debug)
 
+# TODO
+- function types
+
 # Flex and Bison stuff
 - http://flex.sourceforge.net/manual/
 	- http://flex.sourceforge.net/manual/Reentrant.html

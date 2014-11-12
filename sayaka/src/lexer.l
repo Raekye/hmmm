@@ -13,6 +13,7 @@
 %option noyywrap
 %option never-interactive
 %option nounistd
+%option yylineno
 %option bison-bridge
 %option bison-locations
 

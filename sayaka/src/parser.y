@@ -21,6 +21,7 @@ class ASTNode;
 class ASTNodeBlock;
 class ASTNodeIdentifier;
 class ASTNodeDeclaration;
+class ASTNodeFunctionPrototype;
 
 #ifndef YY_TYPEDEF_YY_SCANNER_T
 #define YY_TYPEDEF_YY_SCANNER_T
@@ -41,6 +42,8 @@ typedef void* yyscan_t;
 	ASTNode* node;
 	ASTNodeBlock* block;
 	ASTNodeIdentifier* identifier;
+	ASTNodeFunctionPrototype* function_prototype;
+	ASTNodeDeclaration* declaration;
 	std::vector<ASTNodeDeclaration*>* typed_args_list;
 	std::vector<ASTNode*>* args_list;
 	std::string* str;
@@ -58,9 +61,11 @@ typedef void* yyscan_t;
 %token TOKEN_COMMA TOKEN_IF TOKEN_ELSE
 %token <str> TOKEN_NUMBER TOKEN_IDENTIFIER TOKEN_TYPE_NAME
 
-%type <node> program expr number binary_operator_expr assignment_expr declaration_expr cast_expr function_call_expr function_prototype_expr function_expr if_else_expr
+%type <node> program expr number binary_operator_expr assignment_expr cast_expr function_call_expr function_expr if_else_expr
 %type <block> stmts
 %type <identifier> identifier
+%type <function_prototype> function_prototype_expr
+%type <declaration> declaration_expr
 %type <typed_args_list> typed_args_list
 %type <args_list> args_list
 
@@ -89,9 +94,16 @@ expr
 	| cast_expr { $$ = $1; }
 	| if_else_expr { $$ = $1; }
 	| function_expr { $$ = $1; }
-	| function_prototype_expr { $$ = $1; }
+	| function_prototype_expr { $$ = new ASTNodeFunction($1, NULL); }
 	| function_call_expr { $$ = $1; }
 	| binary_operator_expr { $$ = $1; }
+	| declaration_expr TOKEN_ASSIGN expr {
+		std::cout << "here" << std::endl;
+		ASTNodeBlock* block = new ASTNodeBlock();
+		block->push($1);
+		block->push(new ASTNodeAssignment(new ASTNodeIdentifier($1->var_name), $3));
+		$$ = block;
+	}
 	;
 
 identifier
@@ -157,7 +169,7 @@ function_prototype_expr
 
 function_expr
 	: function_prototype_expr TOKEN_LBRACE stmts TOKEN_RBRACE {
-		$$ = new ASTNodeFunction((ASTNodeFunctionPrototype*) $1, $3);
+		$$ = new ASTNodeFunction($1, $3);
 	}
 	;
 
@@ -171,10 +183,10 @@ function_call_expr
 typed_args_list
 	: declaration_expr {
 		$$ = new std::vector<ASTNodeDeclaration*>();
-		$$->push_back((ASTNodeDeclaration*) $1);
+		$$->push_back($1);
 	}
 	| typed_args_list TOKEN_COMMA declaration_expr {
-		$$->push_back((ASTNodeDeclaration*) $3);
+		$$->push_back($3);
 	}
 	;
 

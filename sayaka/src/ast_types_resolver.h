@@ -6,20 +6,22 @@
 
 class ASTTypesResolver {
 public:
-	ASTTypesResolver();
+	llvm::LLVMContext& llvm_context;
+
+	ASTTypesResolver(llvm::LLVMContext& llvm_context);
 	ASTType* get(std::string);
 
-	ASTType* bit_ty();
-	ASTType* byte_ty();
-	ASTType* ubyte_ty();
-	ASTType* short_ty();
-	ASTType* ushort_ty();
-	ASTType* int_ty();
-	ASTType* uint_ty();
-	ASTType* long_ty();
-	ASTType* ulong_ty();
-	ASTType* float_ty();
-	ASTType* double_ty();
+	ASTType* bit_ty(bool = false);
+	ASTType* byte_ty(bool = false);
+	ASTType* ubyte_ty(bool = false);
+	ASTType* short_ty(bool = false);
+	ASTType* ushort_ty(bool = false);
+	ASTType* int_ty(bool = false);
+	ASTType* uint_ty(bool = false);
+	ASTType* long_ty(bool = false);
+	ASTType* ulong_ty(bool = false);
+	ASTType* float_ty(bool = false);
+	ASTType* double_ty(bool = false);
 
 	~ASTTypesResolver();
 private:

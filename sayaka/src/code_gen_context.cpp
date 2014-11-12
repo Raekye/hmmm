@@ -1,7 +1,7 @@
 #include "code_gen_context.h"
 #include <iostream>
 
-CodeGenContext::CodeGenContext(llvm::LLVMContext& llvm_context) : builder(llvm_context), llvm_context(llvm_context) {
+CodeGenContext::CodeGenContext(llvm::LLVMContext& llvm_context) : builder(llvm_context), llvm_context(llvm_context), ast_types_resolver(llvm_context) {
 	this->module = new llvm::Module("top", this->llvm_context);
 }
 

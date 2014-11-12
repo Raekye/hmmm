@@ -1,12 +1,10 @@
+Int test_fn(Int x);
+
 Int fib(Int x) {
-	Int zero;
-	zero = 0;
-	Int one;
-	one = 1;
-	if (x <= zero) {
+	if (x <= 0) {
 		0;
 	} else {
-		if (x == one) {
+		if (x == 1) {
 			1;
 		} else {
 			fib(x - 1) + fib(x - 2);
@@ -14,6 +12,14 @@ Int fib(Int x) {
 	};
 };
 
-Int n;
-n = 10;
-fib(n);
+Int loop(Int x) {
+	if (x == 0) {
+		0;
+	} else {
+		test_fn(x);
+		loop(x - 1);
+	};
+};
+
+Int n = 10;
+fib(n) + loop(n);

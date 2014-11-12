@@ -17,22 +17,18 @@ void ASTNodeBlock::push(ASTNode* node) {
 }
 
 ASTNodeBlock* ASTNodeBlock::pass_types(CodeGenContext* code_gen_context, ASTType* type) {
-	code_gen_context->scope.push();
 	for (std::vector<ASTNode*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
 		(*it) = (*it)->pass_types(code_gen_context, type);
 	}
-	code_gen_context->scope.pop();
 	this->type = this->statements.back()->type;
 	return this;
 }
 
 llvm::Value* ASTNodeBlock::gen_code(CodeGenContext* code_gen_context) {
 	std::cout << "Generating block" << std::endl;
-	code_gen_context->push_scope();
 	llvm::Value* last = NULL;
 	for (std::vector<ASTNode*>::iterator it = this->statements.begin(); it != this->statements.end(); it++) {
 		last = (*it)->gen_code(code_gen_context);
 	}
-	code_gen_context->pop_scope();
 	return last;
 }
