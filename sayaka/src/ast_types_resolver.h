@@ -9,6 +9,7 @@ public:
 	ASTTypesResolver();
 	ASTType* get(std::string);
 
+	ASTType* bit_ty();
 	ASTType* byte_ty();
 	ASTType* ubyte_ty();
 	ASTType* short_ty();

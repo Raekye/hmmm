@@ -13,7 +13,7 @@ ASTNodeFunctionCall::~ASTNodeFunctionCall() {
 }
 
 ASTNodeFunctionCall* ASTNodeFunctionCall::pass_types(CodeGenContext* code_gen_context, ASTType* type) {
-	this->type = code_gen_context->ast_types_resolver.double_ty();
+	this->type = code_gen_context->ast_types_resolver.int_ty(); // TODO: lookup
 	for (std::vector<ASTNode*>::iterator it = this->args->begin(); it != this->args->end(); it++) {
 		*it = (*it)->pass_types(code_gen_context, type);
 	}

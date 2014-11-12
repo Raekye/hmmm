@@ -1,17 +1,19 @@
-Int n;
-
 Int fib(Int x) {
-	Int a;
-	a = x - 1;
-	if (x) {
-		if (a) {
-			fib(x - 1) + fib(x - 2);
-		} else {
-			1;
-		};
-	} else {
+	Int zero;
+	zero = 0;
+	Int one;
+	one = 1;
+	if (x <= zero) {
 		0;
+	} else {
+		if (x == one) {
+			1;
+		} else {
+			fib(x - 1) + fib(x - 2);
+		};
 	};
 };
 
-fib(10);
+Int n;
+n = 10;
+fib(n);

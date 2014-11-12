@@ -28,8 +28,14 @@ MULTIPLY "*"
 SUBTRACT "-"
 DIVIDE "/"
 POW "\\*\\*"
-EQUALS "="
+ASSIGN "="
 COMMA ","
+EQ "=="
+NEQ "!="
+LT "<"
+GT ">"
+LEQ "<="
+GEQ ">="
 
 IDENTIFIER [a-z_][a-zA-Z0-9_]*
 TYPE_NAME [A-Z][a-zA-Z0-9_]*
@@ -53,8 +59,14 @@ WS [ \r\n\t]+
 {LBRACKET} { return TOKEN_LBRACKET; }
 {RBRACKET} { return TOKEN_RBRACKET; }
 {SEMICOLON} { return TOKEN_SEMICOLON; }
-{EQUALS} { return TOKEN_EQUALS; }
+{ASSIGN} { return TOKEN_ASSIGN; }
 {COMMA} { return TOKEN_COMMA; }
+{EQ} { return TOKEN_EQ; }
+{NEQ} { return TOKEN_NEQ; }
+{LT} { return TOKEN_LT; }
+{GT} { return TOKEN_GT; }
+{LEQ} { return TOKEN_LEQ; }
+{GEQ} { return TOKEN_GEQ; }
 if { return TOKEN_IF; }
 else { return TOKEN_ELSE; }
 

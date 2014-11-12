@@ -1,6 +1,7 @@
 #include "ast_types_resolver.h"
 
 ASTTypesResolver::ASTTypesResolver() {
+	this->put(this->bit_ty());
 	this->put(this->byte_ty());
 	this->put(this->short_ty());
 	this->put(this->int_ty());
@@ -25,6 +26,16 @@ ASTType* ASTTypesResolver::get(std::string name) {
 
 void ASTTypesResolver::put(ASTType* type) {
 	this->types_map[type->name] = type;
+}
+
+ASTType* ASTTypesResolver::bit_ty() {
+	if (this->get("Bit") != NULL) {
+		return this->get("Bit");
+	}
+	ASTType* instance = new ASTType("Bit");
+	instance->llvm_type = llvm::Type::getInt1Ty(llvm::getGlobalContext());
+	instance->primitive = true;
+	return instance;
 }
 
 ASTType* ASTTypesResolver::byte_ty() {

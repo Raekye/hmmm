@@ -21,7 +21,8 @@ ASTNodeIfElse* ASTNodeIfElse::pass_types(CodeGenContext* code_gen_context, ASTTy
 }
 
 llvm::Value* ASTNodeIfElse::gen_code(CodeGenContext* code_gen_context) {
-	llvm::Value* cond_val = code_gen_context->builder.CreateICmpNE(this->cond->gen_code(code_gen_context), llvm::ConstantInt::get(llvm::Type::getInt32Ty(code_gen_context->llvm_context), 0, true), "ifcond");
+	//llvm::Value* cond_val = code_gen_context->builder.CreateICmpNE(this->cond->gen_code(code_gen_context), llvm::ConstantInt::get(code_gen_context->ast_types_resolver.int_ty()->llvm_type, 0, true), "ifcond");
+	llvm::Value* cond_val = this->cond->gen_code(code_gen_context);
 
 	llvm::Function* fn = code_gen_context->builder.GetInsertBlock()->getParent();
 	llvm::BasicBlock* if_true_block = llvm::BasicBlock::Create(code_gen_context->llvm_context, "if_true", fn);

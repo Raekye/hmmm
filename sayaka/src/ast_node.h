@@ -9,11 +9,17 @@
 #include "code_gen_context.h"
 
 enum tagEBinaryOperationType {
-	eMULTIPLY,
-	eADD,
-	eSUBTRACT,
-	eDIVIDE,
-	ePOW,
+	eADD = 1,
+	eSUBTRACT = 3,
+	eMULTIPLY = 5,
+	eDIVIDE = 7,
+	ePOW = 9,
+	eEQ = 0,
+	eNEQ = 2,
+	eLT = 4,
+	eGT = 6,
+	eLEQ = 8,
+	eGEQ = 10,
 };
 
 typedef enum tagEBinaryOperationType EBinaryOperationType;
