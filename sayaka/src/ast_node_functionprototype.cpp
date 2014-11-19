@@ -13,7 +13,7 @@ ASTNodeFunctionPrototype::~ASTNodeFunctionPrototype() {
 	delete this->args;
 }
 
-ASTNodeFunctionPrototype* ASTNodeFunctionPrototype::pass_types(CodeGenContext* code_gen_context, ASTType* type) {
+ASTNodeFunctionPrototype* ASTNodeFunctionPrototype::pass_types(CodeGenContext* code_gen_context, ASTType* ignore) {
 	this->type = code_gen_context->ast_types_resolver.int_ty(); // TODO
 	for (std::vector<ASTNodeDeclaration*>::iterator it = this->args->begin(); it != this->args->end(); it++) {
 		*it = (*it)->pass_types(code_gen_context, NULL);

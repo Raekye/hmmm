@@ -24,9 +24,13 @@ enum tagEBinaryOperationType {
 
 typedef enum tagEBinaryOperationType EBinaryOperationType;
 
+class IASTNodeVisitor;
+
 class ASTNode {
 public:
 	ASTType* type;
+
+	void accept(IASTNodeVisitor*);
 
 	virtual ~ASTNode() = 0;
 	virtual llvm::Value* gen_code(CodeGenContext*) = 0;
@@ -164,6 +168,22 @@ public:
 	virtual ~ASTNodeIfElse();
 	virtual llvm::Value* gen_code(CodeGenContext*) override;
 	virtual ASTNodeIfElse* pass_types(CodeGenContext*, ASTType*) override;
+};
+
+class IASTNodeVisitor {
+public:
+	void visit(ASTNode*);
+	virtual void visit(ASTNodeIdentifier*) = 0;
+	virtual void visit(ASTNodePrimitive*) = 0;
+	virtual void visit(ASTNodeDeclaration*) = 0;
+	virtual void visit(ASTNodeBlock*) = 0;
+	virtual void visit(ASTNodeCast*) = 0;
+	virtual void visit(ASTNodeAssignment*) = 0;
+	virtual void visit(ASTNodeBinaryOperator*) = 0;
+	virtual void visit(ASTNodeFunctionPrototype*) = 0;
+	virtual void visit(ASTNodeFunction*) = 0;
+	virtual void visit(ASTNodeFunctionCall*) = 0;
+	virtual void visit(ASTNodeIfElse*) = 0;
 };
 
 #endif /* __AST_NODE_H_ */

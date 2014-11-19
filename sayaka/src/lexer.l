@@ -3,7 +3,6 @@
 #include <iostream>
 #include "parser.h"
 
-// yytext, yyleng globals (http://flex.sourceforge.net/manual/Matching.html)
 #define SAVE_TOKEN yylval->str = new std::string(yytext, yyleng)
 
 %}
@@ -37,6 +36,7 @@ LT "<"
 GT ">"
 LEQ "<="
 GEQ ">="
+COLON ":"
 
 IDENTIFIER [a-z_][a-zA-Z0-9_]*
 TYPE_NAME [A-Z][a-zA-Z0-9_]*
@@ -68,8 +68,11 @@ WS [ \r\n\t]+
 {GT} { return TOKEN_GT; }
 {LEQ} { return TOKEN_LEQ; }
 {GEQ} { return TOKEN_GEQ; }
+{COLON} { return TOKEN_COLON; }
 if { return TOKEN_IF; }
 else { return TOKEN_ELSE; }
+var { return TOKEN_VAR; }
+val { return TOKEN_VAL; }
 
 {NUMBER} { SAVE_TOKEN; return TOKEN_NUMBER; }
 {IDENTIFIER} { SAVE_TOKEN; return TOKEN_IDENTIFIER; }

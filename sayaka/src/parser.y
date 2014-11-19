@@ -56,9 +56,10 @@ typedef void* yyscan_t;
 %left TOKEN_POW
 %left TOKEN_RPAREN
 
-%token TOKEN_LPAREN TOKEN_RPAREN TOKEN_SEMICOLON TOKEN_ASSIGN TOKEN_LBRACE TOKEN_RBRACE TOKEN_LBRACKET TOKEN_RBRACKET
+%token TOKEN_LPAREN TOKEN_RPAREN TOKEN_ASSIGN TOKEN_LBRACE TOKEN_RBRACE TOKEN_LBRACKET TOKEN_RBRACKET
 %token TOKEN_ADD TOKEN_MULTIPLY TOKEN_DIVIDE TOKEN_SUBTRACT TOKEN_POW
-%token TOKEN_COMMA TOKEN_IF TOKEN_ELSE
+%token TOKEN_COMMA TOKEN_IF TOKEN_ELSE TOKEN_VAR TOKEN_VAL
+%token TOKEN_SEMICOLON TOKEN_COLON
 %token <str> TOKEN_NUMBER TOKEN_IDENTIFIER TOKEN_TYPE_NAME
 
 %type <node> program expr number binary_operator_expr assignment_expr cast_expr function_call_expr function_expr if_else_expr
@@ -125,10 +126,10 @@ assignment_expr
 	;
 
 declaration_expr
-	: TOKEN_TYPE_NAME TOKEN_IDENTIFIER {
-		$$ = new ASTNodeDeclaration(*$1, *$2);
-		delete $1;
+	: TOKEN_VAR TOKEN_IDENTIFIER TOKEN_COLON TOKEN_TYPE_NAME {
+		$$ = new ASTNodeDeclaration(*$4, *$2);
 		delete $2;
+		delete $4;
 	}
 	;
 

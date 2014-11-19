@@ -19,6 +19,7 @@ hmmm
 	- http://flex.sourceforge.net/manual/Reentrant.html
 	- http://flex.sourceforge.net/manual/Scanner-Options.html
 	- http://flex.sourceforge.net/manual/Index-of-Scanner-Options.html
+	- http://flex.sourceforge.net/manual/Matching.html
 - https://www.gnu.org/software/bison/manual/html_node/index.html
 	- https://www.gnu.org/software/bison/manual/html_node/Grammar-File.html
 	- https://www.gnu.org/software/bison/manual/html_node/Declarations.html (see "%define Summary", "%define api.pure")

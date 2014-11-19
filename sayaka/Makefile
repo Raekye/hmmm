@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -c -g -std=c++11 -fexceptions
+CFLAGS = -c -g -Wall -Wextra -std=c++11 -fexceptions
 LDFLAGS = -g -rdynamic
 LLVM_COMPILER_FLAGS = $(shell llvm-config --cxxflags)
 LLVM_LINKER_FLAGS = $(shell llvm-config --ldflags --libs core jit native)

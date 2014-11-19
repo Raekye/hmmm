@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
 			//delete node;
 		}
 	}
+	compiler.code_gen_context.module->dump();
 	compiler.shutdown();
 	compiler.llvm_shutdown();
 	std::cout << "Done." << std::endl;

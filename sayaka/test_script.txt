@@ -1,6 +1,6 @@
-Int test_fn(Int x);
+Int test_fn(var x: Int);
 
-Int fib(Int x) {
+Int fib(var x: Int) {
 	if (x <= 0) {
 		0;
 	} else {
@@ -12,7 +12,7 @@ Int fib(Int x) {
 	};
 };
 
-Int loop(Int x) {
+Int loop(var x: Int) {
 	if (x == 0) {
 		0;
 	} else {
@@ -21,5 +21,5 @@ Int loop(Int x) {
 	};
 };
 
-Int n = 10;
+var n: Int = 10;
 fib(n) + loop(n);

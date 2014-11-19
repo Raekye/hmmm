@@ -11,7 +11,7 @@ ASTNodeIdentifier::~ASTNodeIdentifier() {
 	return;
 }
 
-ASTNodeIdentifier* ASTNodeIdentifier::pass_types(CodeGenContext* code_gen_context, ASTType* type) {
+ASTNodeIdentifier* ASTNodeIdentifier::pass_types(CodeGenContext* code_gen_context, ASTType* ignore) {
 	CodeGenVariable* var = code_gen_context->scope.get(this->name);
 	if (var == NULL) {
 		throw std::runtime_error("Undeclared identifier");
