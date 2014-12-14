@@ -9,6 +9,11 @@ public:
 			std::cout << "\t";
 		}
 	}
+	virtual void visit(RegexASTChain* x) override {
+		for (int32_t i = 0; i < x->sequence->size(); i++) {
+			x->sequence->operator[](i)->accept(this);
+		}
+	}
 	virtual void visit(RegexASTOr* x) override {
 		f();
 		std::cout << "or" << std::endl;
@@ -43,13 +48,10 @@ public:
 int main() {
 	std::cout << "hmmm" << std::endl;
 	RegexParser r;
-	std::vector<RegexAST*>* node = r.parse("[a-z]*abc+12(4){16,32}");
+	RegexAST* node = r.parse("[a-z]*abc+123(456[7-9]){16,32}");
 	if (node != NULL) {
-		for (int32_t i = 0; i < node->size(); i++) {
-			A a;
-			node->operator[](i)->accept(&a);
-			delete node->operator[](i);
-		}
+		A a;
+		node->accept(&a);
 		delete node;
 	} else {
 		std::cout << "node was null" << std::endl;

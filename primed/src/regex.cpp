@@ -2,6 +2,10 @@
 #include <cctype>
 #include <iostream>
 
+RegexASTChain::RegexASTChain(std::vector<RegexAST*>* sequence) {
+	this->sequence = sequence;
+}
+
 RegexASTLiteral::RegexASTLiteral(int32_t ch) {
 	this->ch = ch;
 }
@@ -26,6 +30,13 @@ RegexAST::~RegexAST() {
 	return;
 }
 
+RegexASTChain::~RegexASTChain() {
+	for (int32_t i = 0; i < this->sequence->size(); i++) {
+		delete this->sequence->operator[](i);
+	}
+	delete this->sequence;
+}
+
 RegexASTLiteral::~RegexASTLiteral() {
 	return;
 }
@@ -41,6 +52,10 @@ RegexASTMultiplication::~RegexASTMultiplication() {
 
 RegexASTRange::~RegexASTRange() {
 	return;
+}
+
+void RegexASTChain::accept(IRegexASTVisitor* visitor) {
+	visitor->visit(this);
 }
 
 void RegexASTLiteral::accept(IRegexASTVisitor* visitor) {
@@ -64,19 +79,31 @@ RegexParser::RegexParser() {
 	return;
 }
 
-std::vector<RegexAST*>* RegexParser::parse(std::string str) {
+RegexAST* RegexParser::parse(std::string str) {
 	this->buffer = str;
 	this->pos = std::stack<int32_t>();
 	this->pos.push(0);
-	std::vector<RegexAST*>* regex = new std::vector<RegexAST*>();
-	while (this->buffer_pos() < str.length()) {
-		if (RegexAST* node = this->parse_toplevel()) {
-			regex->push_back(node);
-		} else {
-			return NULL;
-		}
+	RegexAST* regex = this->parse_chain();
+	if (this->buffer_pos() != str.length()) {
+		delete regex;
+		return NULL;
 	}
 	return regex;
+}
+
+RegexAST* RegexParser::parse_chain() {
+	std::vector<RegexAST*>* sequence = new std::vector<RegexAST*>();
+	RegexAST* first = this->parse_toplevel();
+	if (first) {
+		sequence->push_back(first);
+		while (RegexAST* node = this->parse_toplevel()) {
+			sequence->push_back(node);
+		}
+	} else {
+		delete sequence;
+		return NULL;
+	}
+	return new RegexASTChain(sequence);
 }
 
 RegexAST* RegexParser::parse_toplevel() {
@@ -108,20 +135,16 @@ RegexAST* RegexParser::parse_parenthesis() {
 		return NULL;
 	}
 	this->buffer_advance(1);
-	std::cout << "a" << std::endl;
-	RegexAST* node = this->parse_toplevel();
+	RegexAST* node = this->parse_chain();
 	if (!node) {
 		this->buffer_pop(1);
 		return NULL;
 	}
-	std::cout << "b" << std::endl;
 	if (this->buffer_char() != ')') {
-		std::cout << "here is " << (char) this->buffer_char() << std::endl;
 		delete node;
 		this->buffer_pop(2);
 		return NULL;
 	}
-	std::cout << "c" << std::endl;
 	this->buffer_push(this->buffer_pop(2) + 1);
 	return node;
 }
@@ -271,7 +294,7 @@ int32_t RegexParser::parse_number() {
 		if (!std::isdigit(ch)) {
 			break;
 		}
-		x += x * 10 + (ch - '0');
+		x = x * 10 + (ch - '0');
 		delta++;
 	}
 	this->buffer_advance(delta);

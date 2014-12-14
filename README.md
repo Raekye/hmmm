@@ -13,8 +13,12 @@ The names are not particularly meaningful; just something unique and identifiabl
 Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 
 - `madoka/`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
-- `sayaka/` (WIP): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
-- `primed/` (WIP): lexer-generator and parser-generator
+- `sayaka/` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
+- `primed/` (in progress): lexer-generator and parser-generator
+
+### Primed
+- contains a hand written, recursive descent basic regex parser (builds AST)
+- regex used to define tokens, lexer-generator generates states and next-states for a lexer (a big FSM)
 
 ## Dependencies
 - gcc-c++

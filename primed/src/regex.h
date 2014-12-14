@@ -11,6 +11,7 @@ class IRegexASTVisitor;
 
 class RegexParser {
 private:
+	RegexAST* parse_chain();
 	RegexAST* parse_toplevel();
 	RegexAST* parse_toplevel_nonrecursive();
 	RegexAST* parse_parenthesis();
@@ -38,13 +39,22 @@ public:
 
 	RegexParser();
 
-	std::vector<RegexAST*>* parse(std::string);
+	RegexAST* parse(std::string);
 };
 
 class RegexAST {
 public:
 	virtual ~RegexAST();
 	virtual void accept(IRegexASTVisitor*) = 0;
+};
+
+class RegexASTChain : public RegexAST {
+public:
+	std::vector<RegexAST*>* sequence;
+
+	RegexASTChain(std::vector<RegexAST*>*);
+	virtual ~RegexASTChain();
+	virtual void accept(IRegexASTVisitor*) override;
 };
 
 class RegexASTLiteral : public RegexAST {
@@ -91,6 +101,7 @@ public:
 
 class IRegexASTVisitor {
 public:
+	virtual void visit(RegexASTChain*) = 0;
 	virtual void visit(RegexASTLiteral*) = 0;
 	virtual void visit(RegexASTOr*) = 0;
 	virtual void visit(RegexASTMultiplication*) = 0;
