@@ -25,30 +25,44 @@ void Lexer::add_rule(int32_t index, Rule rule) {
 	this->rules.insert(this->rules.begin() + index, rule);
 }
 
-Token* Lexer::scan(std::istream in) {
+Token* Lexer::scan(std::istream* in) {
+	int32_t ch = this->read(in);
+	State current = this->states[this->current_state];
+	if (ch == -1) {
+		if (current.is_terminal()) {
+			Token* t = new Token(current.tag, this->buffer.substr(0, this->buffer_pos), LocationInfo(0, 0, 0, 0));
+			this->buffer = this->buffer.substr(this->buffer_pos);
+			this->buffer_pos = 0;
+			return t;
+		}
+		return NULL;
+	}
+	Token* t = NULL;
+	if (current.is_terminal()) {
+		// TODO: found match
+	}
+	std::map<int32_t, std::vector<int32_t>>::iterator it = current.next_states.find(ch);
+	if (it == current.next_states.end()) {
+		// TODO: not match
+	} else {
+		// TODO: loop through next_states, try
+	}
+	return NULL;
+}
+
+int32_t Lexer::read(std::istream* in) {
 	if (this->buffer_pos >= this->buffer.length()) {
-		int32_t ch = in.get();
-		if (in.good()) {
+		if (this->eof) {
+			return -1;
+		}
+		int32_t ch = in->get();
+		if (in->good()) {
 			this->buffer.push_back(ch);
 		} else {
 			this->eof = true;
 		}
 	}
-	if (this->eof) {
-	} else {
-		State current = this->states[this->current_state];
-		if (current.is_terminal()) {
-			// TODO: found match
-		}
-		int32_t ch = this->buffer[buffer_pos];
-		std::map<int32_t, std::vector<int32_t>>::iterator it = current.next_states.find(ch);
-		if (it == current.next_states.end()) {
-			// TODO: not match
-		} else {
-			// TODO: loop through next_states, try
-		}
-	}
-	return NULL;
+	return this->buffer[this->buffer_pos++];
 }
 
 void Lexer::generate_rule(State parent, Rule rule, int32_t pattern_pos)  {

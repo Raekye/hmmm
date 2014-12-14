@@ -56,6 +56,7 @@ private:
 	int32_t current_state;
 
 	void generate_rule(State, Rule, int32_t);
+	int32_t read(std::istream*);
 
 public:
 	Lexer();
@@ -64,7 +65,7 @@ public:
 	void generate();
 	void clean();
 	void add_rule(int32_t, Rule);
-	Token* scan(std::istream);
+	Token* scan(std::istream*);
 };
 
 #endif /* PRIMED_LEXER_H_INCLUDED */

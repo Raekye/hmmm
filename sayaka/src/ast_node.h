@@ -73,7 +73,7 @@ public:
 
 class ASTNodeBlock : public ASTNode {
 public:
-	std::vector<ASTNode*> statements;
+	std::vector<ASTNode*> statements; // TODO: make vector* so consistent
 
 	ASTNodeBlock();
 	void push(ASTNode*);

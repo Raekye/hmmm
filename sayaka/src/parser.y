@@ -99,7 +99,6 @@ expr
 	| function_call_expr { $$ = $1; }
 	| binary_operator_expr { $$ = $1; }
 	| declaration_expr TOKEN_ASSIGN expr {
-		std::cout << "here" << std::endl;
 		ASTNodeBlock* block = new ASTNodeBlock();
 		block->push($1);
 		block->push(new ASTNodeAssignment(new ASTNodeIdentifier($1->var_name), $3));
