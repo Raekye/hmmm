@@ -7,6 +7,8 @@
 #include <vector>
 #include <istream>
 #include <functional>
+#include <stack>
+#include "regex.h"
 
 struct LocationInfo {
 	int32_t start_line;
@@ -46,26 +48,43 @@ public:
 	}
 };
 
-class Lexer {
+class Lexer : public IRegexASTVisitor {
 private:
 	std::vector<Rule> rules;
-	std::vector<State> states;
+	std::vector<State*> states;
 	std::string buffer;
 	int32_t buffer_pos;
 	bool eof;
 	int32_t current_state;
+	bool regenerate;
+	RegexParser regex_parser;
 
-	void generate_rule(State, Rule, int32_t);
+	std::stack<int32_t> generation_parent_states_stack;
+	int32_t generation_child_state;
+	RegexAST* generation_regex_chain_end;
+	std::string generation_terminal_tag;
+
 	int32_t read(std::istream*);
+	void clean();
+	void generate();
+
+	int32_t generation_parent_state();
+	int32_t generation_new_state();
 
 public:
 	Lexer();
 	virtual ~Lexer();
 
-	void generate();
-	void clean();
-	void add_rule(int32_t, Rule);
+	void add_rule(Rule);
 	Token* scan(std::istream*);
+
+	void print_states();
+
+	virtual void visit(RegexASTChain*) override;
+	virtual void visit(RegexASTLiteral*) override;
+	virtual void visit(RegexASTMultiplication*) override;
+	virtual void visit(RegexASTOr*) override;
+	virtual void visit(RegexASTRange*) override;
 };
 
 #endif /* PRIMED_LEXER_H_INCLUDED */

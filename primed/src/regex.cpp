@@ -79,11 +79,11 @@ RegexParser::RegexParser() {
 	return;
 }
 
-RegexAST* RegexParser::parse(std::string str) {
+RegexASTChain* RegexParser::parse(std::string str) {
 	this->buffer = str;
 	this->pos = std::stack<int32_t>();
 	this->pos.push(0);
-	RegexAST* regex = this->parse_chain();
+	RegexASTChain* regex = this->parse_chain();
 	if (this->buffer_pos() != str.length()) {
 		delete regex;
 		return NULL;
@@ -91,7 +91,7 @@ RegexAST* RegexParser::parse(std::string str) {
 	return regex;
 }
 
-RegexAST* RegexParser::parse_chain() {
+RegexASTChain* RegexParser::parse_chain() {
 	std::vector<RegexAST*>* sequence = new std::vector<RegexAST*>();
 	RegexAST* first = this->parse_toplevel();
 	if (first) {

@@ -5,13 +5,15 @@
 #include <vector>
 #include <stack>
 #include <tuple>
+#include <iostream>
 
 class RegexAST;
+class RegexASTChain;
 class IRegexASTVisitor;
 
 class RegexParser {
 private:
-	RegexAST* parse_chain();
+	RegexASTChain* parse_chain();
 	RegexAST* parse_toplevel();
 	RegexAST* parse_toplevel_nonrecursive();
 	RegexAST* parse_parenthesis();
@@ -39,7 +41,7 @@ public:
 
 	RegexParser();
 
-	RegexAST* parse(std::string);
+	RegexASTChain* parse(std::string);
 };
 
 class RegexAST {
@@ -106,6 +108,50 @@ public:
 	virtual void visit(RegexASTOr*) = 0;
 	virtual void visit(RegexASTMultiplication*) = 0;
 	virtual void visit(RegexASTRange*) = 0;
+};
+
+class RegexASTPrinter : public IRegexASTVisitor {
+public:
+	int32_t indents = 0;
+	void f() {
+		for (int32_t i = 0; i < indents; i++) {
+			std::cout << "\t";
+		}
+	}
+	virtual void visit(RegexASTChain* x) override {
+		for (int32_t i = 0; i < x->sequence->size(); i++) {
+			x->sequence->operator[](i)->accept(this);
+		}
+	}
+	virtual void visit(RegexASTOr* x) override {
+		f();
+		std::cout << "or" << std::endl;
+		indents++;
+		x->left->accept(this);
+		f();
+		std::cout << "---" << std::endl;
+		x->right->accept(this);
+		indents--;
+		f();
+		std::cout << "endor" << std::endl;
+	}
+	virtual void visit(RegexASTLiteral* x) override {
+		f();
+		std::cout << "literal: " << (char) x->ch << std::endl;
+	}
+	virtual void visit(RegexASTMultiplication* x) override {
+		f();
+		std::cout << "multiply " << x->min << " to " << x->max << ":" << std::endl;
+		indents++;
+		x->node->accept(this);
+		indents--;
+		f();
+		std::cout << "endmultiply" << std::endl;
+	}
+	virtual void visit(RegexASTRange* x) override {
+		f();
+		std::cout << "range: " << (char) x->lower << " to " << (char) x->upper << std::endl;
+	}
 };
 
 #endif /* PRIMED_REGEX_H_INCLUDED */
