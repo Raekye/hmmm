@@ -15,8 +15,7 @@ void Lexer::generate() {
 	this->generation_parent_states_stack.push(root);
 	std::cout << "=== Rules" << std::endl;
 	for (int32_t i = 0; i < this->rules.size(); i++) {
-		RegexASTChain* regex = this->regex_parser.parse(this->rules[i].pattern);
-		this->generation_regex_chain_end = regex->sequence->back();
+		RegexAST* regex = this->regex_parser.parse(this->rules[i].pattern);
 		this->generation_terminal_tag = this->rules[i].tag;
 		RegexASTPrinter a;
 		a.indents = 1;
@@ -131,7 +130,7 @@ int32_t Lexer::generation_new_state() {
 void Lexer::print_states() {
 	std::cout << "=== States" << std::endl;
 	for (int32_t i = 0; i < this->states.size(); i++) {
-		std::cout << "State " << i << ": " << this->states[i]->tag;
+		std::cout << "State " << i << (this->states[i]->is_terminal() ? "(end)" : "") << ": " << this->states[i]->tag;
 		for (std::map<int32_t, std::vector<int32_t>>::iterator it = this->states[i]->next_states.begin(); it != this->states[i]->next_states.end(); it++) {
 			std::cout << ", " << (char) it->first << " ->";
 			for (int32_t j = 0; j < it->second.size(); j++) {

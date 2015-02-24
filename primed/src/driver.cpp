@@ -5,9 +5,9 @@
 
 int main() {
 	Lexer l;
-	l.add_rule(Rule("rule1", "abc[def]*", "tag1"));
+	l.add_rule(Rule("rule1", "a(xyzb)*c|def", "tag1"));
 	std::stringstream ss;
-	ss << "abcfefefee";
+	ss << "a";
 	Token* t = l.scan(&ss);
 	l.print_states();
 	if (t) {
