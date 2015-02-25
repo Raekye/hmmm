@@ -3,12 +3,15 @@
 #include <iostream>
 
 #pragma mark - RegexAST
+RegexAST::RegexAST() : terminal(false) {
+	return;
+}
 
 RegexASTChain::RegexASTChain(std::vector<RegexAST*>* sequence) {
 	this->sequence = sequence;
 }
 
-RegexASTLiteral::RegexASTLiteral(int32_t ch) {
+RegexASTLiteral::RegexASTLiteral(Int ch) {
 	this->ch = ch;
 }
 
@@ -17,15 +20,16 @@ RegexASTOr::RegexASTOr(RegexAST* left, RegexAST* right) {
 	this->right = right;
 }
 
-RegexASTMultiplication::RegexASTMultiplication(RegexAST* node, int32_t min, int32_t max) {
+RegexASTMultiplication::RegexASTMultiplication(RegexAST* node, Int min, Int max) {
 	this->node = node;
 	this->min = min;
 	this->max = max;
 }
 
-RegexASTRange::RegexASTRange(uint32_t lower, uint32_t upper) {
-	this->lower = lower;
-	this->upper = upper;
+RegexASTRange::RegexASTRange(UInt lower, UInt upper) : lower(lower), upper(upper) {
+	for (UInt i = lower; i <= upper; i++) {
+		this->nodes.push_back(new RegexASTLiteral(i));
+	}
 }
 
 RegexAST::~RegexAST() {
@@ -33,7 +37,7 @@ RegexAST::~RegexAST() {
 }
 
 RegexASTChain::~RegexASTChain() {
-	for (int32_t i = 0; i < this->sequence->size(); i++) {
+	for (Int i = 0; i < this->sequence->size(); i++) {
 		delete this->sequence->operator[](i);
 	}
 	delete this->sequence;
@@ -53,7 +57,30 @@ RegexASTMultiplication::~RegexASTMultiplication() {
 }
 
 RegexASTRange::~RegexASTRange() {
-	return;
+	for (std::vector<RegexAST*>::iterator it = this->nodes.begin(); it != this->nodes.end(); it++) {
+		delete *it;
+	}
+}
+
+void RegexASTChain::mark_terminal() {
+	this->sequence->back()->mark_terminal();
+}
+
+void RegexASTLiteral::mark_terminal() {
+	this->terminal = true;
+}
+
+void RegexASTOr::mark_terminal() {
+	this->left->mark_terminal();
+	this->right->mark_terminal();
+}
+
+void RegexASTMultiplication::mark_terminal() {
+	this->terminal = true;
+}
+
+void RegexASTRange::mark_terminal() {
+	this->terminal = true;
 }
 
 void RegexASTChain::accept(IRegexASTVisitor* visitor) {
@@ -76,33 +103,33 @@ void RegexASTRange::accept(IRegexASTVisitor* visitor) {
 	visitor->visit(this);
 }
 
-#pragma mark - RegexParser
-RegexParser::RegexParser() {
-	return;
+bool RegexASTMultiplication::is_infinite() {
+	return this->max == 0;
 }
 
-int32_t RegexParser::buffer_pos() {
+#pragma mark - RegexParser
+Int RegexParser::buffer_pos() {
 	return this->pos.top();
 }
 
-void RegexParser::buffer_advance(int32_t delta) {
+void RegexParser::buffer_advance(Int delta) {
 	this->pos.push(this->buffer_pos() + delta);
 }
 
-uint32_t RegexParser::buffer_char(int32_t delta) {
+UInt RegexParser::buffer_char(Int delta) {
 	if (this->buffer_pos() + delta >= this->buffer.size()) {
 		return 0;
 	}
 	return this->buffer[this->buffer_pos() + delta];
 }
 
-void RegexParser::buffer_push(int32_t loc) {
+void RegexParser::buffer_push(Int loc) {
 	this->pos.push(loc);
 }
 
-int32_t RegexParser::buffer_pop(int32_t times) {
-	int32_t popped = this->buffer_pos();
-	for (int32_t i = 0; i < times; i++) {
+Int RegexParser::buffer_pop(Int times) {
+	Int popped = this->buffer_pos();
+	for (Int i = 0; i < times; i++) {
 		this->pos.pop();
 	}
 	return popped;
@@ -111,7 +138,7 @@ int32_t RegexParser::buffer_pop(int32_t times) {
 #pragma mark - RegexParser - parsing
 RegexAST* RegexParser::parse(std::string str) {
 	this->buffer = str;
-	this->pos = std::stack<int32_t>();
+	this->pos = std::stack<Int>();
 	this->pos.push(0);
 	RegexAST* regex = this->parse_toplevel();
 	if (!regex) {
@@ -180,7 +207,7 @@ RegexAST* RegexParser::parse_not_lr_add() {
 
 RegexAST* RegexParser::parse_lr_mul() {
 	RegexAST* l = this->parse_not_lr_mul();
-	uint32_t ch = this->buffer_char();
+	UInt ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_STAR) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
@@ -194,7 +221,7 @@ RegexAST* RegexParser::parse_lr_mul() {
 		this->buffer_push(this->buffer_pop(2));
 		return new RegexASTMultiplication(l, 0, 1);
 	}
-	std::tuple<int32_t, int32_t>* range = this->parse_mul_range();
+	std::tuple<UInt, UInt>* range = this->parse_mul_range();
 	if (!range) {
 		return l;
 	}
@@ -204,12 +231,12 @@ RegexAST* RegexParser::parse_lr_mul() {
 	return r;
 }
 
-std::tuple<int32_t, int32_t>* RegexParser::parse_mul_range() {
+std::tuple<UInt, UInt>* RegexParser::parse_mul_range() {
 	if (this->buffer_char() != '{') {
 		return NULL;
 	}
 	this->buffer_advance(1);
-	uint32_t* lower = this->parse_dec_int();
+	UInt* lower = this->parse_dec_int();
 	if (!lower) {
 		this->buffer_pop(1);
 		return NULL;
@@ -219,7 +246,7 @@ std::tuple<int32_t, int32_t>* RegexParser::parse_mul_range() {
 		return NULL;
 	}
 	this->buffer_advance(1);
-	uint32_t* upper = this->parse_dec_int();
+	UInt* upper = this->parse_dec_int();
 	if (!upper) {
 		delete lower;
 		this->buffer_pop(3);
@@ -232,7 +259,7 @@ std::tuple<int32_t, int32_t>* RegexParser::parse_mul_range() {
 		return NULL;
 	}
 	this->buffer_push(this->buffer_pop(4) + 1);
-	std::tuple<int32_t, int32_t>* range = new std::tuple<int32_t, int32_t>(*lower, *upper);
+	std::tuple<UInt, UInt>* range = new std::tuple<UInt, UInt>(*lower, *upper);
 	delete lower;
 	delete upper;
 	return range;
@@ -273,13 +300,13 @@ RegexAST* RegexParser::parse_parentheses() {
 }
 
 RegexAST* RegexParser::parse_literal() {
-	uint32_t* x = this->parse_absolute_literal();
+	UInt* x = this->parse_absolute_literal();
 	if (x) {
 		RegexAST* r = new RegexASTLiteral(*x);
 		delete x;
 		return r;
 	}
-	int32_t ch = this->buffer_char();
+	Int ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_ESCAPE) {
 		ch = this->buffer_char(1);
 		if (RegexParser::is_special_char(ch)) {
@@ -331,7 +358,7 @@ RegexAST* RegexParser::parse_group_contents() {
 RegexAST* RegexParser::parse_group_element() {
 	if (RegexAST* node = this->parse_group_range()) {
 		return node;
-	} else if (uint32_t* x= this->parse_group_literal()) {
+	} else if (UInt* x= this->parse_group_literal()) {
 		 RegexAST* r =new RegexASTLiteral(*x);
 		 delete x;
 		 return r;
@@ -339,29 +366,29 @@ RegexAST* RegexParser::parse_group_element() {
 	return NULL;
 }
 
-uint32_t* RegexParser::parse_group_literal() {
-	uint32_t* l = this->parse_absolute_literal();
+UInt* RegexParser::parse_group_literal() {
+	UInt* l = this->parse_absolute_literal();
 	if (l) {
 		return l;
 	}
-	int32_t ch = this->buffer_char();
+	Int ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_ESCAPE) {
 		ch = this->buffer_char(1);
 		if (RegexParser::is_group_special_char(ch)) {
 			this->buffer_advance(2);
-			return new uint32_t(ch);
+			return new UInt(ch);
 		}
 		return NULL;
 	}
 	if (!RegexParser::is_group_special_char(ch) && 32 <= ch && ch < 127) {
 		this->buffer_advance(1);
-		return new uint32_t(ch);
+		return new UInt(ch);
 	}
 	return NULL;
 }
 
 RegexAST* RegexParser::parse_group_range() {
-	uint32_t* lower = this->parse_group_literal();
+	UInt* lower = this->parse_group_literal();
 	if (!lower) {
 		return NULL;
 	}
@@ -371,7 +398,7 @@ RegexAST* RegexParser::parse_group_range() {
 		return NULL;
 	}
 	this->buffer_advance(1);
-	uint32_t* upper = this->parse_group_literal();
+	UInt* upper = this->parse_group_literal();
 	if (!upper) {
 		delete lower;
 		this->buffer_pop(2);
@@ -384,15 +411,15 @@ RegexAST* RegexParser::parse_group_range() {
 	return node;
 }
 
-uint32_t* RegexParser::parse_absolute_literal() {
+UInt* RegexParser::parse_absolute_literal() {
 	if (this->buffer_char() != RegexParser::TOKEN_ESCAPE) {
 		return NULL;
 	}
 	this->buffer_advance(1);
-	uint32_t ch = this->buffer_char();
+	UInt ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_X) {
 		this->buffer_advance(1);
-		uint32_t* x = this->parse_hex_byte();
+		UInt* x = this->parse_hex_byte();
 		if (!x) {
 			this->buffer_pop(2);
 			return NULL;
@@ -401,7 +428,7 @@ uint32_t* RegexParser::parse_absolute_literal() {
 		return x;
 	} else if (ch == RegexParser::TOKEN_U) {
 		this->buffer_advance(1);
-		uint32_t* x = this->parse_hex_int();
+		UInt* x = this->parse_hex_int();
 		if (!x) {
 			this->buffer_pop(2);
 			return NULL;
@@ -411,30 +438,30 @@ uint32_t* RegexParser::parse_absolute_literal() {
 	} else if (ch == RegexParser::TOKEN_T) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new uint32_t('\t');
+		return new UInt('\t');
 	} else if (ch == RegexParser::TOKEN_N) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new uint32_t('\n');
+		return new UInt('\n');
 	} else if (ch == RegexParser::TOKEN_R) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new uint32_t('\r');
+		return new UInt('\r');
 	}
 	this->buffer_pop(1);
 	return NULL;
 }
 
-uint32_t* RegexParser::parse_hex_byte() {
-	int32_t upper = this->buffer_char();
+UInt* RegexParser::parse_hex_byte() {
+	Int upper = this->buffer_char();
 	if (!RegexParser::is_hex_digit(upper)) {
 		return NULL;
 	}
-	int32_t lower = this->buffer_char(1);
+	Int lower = this->buffer_char(1);
 	if (!RegexParser::is_hex_digit(lower)) {
 		return NULL;
 	}
-	uint32_t x = 0;
+	UInt x = 0;
 	if (RegexParser::is_dec_digit(upper)) {
 		x = upper - '0';
 	} else {
@@ -447,14 +474,14 @@ uint32_t* RegexParser::parse_hex_byte() {
 		x |= upper - 'a' + 10;
 	}
 	this->buffer_advance(2);
-	return new uint32_t(x);
+	return new UInt(x);
 }
 
-uint32_t* RegexParser::parse_hex_int() {
-	uint32_t x = 0;
+UInt* RegexParser::parse_hex_int() {
+	UInt x = 0;
 	this->buffer_advance(0);
-	for (int32_t i = 0; i < 4; i++) {
-		uint32_t* b = this->parse_hex_byte();
+	for (Int i = 0; i < 4; i++) {
+		UInt* b = this->parse_hex_byte();
 		if (!b) {
 			this->buffer_pop(1);
 			return NULL;
@@ -463,14 +490,14 @@ uint32_t* RegexParser::parse_hex_int() {
 		delete b;
 		this->buffer_push(this->buffer_pop(2));
 	}
-	return new uint32_t(x);
+	return new UInt(x);
 }
 
-uint32_t* RegexParser::parse_dec_int() {
-	uint32_t x = 0;
-	int32_t delta = 0;
+UInt* RegexParser::parse_dec_int() {
+	UInt x = 0;
+	Int delta = 0;
 	while (true) {
-		int32_t ch = this->buffer_char(delta);
+		Int ch = this->buffer_char(delta);
 		if (!RegexParser::is_dec_digit(ch)) {
 			break;
 		}
@@ -478,10 +505,10 @@ uint32_t* RegexParser::parse_dec_int() {
 		delta++;
 	}
 	this->buffer_advance(delta);
-	return new uint32_t(x);
+	return new UInt(x);
 }
 
-bool RegexParser::is_special_char(uint32_t ch) {
+bool RegexParser::is_special_char(UInt ch) {
 	return ch == TOKEN_ESCAPE
 		|| ch == TOKEN_LPAREN
 		|| ch == TOKEN_RPAREN
@@ -495,68 +522,165 @@ bool RegexParser::is_special_char(uint32_t ch) {
 		|| ch == TOKEN_QUESTION_MARK;
 }
 
-bool RegexParser::is_group_special_char(uint32_t ch) {
+bool RegexParser::is_group_special_char(UInt ch) {
 	return ch == TOKEN_LBRACKET
 		|| ch == TOKEN_DASH
 		|| ch == TOKEN_RBRACKET
 		|| ch == TOKEN_ESCAPE;
 }
 
-bool RegexParser::is_hex_digit(uint32_t ch) {
+bool RegexParser::is_hex_digit(UInt ch) {
 	return ('0' <= ch && ch <= '9') || ('a' <= ch && ch <= 'f');
 }
 
-bool RegexParser::is_dec_digit(uint32_t ch) {
+bool RegexParser::is_dec_digit(UInt ch) {
 	return ('0' <= ch && ch <= '9');
 }
 
-#pragma mark - RegexDFAGenerator
+#pragma mark - RegexNFAGenerator
+RegexNFAGenerator::RegexNFAGenerator() : target_state(NULL) {
+	this->root = this->nfa.root;
+}
 
-void RegexDFAGenerator::visit(RegexASTChain* node) {
-	DFAState<uint32_t>* saved_root = this->root;
-	node->sequence->front()->accept(this);
-	this->root = this->ret;
-	for (int32_t i = 1; i < node->sequence->size(); i++) {
-		node->sequence->operator[](i)->accept(this);
-		this->root = this->ret;
+NFAState<UInt>* RegexNFAGenerator::next_state() {
+	return this->target_state == NULL ? this->nfa.new_state() : this->target_state;
+}
+
+void RegexNFAGenerator::visit(RegexASTChain* node) {
+	NFAState<UInt>* saved_root = this->root;
+	NFAState<UInt>* saved_target_state = this->target_state;
+	std::vector<NFAState<UInt>*> next_roots;
+	next_roots.push_back(this->root);
+	this->target_state = NULL;
+	UInt i = 1;
+	for (std::vector<RegexAST*>::iterator it = node->sequence->begin(); it != node->sequence->end(); it++) {
+		if (i == node->sequence->size()) {
+			this->target_state = saved_target_state;
+		}
+		for (std::vector<NFAState<UInt>*>::iterator it2 = next_roots.begin(); it2 != next_roots.end(); it2++) {
+			this->root = *it2;
+			(*it)->accept(this);
+		}
+		next_roots = this->ret;
+		this->ret.clear();
+		i++;
 	}
 	this->root = saved_root;
-	// ret keeps last value
+	this->ret = next_roots;
 }
 
-void RegexDFAGenerator::visit(RegexASTLiteral* node) {
-	std::map<uint32_t, DFAState<uint32_t>*>::iterator it = this->root->link->find(node->ch);
-	if (it == this->root->link->end()) {
-		this->ret = new DFAState<uint32_t>();
-	} else {
-		this->ret = it->second;
-	}
+void RegexNFAGenerator::visit(RegexASTLiteral* node) {
+	NFAState<UInt>* s = this->next_state();
+	s->terminal = node->terminal;
+	this->root->next_states[node->ch].push_back(s);
+	this->ret.push_back(s);
 }
 
-void RegexDFAGenerator::visit(RegexASTOr* node) {
+void RegexNFAGenerator::visit(RegexASTOr* node) {
+	NFAState<UInt>* saved_target_state = this->target_state;
+	this->target_state = this->next_state();
 	node->left->accept(this);
-	DFAState<uint32_t>* saved_left_ret = this->ret;
+	std::vector<NFAState<UInt>*> left_ret = this->ret;
+	this->ret.clear();
 	node->right->accept(this);
-	for (std::map<uint32_t, DFAState<uint32_t>*>::iterator it = saved_left_ret->link->begin(); it != saved_left_ret->link->end(); it++) {
-		std::map<uint32_t, DFAState<uint32_t>*>::iterator it2 = this->ret->link->find(it->first);
-		if (it2 == this->ret->link->end()) {
-			this->ret->link->operator[](it->first) = it->second;
-		} else {
-			if (it2->second != it->second) {
-				throw std::runtime_error("State badness");
-			}
+	//this->ret.insert(this->ret.begin(), left_ret.begin(), left_ret.end());
+	this->target_state = saved_target_state;
+}
+
+void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
+	NFAState<UInt>* saved_root = this->root;
+	NFAState<UInt>* saved_target_state = this->target_state;
+	std::vector<NFAState<UInt>*> next_roots;
+	next_roots.push_back(this->root);
+	for (Int i = 1; i < node->min; i++) {
+		std::vector<NFAState<UInt>*> generating_roots;
+		for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
+			this->root = *it;
+			node->node->accept(this);
+			generating_roots.insert(generating_roots.end(), this->ret.begin(), this->ret.end());
+			this->ret.clear();
 		}
+		next_roots = generating_roots;
 	}
-	delete saved_left_ret->link;
-	saved_left_ret->link = this->ret->link;
-	// root unchanged
-	// ret keeps last generated value
+	if (node->terminal) {
+		node->node->mark_terminal();
+	}
+	if (node->is_infinite()) {
+		NFAState<UInt>* end_state = this->root;
+		if (node->min == 0) {
+		} else {
+			end_state = this->nfa.new_state();
+			std::vector<NFAState<UInt>*> generating_roots;
+			for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
+				this->root = *it;
+				this->target_state = end_state;
+				node->node->accept(this);
+				generating_roots.insert(generating_roots.end(), this->ret.begin(), this->ret.end());
+				this->ret.clear();
+				this->target_state = saved_target_state;
+			}
+			next_roots = generating_roots;
+		}
+		for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
+			this->root = *it;
+			this->target_state = end_state;
+			node->node->accept(this);
+			this->target_state = saved_target_state;
+		}
+	} else {
+		NFAState<UInt>* end_state = this->nfa.new_state();
+		std::cout << "Mul new end state: " << end_state->id << std::endl;
+		std::vector<NFAState<UInt>*> generating_roots;
+		std::vector<NFAState<UInt>*> end_state_roots;// = next_roots;
+		for (Int i = node->min; i < node->max; i++) {
+			std::cout << "Iteration " << i << ", roots are: " << next_roots[0]->id;
+			for (UInt i = 1; i < next_roots.size(); i++) {
+				std::cout << ", " << next_roots[i]->id;
+			}
+			std::cout << std::endl;
+			for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
+				this->root = *it;
+				node->node->accept(this);
+				generating_roots.insert(generating_roots.end(), this->ret.begin(), this->ret.end());
+				this->ret.clear();
+				this->target_state = end_state;
+				node->node->accept(this);
+				//end_state_roots.insert(end_state_roots.end(), this->ret.begin(), this->ret.end());
+				this->ret.clear();
+				this->target_state = saved_target_state;
+			}
+			next_roots = generating_roots;
+			generating_roots.clear();
+		}
+		for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
+			this->root = *it;
+			this->target_state = end_state;
+			node->node->accept(this);
+			end_state_roots.insert(end_state_roots.end(), this->ret.begin(), this->ret.end());
+			this->ret.clear();
+			this->target_state = saved_target_state;
+		}
+		std::cout << "End states: " << end_state_roots[0]->id;
+		for (UInt i = 1; i < end_state_roots.size(); i++) {
+			std::cout << ", " << end_state_roots[i]->id;
+		}
+		std::cout << std::endl;
+		//next_roots.insert(next_roots.end(), end_state_roots.begin(), end_state_roots.end());
+		next_roots = end_state_roots;
+	}
+	this->root = saved_root;
+	this->target_state = saved_target_state;
+	this->ret = next_roots;
 }
 
-void RegexDFAGenerator::visit(RegexASTMultiplication* node) {
-	return;
-}
-
-void RegexDFAGenerator::visit(RegexASTRange* node) {
-	return;
+void RegexNFAGenerator::visit(RegexASTRange* node) {
+	RegexAST* r = new RegexASTLiteral(node->upper);
+	for (UInt i = node->upper - 1; i >= node->lower; i--) {
+		r = new RegexASTOr(new RegexASTLiteral(i), r);
+	}
+	if (node->terminal) {
+		r->mark_terminal();
+	}
+	r->accept(this);
+	delete r;
 }
