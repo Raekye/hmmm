@@ -3,11 +3,15 @@
 
 #include <string>
 #include <vector>
+#include <set>
 #include <stack>
 #include <tuple>
 #include <iostream>
 #include "types.h"
 #include "finite_automata.h"
+
+typedef NFAState<UInt> RegexNFAState;
+typedef NFA<UInt> RegexNFA;
 
 class RegexAST;
 class IRegexASTVisitor;
@@ -52,23 +56,23 @@ private:
 	static bool is_hex_digit(UInt);
 	static bool is_dec_digit(UInt);
 
-	static const Int TOKEN_STAR = '*';
-	static const Int TOKEN_PLUS = '+';
-	static const Int TOKEN_QUESTION_MARK = '?';
-	static const Int TOKEN_OR = '|';
-	static const Int TOKEN_DASH = '-';
-	static const Int TOKEN_ESCAPE = '\\';
-	static const Int TOKEN_LPAREN = '(';
-	static const Int TOKEN_RPAREN = ')';
-	static const Int TOKEN_LBRACE = '{';
-	static const Int TOKEN_RBRACE = '}';
-	static const Int TOKEN_LBRACKET = '[';
-	static const Int TOKEN_RBRACKET = ']';
-	static const Int TOKEN_X = 'x';
-	static const Int TOKEN_U = 'u';
-	static const Int TOKEN_T = 't';
-	static const Int TOKEN_N = 'n';
-	static const Int TOKEN_R = 'r';
+	static const UInt TOKEN_STAR = '*';
+	static const UInt TOKEN_PLUS = '+';
+	static const UInt TOKEN_QUESTION_MARK = '?';
+	static const UInt TOKEN_OR = '|';
+	static const UInt TOKEN_DASH = '-';
+	static const UInt TOKEN_ESCAPE = '\\';
+	static const UInt TOKEN_LPAREN = '(';
+	static const UInt TOKEN_RPAREN = ')';
+	static const UInt TOKEN_LBRACE = '{';
+	static const UInt TOKEN_RBRACE = '}';
+	static const UInt TOKEN_LBRACKET = '[';
+	static const UInt TOKEN_RBRACKET = ']';
+	static const UInt TOKEN_X = 'x';
+	static const UInt TOKEN_U = 'u';
+	static const UInt TOKEN_T = 't';
+	static const UInt TOKEN_N = 'n';
+	static const UInt TOKEN_R = 'r';
 
 public:
 	RegexAST* parse(std::string);
@@ -86,9 +90,9 @@ public:
 
 class RegexASTChain : public RegexAST {
 public:
-	std::vector<RegexAST*>* sequence;
+	std::vector<RegexAST*> sequence;
 
-	RegexASTChain(std::vector<RegexAST*>*);
+	RegexASTChain(std::vector<RegexAST*>);
 	virtual ~RegexASTChain();
 	virtual void mark_terminal() override;
 	virtual void accept(IRegexASTVisitor*) override;
@@ -151,13 +155,13 @@ public:
 };
 
 class RegexNFAGenerator : public IRegexASTVisitor {
-	NFAState<UInt>* root;
-	NFAState<UInt>* target_state;
-	std::vector<NFAState<UInt>*> ret;
+	RegexNFAState* root;
+	RegexNFAState* target_state;
+	RegexNFAState* ret;
 
-	NFAState<UInt>* next_state();
+	RegexNFAState* next_state();
 public:
-	NFA<UInt> nfa;
+	RegexNFA nfa;
 
 	RegexNFAGenerator();
 
@@ -177,8 +181,8 @@ public:
 		}
 	}
 	void visit(RegexASTChain* x) override {
-		for (Int i = 0; i < x->sequence->size(); i++) {
-			x->sequence->operator[](i)->accept(this);
+		for (Int i = 0; i < x->sequence.size(); i++) {
+			x->sequence[i]->accept(this);
 		}
 	}
 	void visit(RegexASTOr* x) override {

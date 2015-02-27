@@ -145,13 +145,13 @@ void Lexer::print_states() {
 #pragma mark - IRegexASTVisitor methods
 void Lexer::visit(RegexASTChain* x) {
 	this->generation_parent_states_stack.push(this->generation_parent_state());
-	for (int32_t i = 0; i < x->sequence->size(); i++) {
+	for (int32_t i = 0; i < x->sequence.size(); i++) {
 		int32_t next_state = this->generation_new_state();
 		this->generation_child_state = next_state;
-		x->sequence->operator[](i)->accept(this);
+		x->sequence.operator[](i)->accept(this);
 		this->generation_parent_states_stack.pop();
 		this->generation_parent_states_stack.push(this->generation_child_state);
-		if (x->sequence->operator[](i) == this->generation_regex_chain_end) {
+		if (x->sequence.operator[](i) == this->generation_regex_chain_end) {
 			this->states[this->generation_child_state]->tag = this->generation_terminal_tag;
 		}
 	}

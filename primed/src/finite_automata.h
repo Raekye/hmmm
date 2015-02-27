@@ -21,12 +21,13 @@ public:
 
 template <typename T> class NFAState {
 public:
-	std::map<UInt, std::vector<NFAState<T>*>> next_states;
 	UInt id;
-	T data;
 	bool terminal;
+	std::map<UInt, std::vector<NFAState<T>*>> next_states;
+	NFAState<T>* epsilon;
+	T data;
 
-	NFAState(UInt id) : id(id), terminal(false) {
+	NFAState(UInt id) : id(id), terminal(false), epsilon(NULL) {
 		return;
 	}
 };

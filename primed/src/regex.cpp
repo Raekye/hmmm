@@ -1,14 +1,14 @@
 #include "regex.h"
 #include <cctype>
-#include <iostream>
+#include <iterator>
 
 #pragma mark - RegexAST
 RegexAST::RegexAST() : terminal(false) {
 	return;
 }
 
-RegexASTChain::RegexASTChain(std::vector<RegexAST*>* sequence) {
-	this->sequence = sequence;
+RegexASTChain::RegexASTChain(std::vector<RegexAST*> sequence) : sequence(sequence) {
+	return;
 }
 
 RegexASTLiteral::RegexASTLiteral(Int ch) {
@@ -37,10 +37,9 @@ RegexAST::~RegexAST() {
 }
 
 RegexASTChain::~RegexASTChain() {
-	for (Int i = 0; i < this->sequence->size(); i++) {
-		delete this->sequence->operator[](i);
+	for (Int i = 0; i < this->sequence.size(); i++) {
+		delete this->sequence[i];
 	}
-	delete this->sequence;
 }
 
 RegexASTLiteral::~RegexASTLiteral() {
@@ -63,7 +62,7 @@ RegexASTRange::~RegexASTRange() {
 }
 
 void RegexASTChain::mark_terminal() {
-	this->sequence->back()->mark_terminal();
+	this->sequence.back()->mark_terminal();
 }
 
 void RegexASTLiteral::mark_terminal() {
@@ -188,14 +187,14 @@ RegexAST* RegexParser::parse_lr_add() {
 	if (!car) {
 		return NULL;
 	}
-	std::vector<RegexAST*>* chain = new std::vector<RegexAST*>();
-	chain->push_back(car);
+	std::vector<RegexAST*> chain;
+	chain.push_back(car);
 	while (true) {
 		RegexAST* next = this->parse_not_lr_add();
 		if (!next) {
 			break;
 		}
-		chain->push_back(next);
+		chain.push_back(next);
 		this->buffer_push(this->buffer_pop(2));
 	}
 	return new RegexASTChain(chain);
@@ -538,139 +537,100 @@ bool RegexParser::is_dec_digit(UInt ch) {
 }
 
 #pragma mark - RegexNFAGenerator
+/*
+ * # Implementation details
+ * RegexAST supports the visitor pattern so other classes can traverse it too.
+ * To simulate passing arguments and retrieving return values, there are instance variables `root`, `target_state`, and `ret`.
+ * - `root` (arg): parent or current state, depending on how you look at it
+ * - `target_state` (arg): the node should end at this state. If `NULL`, create a new target
+ *   - see `visit(RegexASTOr*)`; it must explicitly save the `target_state` so that `RegexASTOr#left` and `RegexASTOr#right` generate with the same target
+ * - `ret`: return value
+ * Arguments should be restored before returning.
+ * `ret` may be clobbered and should be saved before subsequent `accept` calls.
+ */
 RegexNFAGenerator::RegexNFAGenerator() : target_state(NULL) {
 	this->root = this->nfa.root;
 }
 
-NFAState<UInt>* RegexNFAGenerator::next_state() {
+RegexNFAState* RegexNFAGenerator::next_state() {
 	return this->target_state == NULL ? this->nfa.new_state() : this->target_state;
 }
 
 void RegexNFAGenerator::visit(RegexASTChain* node) {
-	NFAState<UInt>* saved_root = this->root;
-	NFAState<UInt>* saved_target_state = this->target_state;
-	std::vector<NFAState<UInt>*> next_roots;
-	next_roots.push_back(this->root);
+	RegexNFAState* saved_root = this->root;
+	RegexNFAState* saved_target_state = this->target_state;
+	RegexNFAState* last_root = this->root;
 	this->target_state = NULL;
 	UInt i = 1;
-	for (std::vector<RegexAST*>::iterator it = node->sequence->begin(); it != node->sequence->end(); it++) {
-		if (i == node->sequence->size()) {
+	for (auto& each : node->sequence) {
+		if (i == node->sequence.size()) {
 			this->target_state = saved_target_state;
 		}
-		for (std::vector<NFAState<UInt>*>::iterator it2 = next_roots.begin(); it2 != next_roots.end(); it2++) {
-			this->root = *it2;
-			(*it)->accept(this);
-		}
-		next_roots = this->ret;
-		this->ret.clear();
+		this->root = last_root;
+		each->accept(this);
+		last_root = this->ret;
 		i++;
 	}
 	this->root = saved_root;
-	this->ret = next_roots;
 }
 
 void RegexNFAGenerator::visit(RegexASTLiteral* node) {
-	NFAState<UInt>* s = this->next_state();
+	RegexNFAState* s = this->next_state();
 	s->terminal = node->terminal;
 	this->root->next_states[node->ch].push_back(s);
-	this->ret.push_back(s);
+	this->ret = s;
 }
 
 void RegexNFAGenerator::visit(RegexASTOr* node) {
-	NFAState<UInt>* saved_target_state = this->target_state;
+	RegexNFAState* saved_target_state = this->target_state;
 	this->target_state = this->next_state();
 	node->left->accept(this);
-	std::vector<NFAState<UInt>*> left_ret = this->ret;
-	this->ret.clear();
 	node->right->accept(this);
-	//this->ret.insert(this->ret.begin(), left_ret.begin(), left_ret.end());
 	this->target_state = saved_target_state;
 }
 
 void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
-	NFAState<UInt>* saved_root = this->root;
-	NFAState<UInt>* saved_target_state = this->target_state;
-	std::vector<NFAState<UInt>*> next_roots;
-	next_roots.push_back(this->root);
-	for (Int i = 1; i < node->min; i++) {
-		std::vector<NFAState<UInt>*> generating_roots;
-		for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
-			this->root = *it;
+	RegexNFAState* saved_root = this->root;
+	RegexNFAState* saved_target_state = this->target_state;
+
+	RegexNFAState* next_root = this->root;
+	RegexNFAState* end_state = this->next_state();
+
+	if (node->min == 0) {
+		next_root->epsilon = end_state;
+	} else {
+		this->target_state = NULL;
+		for (Int i = 1; i < node->min; i++) {
+			this->root = next_root;
 			node->node->accept(this);
-			generating_roots.insert(generating_roots.end(), this->ret.begin(), this->ret.end());
-			this->ret.clear();
+			next_root = this->ret;
 		}
-		next_roots = generating_roots;
+		this->root = next_root;
+		this->target_state = end_state;
+		node->node->accept(this);
 	}
+
 	if (node->terminal) {
 		node->node->mark_terminal();
 	}
+
 	if (node->is_infinite()) {
-		NFAState<UInt>* end_state = this->root;
-		if (node->min == 0) {
-		} else {
-			end_state = this->nfa.new_state();
-			std::vector<NFAState<UInt>*> generating_roots;
-			for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
-				this->root = *it;
-				this->target_state = end_state;
-				node->node->accept(this);
-				generating_roots.insert(generating_roots.end(), this->ret.begin(), this->ret.end());
-				this->ret.clear();
-				this->target_state = saved_target_state;
-			}
-			next_roots = generating_roots;
-		}
-		for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
-			this->root = *it;
-			this->target_state = end_state;
-			node->node->accept(this);
-			this->target_state = saved_target_state;
-		}
+		this->root = end_state;
+		this->target_state = end_state;
+		node->node->accept(this);
 	} else {
-		NFAState<UInt>* end_state = this->nfa.new_state();
-		std::cout << "Mul new end state: " << end_state->id << std::endl;
-		std::vector<NFAState<UInt>*> generating_roots;
-		std::vector<NFAState<UInt>*> end_state_roots;// = next_roots;
 		for (Int i = node->min; i < node->max; i++) {
-			std::cout << "Iteration " << i << ", roots are: " << next_roots[0]->id;
-			for (UInt i = 1; i < next_roots.size(); i++) {
-				std::cout << ", " << next_roots[i]->id;
-			}
-			std::cout << std::endl;
-			for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
-				this->root = *it;
-				node->node->accept(this);
-				generating_roots.insert(generating_roots.end(), this->ret.begin(), this->ret.end());
-				this->ret.clear();
-				this->target_state = end_state;
-				node->node->accept(this);
-				//end_state_roots.insert(end_state_roots.end(), this->ret.begin(), this->ret.end());
-				this->ret.clear();
-				this->target_state = saved_target_state;
-			}
-			next_roots = generating_roots;
-			generating_roots.clear();
-		}
-		for (std::vector<NFAState<UInt>*>::iterator it = next_roots.begin(); it != next_roots.end(); it++) {
-			this->root = *it;
+			this->target_state = NULL;
+			node->node->accept(this);
+			next_root = this->ret;
+
+			this->root = next_root;
 			this->target_state = end_state;
 			node->node->accept(this);
-			end_state_roots.insert(end_state_roots.end(), this->ret.begin(), this->ret.end());
-			this->ret.clear();
-			this->target_state = saved_target_state;
 		}
-		std::cout << "End states: " << end_state_roots[0]->id;
-		for (UInt i = 1; i < end_state_roots.size(); i++) {
-			std::cout << ", " << end_state_roots[i]->id;
-		}
-		std::cout << std::endl;
-		//next_roots.insert(next_roots.end(), end_state_roots.begin(), end_state_roots.end());
-		next_roots = end_state_roots;
 	}
 	this->root = saved_root;
 	this->target_state = saved_target_state;
-	this->ret = next_roots;
 }
 
 void RegexNFAGenerator::visit(RegexASTRange* node) {

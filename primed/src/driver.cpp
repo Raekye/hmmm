@@ -5,7 +5,8 @@
 
 int main() {
 	RegexParser p;
-	RegexAST* r = p.parse("[a-e]{2,5}");
+	//RegexAST* r = p.parse("[a-e]{2,4}z(yx|wv)*123{0,2}4{2,0}");
+	RegexAST* r = p.parse("123{0,2}4{2,0}");
 	r->mark_terminal();
 	RegexASTPrinter rp;
 	r->accept(&rp);
@@ -24,6 +25,9 @@ int main() {
 				std::cout << " " << (*it2)->id << ",";
 			}
 			std::cout << std::endl;
+		}
+		if (rng.nfa.states[i]->epsilon != NULL) {
+			std::cout << "\tEpsilon to " << rng.nfa.states[i]->epsilon->id << std::endl;
 		}
 	}
 	return 0;
