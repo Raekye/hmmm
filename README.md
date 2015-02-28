@@ -14,12 +14,16 @@ Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 
 - `madoka/`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
 - `sayaka/` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
-- `primed/` (in progress): lexer-generator and parser-generator
+- `primed/`: hand written LL(1) regex parser and NFA state generator
+- `siyu/` (in progress): DFA state generator, lexer-generator, and parser-generator
+
+### Siyu
+- Successor to `primed/`; working based on the dragon book, trying to follow the "harder, more theoretical" stuff, needed a fresh start :P
+- generating DFA states directly from regex
 
 ### Primed
 - hand written, recursive descent basic regex parser (builds AST)
 - regex used to define tokens, lexer-generator generates states and next-states for a lexer (a big FSM)
-- goal is to generate DFA
 
 #### Regex grammar
 - multiplication is repetition
@@ -169,6 +173,8 @@ dec_int
 
 ## TODO
 - function types
+- nullptr
+- for each loops
 
 ## Flex and Bison stuff
 - http://flex.sourceforge.net/manual/

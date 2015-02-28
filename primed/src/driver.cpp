@@ -4,39 +4,17 @@
 #include <sstream>
 
 int main() {
-	RegexParser p;
 	//RegexAST* r = p.parse("[a-e]{2,4}z(yx|wv)*123{0,2}4{2,0}");
-	RegexAST* r = p.parse("123{0,2}4{2,0}");
-	r->mark_terminal();
-	RegexASTPrinter rp;
-	r->accept(&rp);
-	std::cout << "###" << std::endl;
-	RegexNFAGenerator rng;
-	r->accept(&rng);
-	for (UInt i = 0; i < rng.nfa.states.size(); i++) {
-		std::cout << "State " << i;
-		if (rng.nfa.states[i]->terminal) {
-			std::cout << " terminal";
-		}
-		std::cout << std::endl;
-		for (auto it = rng.nfa.states[i]->next_states.begin(); it != rng.nfa.states[i]->next_states.end(); it++) {
-			std::cout << "\tChar " << (char) it->first << ":";
-			for (auto it2 = it->second.begin(); it2 != it->second.end(); it2++) {
-				std::cout << " " << (*it2)->id << ",";
-			}
-			std::cout << std::endl;
-		}
-		if (rng.nfa.states[i]->epsilon != NULL) {
-			std::cout << "\tEpsilon to " << rng.nfa.states[i]->epsilon->id << std::endl;
-		}
-	}
-	return 0;
+	// repetition tests
+	//RegexAST* r = p.parse("[a-e]{2,5}");
+	//RegexAST* r = p.parse("[a-e]{0,5}");
+	//RegexAST* r = p.parse("[a-e]{5,0}");
+	//RegexAST* r = p.parse("[a-e]{0,0}");
 	Lexer l;
-	l.add_rule(Rule("rule1", "a(xyzb)*c|def", "tag1"));
+	l.add_rule(Rule("rule1", "(abc|abd){2,5}", "tag1"));
 	std::stringstream ss;
 	ss << "a";
 	Token* t = l.scan(&ss);
-	l.print_states();
 	if (t) {
 		std::cout << "Token was good" << std::endl;
 		std::cout << t->lexeme << std::endl;

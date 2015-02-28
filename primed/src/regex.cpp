@@ -3,10 +3,6 @@
 #include <iterator>
 
 #pragma mark - RegexAST
-RegexAST::RegexAST() : terminal(false) {
-	return;
-}
-
 RegexASTChain::RegexASTChain(std::vector<RegexAST*> sequence) : sequence(sequence) {
 	return;
 }
@@ -59,27 +55,6 @@ RegexASTRange::~RegexASTRange() {
 	for (std::vector<RegexAST*>::iterator it = this->nodes.begin(); it != this->nodes.end(); it++) {
 		delete *it;
 	}
-}
-
-void RegexASTChain::mark_terminal() {
-	this->sequence.back()->mark_terminal();
-}
-
-void RegexASTLiteral::mark_terminal() {
-	this->terminal = true;
-}
-
-void RegexASTOr::mark_terminal() {
-	this->left->mark_terminal();
-	this->right->mark_terminal();
-}
-
-void RegexASTMultiplication::mark_terminal() {
-	this->terminal = true;
-}
-
-void RegexASTRange::mark_terminal() {
-	this->terminal = true;
 }
 
 void RegexASTChain::accept(IRegexASTVisitor* visitor) {
@@ -540,16 +515,19 @@ bool RegexParser::is_dec_digit(UInt ch) {
 /*
  * # Implementation details
  * RegexAST supports the visitor pattern so other classes can traverse it too.
- * To simulate passing arguments and retrieving return values, there are instance variables `root`, `target_state`, and `ret`.
- * - `root` (arg): parent or current state, depending on how you look at it
- * - `target_state` (arg): the node should end at this state. If `NULL`, create a new target
- *   - see `visit(RegexASTOr*)`; it must explicitly save the `target_state` so that `RegexASTOr#left` and `RegexASTOr#right` generate with the same target
- * - `ret`: return value
- * Arguments should be restored before returning.
- * `ret` may be clobbered and should be saved before subsequent `accept` calls.
+ * To simulate passing arguments, there are instance variables `root`, and `target_state`
+ * - `root`: parent or current state, depending on how you look at it
+ * - `target_state`: the node should end at this state
+ * Arguments should be restored before returning
  */
-RegexNFAGenerator::RegexNFAGenerator() : target_state(NULL) {
+RegexNFAGenerator::RegexNFAGenerator() {
+	this->reset();
+}
+
+void RegexNFAGenerator::reset() {
 	this->root = this->nfa.root;
+	this->target_state = this->nfa.new_state();
+	this->target_state->terminal = true;
 }
 
 RegexNFAState* RegexNFAGenerator::next_state() {
@@ -559,75 +537,72 @@ RegexNFAState* RegexNFAGenerator::next_state() {
 void RegexNFAGenerator::visit(RegexASTChain* node) {
 	RegexNFAState* saved_root = this->root;
 	RegexNFAState* saved_target_state = this->target_state;
-	RegexNFAState* last_root = this->root;
-	this->target_state = NULL;
 	UInt i = 1;
 	for (auto& each : node->sequence) {
-		if (i == node->sequence.size()) {
-			this->target_state = saved_target_state;
-		}
-		this->root = last_root;
+		this->target_state = i == node->sequence.size() ? saved_target_state : this->nfa.new_state();
 		each->accept(this);
-		last_root = this->ret;
+		this->root = this->target_state;
 		i++;
 	}
 	this->root = saved_root;
 }
 
 void RegexNFAGenerator::visit(RegexASTLiteral* node) {
-	RegexNFAState* s = this->next_state();
-	s->terminal = node->terminal;
-	this->root->next_states[node->ch].push_back(s);
-	this->ret = s;
+	this->root->next_states[node->ch].push_back(this->target_state);
 }
 
 void RegexNFAGenerator::visit(RegexASTOr* node) {
-	RegexNFAState* saved_target_state = this->target_state;
-	this->target_state = this->next_state();
 	node->left->accept(this);
 	node->right->accept(this);
-	this->target_state = saved_target_state;
 }
 
 void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 	RegexNFAState* saved_root = this->root;
 	RegexNFAState* saved_target_state = this->target_state;
 
-	RegexNFAState* next_root = this->root;
 	RegexNFAState* end_state = this->next_state();
 
 	if (node->min == 0) {
-		next_root->epsilon = end_state;
+		this->root->epsilon = end_state;
 	} else {
-		this->target_state = NULL;
 		for (Int i = 1; i < node->min; i++) {
-			this->root = next_root;
+			this->target_state = this->nfa.new_state();
 			node->node->accept(this);
-			next_root = this->ret;
+			this->root = this->target_state;
 		}
-		this->root = next_root;
+		// last required node, go to end state
 		this->target_state = end_state;
 		node->node->accept(this);
-	}
-
-	if (node->terminal) {
-		node->node->mark_terminal();
+		// don't set root; may need to generate branch to optional, bounded repetitions
 	}
 
 	if (node->is_infinite()) {
+		// unbounded loop back
 		this->root = end_state;
 		this->target_state = end_state;
 		node->node->accept(this);
 	} else {
-		for (Int i = node->min; i < node->max; i++) {
-			this->target_state = NULL;
+		// if `node->min == 0`, `this->root` is already the first optional node
+		// if `node->min != 0`, from above, we generated up to the last required node
+		// both already have links to the end state, but the last required node needs a link to the first optional node
+		if (node->min != 0) {
+			// branch to next state
+			this->target_state = this->nfa.new_state();
 			node->node->accept(this);
-			next_root = this->ret;
-
-			this->root = next_root;
+			this->root = this->target_state;
+		}
+		for (Int i = node->min + 1; i < node->max; i++) {
+			// branch to end state
 			this->target_state = end_state;
 			node->node->accept(this);
+			// branch to next state
+			this->target_state = this->nfa.new_state();
+			node->node->accept(this);
+			this->root = this->target_state;
 		}
+		// last possible node, go to end state
+		this->target_state = end_state;
+		node->node->accept(this);
 	}
 	this->root = saved_root;
 	this->target_state = saved_target_state;
@@ -637,9 +612,6 @@ void RegexNFAGenerator::visit(RegexASTRange* node) {
 	RegexAST* r = new RegexASTLiteral(node->upper);
 	for (UInt i = node->upper - 1; i >= node->lower; i--) {
 		r = new RegexASTOr(new RegexASTLiteral(i), r);
-	}
-	if (node->terminal) {
-		r->mark_terminal();
 	}
 	r->accept(this);
 	delete r;

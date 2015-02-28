@@ -1,43 +1,78 @@
 #include "lexer.h"
 #include <iostream>
 
-Lexer::Lexer() : buffer_pos(0), eof(false), current_state(0), regenerate(false), generation_child_state(0), generation_regex_chain_end(NULL) {
-	return;
-}
-
-Lexer::~Lexer() {
-	return;
+Lexer::Lexer() : regenerate(false), buffer_pos(0), eof(false) {
+	this->current_state = 0;
 }
 
 void Lexer::generate() {
-	this->clean();
-	int32_t root = this->generation_new_state();
-	this->generation_parent_states_stack.push(root);
+	if (!this->regenerate) {
+		return;
+	}
+	this->regenerate = false;
 	std::cout << "=== Rules" << std::endl;
 	for (int32_t i = 0; i < this->rules.size(); i++) {
+		std::cout << "Rule " << i << " - " << this->rules[i].name << " - " << this->rules[i].pattern << std::endl;
 		RegexAST* regex = this->regex_parser.parse(this->rules[i].pattern);
-		this->generation_terminal_tag = this->rules[i].tag;
-		RegexASTPrinter a;
-		a.indents = 1;
-		std::cout << "Rule " << this->rules[i].name << std::endl;
-		regex->accept(&a);
-		std::cout << "Endrule " << this->rules[i].name << std::endl;
 		if (!regex) {
 			throw std::runtime_error("Invalid regex " + this->rules[i].pattern + " for rule " + this->rules[i].name);
 		}
-		regex->accept(this);
+
+		RegexASTPrinter rp;
+		rp.indents = 2;
+		std::cout << "\tRegex AST" << std::endl;
+		regex->accept(&rp);
+		std::cout << "\tEnd regex ast" << std::endl;
+		std::cout << std::endl;
+
+		regex->accept(&(this->regex_nfa_generator));
+		this->regex_nfa_generator.nfa.to_dfa(&(this->dfa));
+
+		std::cout << "End rule " << this->rules[i].name << std::endl;
+		std::cout << std::endl;
 		delete regex;
 	}
+	std::cout << "=== End rules" << std::endl;
+	std::cout << std::endl;
+
+	std::cout << "=== NFA states" << std::endl;
+	for (auto& state : this->regex_nfa_generator.nfa.states) {
+		std::cout << "\tNFA state " << state->id;
+		if (state->terminal) {
+			std::cout << " terminal";
+		}
+		std::cout << std::endl;
+		for (auto& kv : state->next_states) {
+			std::cout << "\t\tChar " << (char) kv.first << ": ";
+			for (auto& next_state : kv.second) {
+				std::cout << " " << next_state->id << ",";
+			}
+			std::cout << std::endl;
+		}
+		if (state->epsilon != NULL) {
+			std::cout << "\t\tEpsilon to " << state->epsilon->id << std::endl;
+		}
+	}
+	std::cout << "=== End nfa states" << std::endl;
+	std::cout << std::endl;
+
+	std::cout << "=== DFA states" << std::endl;
+	for (auto& state : this->dfa.states) {
+		std::cout << "\tDFA state " << state->id;
+		if (state->terminal) {
+			std::cout << " terminal";
+		}
+		std::cout << std::endl;
+		for (auto& kv : state->next_states) {
+			std::cout << "\t\tChar " << (char) kv.first << " to " << kv.second->id << std::endl;
+		}
+	}
+	std::cout << "=== End dfa states" << std::endl;
 	std::cout << std::endl;
 }
 
 void Lexer::clean() {
-	for (int32_t i = 0; i < this->states.size(); i++) {
-		delete this->states[i];
-	}
-	this->states.clear();
-	this->generation_parent_states_stack = std::stack<int32_t>();
-	this->current_state = 0;
+	//this->regex_nfa_generator.reset();
 }
 
 void Lexer::add_rule(Rule rule) {
@@ -46,10 +81,8 @@ void Lexer::add_rule(Rule rule) {
 }
 
 Token* Lexer::scan(std::istream* in) {
-	if (this->regenerate) {
-		this->generate();
-		this->regenerate = false;
-	}
+	this->generate();
+	/*
 	int32_t ch = this->read(in);
 	State* current = this->states[this->current_state];
 	if (ch == 0) {
@@ -98,6 +131,8 @@ Token* Lexer::scan(std::istream* in) {
 		this->buffer_pos--;
 	}
 	return t;
+	*/
+	return NULL;
 }
 
 int32_t Lexer::read(std::istream* in) {
@@ -114,78 +149,4 @@ int32_t Lexer::read(std::istream* in) {
 		}
 	}
 	return this->buffer[this->buffer_pos];
-}
-
-int32_t Lexer::generation_parent_state() {
-	return this->generation_parent_states_stack.top();
-}
-
-int32_t Lexer::generation_new_state() {
-	State* s = new State;
-	int32_t next_index = this->states.size();
-	this->states.push_back(s);
-	return next_index;
-}
-
-void Lexer::print_states() {
-	std::cout << "=== States" << std::endl;
-	for (int32_t i = 0; i < this->states.size(); i++) {
-		std::cout << "State " << i << (this->states[i]->is_terminal() ? "(end)" : "") << ": " << this->states[i]->tag;
-		for (std::map<int32_t, std::vector<int32_t>>::iterator it = this->states[i]->next_states.begin(); it != this->states[i]->next_states.end(); it++) {
-			std::cout << ", " << (char) it->first << " ->";
-			for (int32_t j = 0; j < it->second.size(); j++) {
-				std::cout << " " << it->second[j];
-			}
-		}
-		std::cout << std::endl;
-	}
-	std::cout << std::endl;
-}
-
-#pragma mark - IRegexASTVisitor methods
-void Lexer::visit(RegexASTChain* x) {
-	this->generation_parent_states_stack.push(this->generation_parent_state());
-	for (int32_t i = 0; i < x->sequence.size(); i++) {
-		int32_t next_state = this->generation_new_state();
-		this->generation_child_state = next_state;
-		x->sequence.operator[](i)->accept(this);
-		this->generation_parent_states_stack.pop();
-		this->generation_parent_states_stack.push(this->generation_child_state);
-		if (x->sequence.operator[](i) == this->generation_regex_chain_end) {
-			this->states[this->generation_child_state]->tag = this->generation_terminal_tag;
-		}
-	}
-	this->generation_parent_states_stack.pop();
-}
-
-void Lexer::visit(RegexASTLiteral* x) {
-	State* parent = this->states[this->generation_parent_state()];
-	std::map<int32_t, std::vector<int32_t>>::iterator it = parent->next_states.find(x->ch);
-	if (it == parent->next_states.end()) {
-		parent->next_states[x->ch].push_back(this->generation_child_state);
-	} else {
-		it->second.push_back(this->generation_child_state);
-	}
-}
-
-void Lexer::visit(RegexASTOr* x) {
-	x->left->accept(this);
-	x->right->accept(this);
-}
-
-void Lexer::visit(RegexASTMultiplication* x) {
-	this->generation_child_state = this->generation_parent_state();
-	x->node->accept(this);
-}
-
-void Lexer::visit(RegexASTRange* x) {
-	State* parent = this->states[this->generation_parent_state()];
-	for (int32_t ch = x->lower; ch <= x->upper; ch++) {
-		std::map<int32_t, std::vector<int32_t>>::iterator it = parent->next_states.find(ch);
-		if (it == parent->next_states.end()) {
-			parent->next_states[ch].push_back(this->generation_child_state);
-		} else {
-			it->second.push_back(this->generation_child_state);
-		}
-	}
 }

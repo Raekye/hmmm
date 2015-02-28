@@ -10,8 +10,10 @@
 #include "types.h"
 #include "finite_automata.h"
 
-typedef NFAState<UInt> RegexNFAState;
-typedef NFA<UInt> RegexNFA;
+typedef NFAState<std::string> RegexNFAState;
+typedef NFA<std::string> RegexNFA;
+typedef DFAState<std::string> RegexDFAState;
+typedef DFA<std::string> RegexDFA;
 
 class RegexAST;
 class IRegexASTVisitor;
@@ -80,11 +82,7 @@ public:
 
 class RegexAST {
 public:
-	bool terminal;
-
-	RegexAST();
 	virtual ~RegexAST();
-	virtual void mark_terminal() = 0;
 	virtual void accept(IRegexASTVisitor*) = 0;
 };
 
@@ -94,7 +92,6 @@ public:
 
 	RegexASTChain(std::vector<RegexAST*>);
 	virtual ~RegexASTChain();
-	virtual void mark_terminal() override;
 	virtual void accept(IRegexASTVisitor*) override;
 };
 
@@ -104,7 +101,6 @@ public:
 
 	RegexASTLiteral(Int);
 	virtual ~RegexASTLiteral();
-	virtual void mark_terminal() override;
 	virtual void accept(IRegexASTVisitor*) override;
 };
 
@@ -115,7 +111,6 @@ public:
 
 	RegexASTOr(RegexAST*, RegexAST*);
 	virtual ~RegexASTOr();
-	virtual void mark_terminal() override;
 	virtual void accept(IRegexASTVisitor*) override;
 };
 
@@ -127,7 +122,6 @@ public:
 
 	RegexASTMultiplication(RegexAST*, Int, Int);
 	virtual ~RegexASTMultiplication();
-	virtual void mark_terminal() override;
 	virtual void accept(IRegexASTVisitor*) override;
 
 	bool is_infinite();
@@ -141,7 +135,6 @@ public:
 
 	RegexASTRange(UInt, UInt);
 	virtual ~RegexASTRange();
-	virtual void mark_terminal() override;
 	virtual void accept(IRegexASTVisitor*) override;
 };
 
@@ -157,13 +150,13 @@ public:
 class RegexNFAGenerator : public IRegexASTVisitor {
 	RegexNFAState* root;
 	RegexNFAState* target_state;
-	RegexNFAState* ret;
 
 	RegexNFAState* next_state();
 public:
 	RegexNFA nfa;
 
 	RegexNFAGenerator();
+	void reset();
 
 	void visit(RegexASTChain*) override;
 	void visit(RegexASTLiteral*) override;
