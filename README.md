@@ -15,11 +15,11 @@ Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 - `madoka/`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
 - `sayaka/` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
 - `primed/`: hand written LL(1) regex parser and NFA state generator
-- `siyu/` (in progress): DFA state generator, lexer-generator, and parser-generator
+- `siyu/` (in progress): successor to `primed/`, DFA state generator, lexer-generator, and parser-generator
 
 ### Siyu
-- Successor to `primed/`; working based on the dragon book, trying to follow the "harder, more theoretical" stuff, needed a fresh start :P
-- generating DFA states directly from regex
+- generate DFA states from NFA states
+- `siyu-1/` is a start at generating DFA states directly from a regex based on the dragon book
 
 ### Primed
 - hand written, recursive descent basic regex parser (builds AST)
