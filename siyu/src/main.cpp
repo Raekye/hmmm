@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdio>
 #include <sstream>
 #include "regex.h"
 #include "lexer.h"
@@ -14,14 +15,22 @@ int main() {
 	l.add_rule(Rule("tag1", "abcdef|abcghi"));
 	l.add_rule(Rule("tag2", "abcdxyz"));
 	l.add_rule(Rule("tag3", "[m-o]{3,0}"));
+	l.add_rule(Rule(":whitespace", "[ \\t]+"));
+	l.add_rule(Rule(":var", "var"));
+	l.add_rule(Rule(":identifier", "[a-z][a-zA-Z0-9_]*"));
+	//l.add_rule(Rule(":identifier", "[a-z]+"));
+	l.add_rule(Rule(":typename", "[A-Z][a-zA-Z0-9_]*"));
+	l.add_rule(Rule(":equals", "="));
+	l.add_rule(Rule(":semicolon", ";"));
+	l.add_rule(Rule(":integer_literal", "[0-9]+"));
 	std::stringstream ss;
-	ss << "a";
-	Token* t = l.scan(&ss);
-	if (t) {
-		std::cout << "Token was good" << std::endl;
-		std::cout << t->lexeme << std::endl;
-	} else {
-		std::cout << "Token was null" << std::endl;
+	ss << "abcghi ";
+	ss << "abcdxyz ";
+	ss << "var x = 30; ";
+	Token* t = nullptr;
+	while ((t = l.scan(&ss))) {
+		printf("Read token tag %s, lexeme '%s'\n", t->tag.c_str(), t->lexeme.c_str());
 	}
+	printf("Done.\n");
 	return 0;
 }

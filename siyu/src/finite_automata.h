@@ -7,45 +7,46 @@
 #include <memory>
 #include "global.h"
 
-template <typename T> class DFAState {
+template <typename K, typename T> class DFAState {
 public:
 	UInt id;
 	bool terminal;
-	std::map<UInt, DFAState<T>*> next_states;
+	std::map<K, DFAState<K, T>*> next_states;
 	T data;
 
 	DFAState(UInt);
 };
 
-template <typename T> class NFAState {
+template <typename K, typename T> class NFAState {
 public:
 	UInt id;
 	bool terminal;
-	std::map<UInt, std::vector<NFAState<T>*>> next_states;
-	NFAState<T>* epsilon;
+	std::map<K, std::vector<NFAState<K, T>*>> next_states;
+	NFAState<K, T>* epsilon;
 	T data;
 
 	NFAState(UInt);
-	void generate_epsilon_star_into(std::set<NFAState<T>*>&);
+	void generate_epsilon_star_into(std::set<NFAState<K, T>*>&);
 };
 
-template <typename T> class DFA {
+template <typename K, typename T> class DFA {
 public:
-	DFAState<T>* root;
-	std::vector<std::unique_ptr<DFAState<T>>> states;
+	DFAState<K, T>* root;
+	std::vector<std::unique_ptr<DFAState<K, T>>> states;
 
 	DFA();
-	DFAState<T>* new_state();
+	DFAState<K, T>* new_state();
 };
 
-template <typename T> class NFA {
+template <typename K, typename T> class NFA {
 public:
-	NFAState<T>* root;
-	std::vector<std::unique_ptr<NFAState<T>>> states;
+	NFAState<K, T>* root;
+	std::vector<std::unique_ptr<NFAState<K, T>>> states;
 
 	NFA();
-	NFAState<T>* new_state();
-	std::unique_ptr<DFA<T>> to_dfa();
+	void reset();
+	NFAState<K, T>* new_state();
+	std::unique_ptr<DFA<K, T>> to_dfa();
 };
 
 #endif /* SIYU_FINITE_AUTOMATA_H_INCLUDED */

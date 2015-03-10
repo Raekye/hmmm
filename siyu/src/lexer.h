@@ -8,14 +8,13 @@
 #include <istream>
 #include <functional>
 #include <stack>
+#include "global.h"
 #include "regex.h"
 
 struct LocationInfo {
-	int32_t start_line;
-	int32_t start_column;
-	int32_t end_line;
-	int32_t end_column;
-	LocationInfo(int32_t start_line, int32_t start_column, int32_t end_line, int32_t end_column) : start_line(start_line), start_column(start_column), end_line(end_line), end_column(end_column) {
+	UInt line;
+	UInt column;
+	LocationInfo(UInt line, UInt column) : line(line), column(column) {
 		return;
 	}
 };
@@ -48,12 +47,13 @@ private:
 	RegexDFAState* current_state;
 
 	std::string buffer;
-	int32_t buffer_pos;
+	UInt buffer_pos;
 	bool eof;
 
 	UInt read(std::istream*);
 	void clean();
 	void generate();
+	void prepare();
 public:
 	Lexer();
 

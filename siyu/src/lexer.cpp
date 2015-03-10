@@ -1,15 +1,11 @@
 #include "lexer.h"
 #include <iostream>
 
-Lexer::Lexer() : regenerate(false), buffer_pos(0), eof(false) {
-	this->current_state = 0;
+Lexer::Lexer() : regenerate(false), current_state(nullptr), buffer_pos(0), eof(false) {
+	return;
 }
 
 void Lexer::generate() {
-	if (!this->regenerate) {
-		return;
-	}
-	this->regenerate = false;
 	std::cout << "=== Rules" << std::endl;
 	for (int32_t i = 0; i < this->rules.size(); i++) {
 		std::cout << "Rule " << i << " - " << this->rules[i].tag << " - " << this->rules[i].pattern << std::endl;
@@ -72,7 +68,16 @@ void Lexer::generate() {
 }
 
 void Lexer::clean() {
-	//this->regex_nfa_generator.reset();
+	this->regex_nfa_generator.reset();
+}
+
+void Lexer::prepare() {
+	if (this->regenerate) {
+		this->clean();
+		this->generate();
+		this->regenerate = false;
+	}
+	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root;
 }
 
 void Lexer::add_rule(Rule rule) {
@@ -81,58 +86,39 @@ void Lexer::add_rule(Rule rule) {
 }
 
 Token* Lexer::scan(std::istream* in) {
-	this->generate();
-	/*
-	int32_t ch = this->read(in);
-	State* current = this->states[this->current_state];
-	if (ch == 0) {
-		// case: at eof
-		if (current->is_terminal()) {
-			// case: is terminal
-			Token* t = new Token(current->tag, this->buffer.substr(0, this->buffer_pos), LocationInfo(0, 0, 0, 0));
-			this->buffer = this->buffer.substr(this->buffer_pos);
-			this->buffer_pos = 0;
-			return t;
-		}
-		// elsecase: not terminal
+	this->prepare();
+	if (this->current_state == nullptr) {
 		return nullptr;
 	}
-	// elsecase: not eof
+	bool matched = false;
+	std::string matched_tag = "-";
+	std::string matched_str = "";
+	UInt matched_buffer_pos = this->buffer_pos;
+	std::string found_buffer = "";
 	Token* t = nullptr;
-	if (current->is_terminal()) {
-		t = new Token(current->tag, this->buffer.substr(0, this->buffer_pos), LocationInfo(0, 0, 0, 0));
-	}
-	std::map<int32_t, std::vector<int32_t>>::iterator it = current->next_states.find(ch);
-	if (it == current->next_states.end()) {
-		// case: no next
-		if (t) {
-			// case: is terminal
-			this->buffer = this->buffer.substr(this->buffer_pos);
-			this->buffer_pos = 0;
+	while (true) {
+		if (this->current_state->terminal) {
+			matched = true;
+			matched_tag = this->current_state->data;
+			matched_str.append(found_buffer);
+			matched_buffer_pos = this->buffer_pos;
+			found_buffer = "";
 		}
-		// elsecase: not terminal
-		return t;
-	}
-	// elsecase: has next
-	for (int32_t i = 0; i < it->second.size(); i++) {
-		this->buffer_pos++;
-		this->current_state = it->second[i];
-		Token* t2 = this->scan(in);
-		if (t2) {
-			if (!t) {
-				t = t2;
-			} else if (t->lexeme.length() < t2->lexeme.length()) {
-				delete t;
-				t = t2;
-			} else {
-				delete t2;
+		UInt ch = this->read(in);
+		std::map<UInt, RegexDFAState*>::iterator it = this->current_state->next_states.find(ch);
+		if (ch == 0 || it == this->current_state->next_states.end()) {
+			if (matched) {
+				t = new Token(matched_tag, matched_str, LocationInfo(0, 0));
+				break;
 			}
+			break;
 		}
-		this->buffer_pos--;
+		found_buffer.append(1, (char) ch);
+		this->buffer_pos++;
+		this->current_state = it->second;
 	}
+	this->buffer_pos = matched_buffer_pos;
 	return t;
-	*/
-	return nullptr;
 }
 
 UInt Lexer::read(std::istream* in) {
@@ -140,7 +126,7 @@ UInt Lexer::read(std::istream* in) {
 		if (this->eof) {
 			return 0;
 		}
-		int32_t ch = in->get();
+		UInt ch = in->get();
 		if (in->good()) {
 			this->buffer.push_back(ch);
 		} else {

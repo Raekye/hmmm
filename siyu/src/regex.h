@@ -11,10 +11,10 @@
 #include "global.h"
 #include "finite_automata.h"
 
-typedef NFAState<std::string> RegexNFAState;
-typedef NFA<std::string> RegexNFA;
-typedef DFAState<std::string> RegexDFAState;
-typedef DFA<std::string> RegexDFA;
+typedef NFAState<UInt, std::string> RegexNFAState;
+typedef NFA<UInt, std::string> RegexNFA;
+typedef DFAState<UInt, std::string> RegexDFAState;
+typedef DFA<UInt, std::string> RegexDFA;
 
 class RegexAST;
 class IRegexASTVisitor;
