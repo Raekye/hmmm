@@ -3,8 +3,9 @@
 #include <sstream>
 #include "regex.h"
 #include "lexer.h"
+#include "parser.h"
 
-int main() {
+int test_lexer() {
 	//RegexAST* r = p.parse("[a-e]{2,4}z(yx|wv)*123{0,2}4{2,0}");
 	// repetition tests
 	//RegexAST* r = p.parse("[a-e]{2,5}");
@@ -33,4 +34,25 @@ int main() {
 	}
 	printf("Done.\n");
 	return 0;
+}
+
+int test_parser() {
+	Parser parser;
+	parser.set_start("s");
+	parser.add_token("STAR", "\\*");
+	parser.add_token("X", "x");
+	parser.add_token("EQUALS", "=");
+	parser.add_production("s", { "n" }, nullptr);
+	parser.add_production("n", { "v", "EQUALS", "e" }, nullptr);
+	parser.add_production("n", { "e" }, nullptr);
+	parser.add_production("e", { "v" }, nullptr);
+	parser.add_production("v", { "X" }, nullptr);
+	parser.add_production("v", { "STAR", "e" }, nullptr);
+	parser.parse(nullptr);
+	return 0;
+}
+
+int main() {
+	//return test_lexer();
+	return test_parser();
 }

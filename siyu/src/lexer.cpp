@@ -7,7 +7,7 @@ Lexer::Lexer() : regenerate(false), current_state(nullptr), buffer_pos(0), eof(f
 
 void Lexer::generate() {
 	std::cout << "=== Rules" << std::endl;
-	for (int32_t i = 0; i < this->rules.size(); i++) {
+	for (size_t i = 0; i < this->rules.size(); i++) {
 		std::cout << "Rule " << i << " - " << this->rules[i].tag << " - " << this->rules[i].pattern << std::endl;
 		std::unique_ptr<RegexAST> regex = this->regex_parser.parse(this->rules[i].pattern);
 		if (!regex) {

@@ -93,7 +93,8 @@ template <typename K, typename T> std::unique_ptr<DFA<K, T>> NFA<K, T>::to_dfa()
 			for (auto& kv : nfa_state->next_states) {
 				for (auto& next_state : kv.second) {
 					next_grouped_states[kv.first].insert(next_state);
-					next_state->generate_epsilon_star_into(next_grouped_states[kv.first]);
+					std::set<NFAState<K, T>*>& states = next_grouped_states[kv.first];
+					next_state->generate_epsilon_star_into(states);
 				}
 			}
 		}
@@ -120,3 +121,8 @@ template class DFAState<UInt, std::string>;
 template class NFAState<UInt, std::string>;
 template class DFA<UInt, std::string>;
 template class NFA<UInt, std::string>;
+
+template class DFAState<std::string, UInt>;
+template class NFAState<std::string, UInt>;
+template class DFA<std::string, UInt>;
+template class NFA<std::string, UInt>;
