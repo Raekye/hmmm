@@ -1,6 +1,9 @@
 #include "parser.h"
 #include <cassert>
 
+const std::string Parser::END = "$";
+const std::string Parser::EPSILON = "NIL";
+
 void Parser::set_start(std::string start) {
 	this->start = start;
 }
@@ -15,6 +18,15 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 	p->target = target;
 	p->symbols = symbols;
 	p->handler = handler;
+	p->nullable = false;
+	p->empty = true;
+	for (std::string s : symbols) {
+		if (Parser::symbol_is_epsilon(s)) {
+			p->nullable = true;
+		} else {
+			p->empty = false;
+		}
+	}
 	this->nonterminals[target].push_back(p.get());
 	this->productions.push_back(std::move(p));
 }
@@ -23,6 +35,12 @@ void Parser::parse(std::istream* in) {
 	(void) in;
 	this->generate();
 	std::cout << std::endl;
+
+	std::cout << "=== Generating first and follow sets" << std::endl;
+	this->generate_first_and_follow();
+	std::cout << "=== Done first and follow sets" << std::endl;
+	std::cout << std::endl;
+
 	Parser::debug(this);
 	return;
 }
@@ -66,10 +84,7 @@ ItemSet* Parser::generate_itemset(std::set<Item> head) {
 		std::string next_symbol = item.first->symbols.at(item.second);
 		this->expand_symbol_into_itemset(ret, next_symbol, &encountered_terminals);
 	}
-	// generate all the items
-	// advance dot
-	// generate all the next items
-	// call generate on those items
+
 	std::set<Item> combined;
 	combined.insert(ret->head.begin(), ret->head.end());
 	combined.insert(ret->additionals.begin(), ret->additionals.end());
@@ -115,6 +130,81 @@ void Parser::expand_symbol_into_itemset(ItemSet* is, std::string symbol, std::se
 	}
 }
 
+void Parser::generate_first_set(std::string symbol) {
+	if (Parser::symbol_is_token(symbol)) {
+		this->firsts[symbol].insert(symbol);
+	} else {
+		for (Production* p : this->nonterminals.at(symbol)) {
+			if (p->empty) {
+				this->firsts[symbol].insert(Parser::EPSILON);
+			} else {
+				Int i = 0;
+				for (std::string s : p->symbols) {
+					this->generate_first_set(s);
+					this->firsts[symbol].insert(this->firsts[s].begin(), this->firsts[s].end());
+					if (!Parser::symbol_is_nullable(s)) {
+						break;
+					}
+					i++;
+				}
+				if (i != p->symbols.size()) {
+					this->firsts[symbol].erase(Parser::EPSILON);
+				}
+			}
+		}
+	}
+}
+
+void Parser::generate_follow_sets() {
+	this->follows[this->start].insert(Parser::END);
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (auto& kv : this->nonterminals) {
+			for (Production* p : kv.second) {
+				size_t len = p->symbols.size();
+				assert(len > 0);
+				std::string z = p->symbols.at(len - 1);
+				if (!Parser::symbol_is_token(z)) {
+					size_t old = this->follows[z].size();
+					this->follows[z].insert(this->follows[p->target].begin(), this->follows[p->target].end());
+					changed = changed || (this->follows[z].size() != old);
+				}
+				for (size_t i = 0; i < len - 1; i++) {
+					std::string x = p->symbols.at(i);
+					if (!Parser::symbol_is_token(x)) {
+						std::string y = p->symbols.at(i + 1);
+						size_t old = this->follows[x].size();
+						this->follows[x].insert(this->firsts[y].begin(), this->firsts[y].end());
+						changed = changed || (this->follows[x].size() != old);
+					}
+				}
+				/*
+				if (len < 2) {
+					continue;
+				}
+				std::string y = p->symbols.at(len - 2);
+				if (!Parser::symbol_is_token(y)) {
+					size_t old = this->follows[y].size();
+					this->follows[y].insert(this->firsts[z].begin(), this->firsts[z].end());
+					changed = changed || (this->follows[y].size() != old);
+				}
+				*/
+			}
+		}
+	}
+}
+
+void Parser::generate_first_and_follow() {
+	for (std::string s : this->terminals) {
+		this->generate_first_set(s);
+	}
+	for (auto& kv : this->nonterminals) {
+		this->generate_first_set(kv.first);
+	}
+	this->generate_follow_sets();
+}
+
 bool Parser::is_item_done(Item item) {
 	return item.second == item.first->symbols.size();
 }
@@ -137,6 +227,22 @@ bool Parser::symbol_is_token(std::string str) {
 	return ('A' <= ch) && (ch <= 'Z');
 }
 
+bool Parser::symbol_is_epsilon(std::string str) {
+	return str == Parser::EPSILON;
+}
+
+bool Parser::symbol_is_nullable(std::string str) {
+	if (Parser::symbol_is_token(str)) {
+		return Parser::symbol_is_epsilon(str);
+	}
+	for (Production* p : this->nonterminals.at(str)) {
+		if (p->nullable) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void Parser::debug_production(Production* p, Int dot) {
 	std::cout << "\t" << p->target << " ::=";
 	Int i = 0;
@@ -157,6 +263,14 @@ void Parser::debug_item(Item item) {
 	Parser::debug_production(item.first, (Int) item.second);
 }
 
+void Parser::debug_set(std::set<std::string> s) {
+	std::cout << "{";
+	for (auto& str : s) {
+		std::cout << " " << str;
+	}
+	std::cout << " }" << std::endl;
+}
+
 void Parser::debug(Parser* p) {
 	std::cout << "===== Hmmmmm" << std::endl;
 	for (auto& is : p->states) {
@@ -175,5 +289,15 @@ void Parser::debug(Parser* p) {
 		}
 		std::cout << "=== done " << is->index << std::endl;
 		std::cout << std::endl;
+	}
+	std::cout << "=== First sets" << std::endl;
+	for (auto& kv : p->firsts) {
+		std::cout << "\t" << kv.first << ": ";
+		Parser::debug_set(kv.second);
+	}
+	std::cout << "=== Follow sets" << std::endl;
+	for (auto& kv : p->follows) {
+		std::cout << "\t" << kv.first << ": ";
+		Parser::debug_set(kv.second);
 	}
 }

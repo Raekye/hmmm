@@ -24,6 +24,8 @@ struct Production {
 	std::string target;
 	std::vector<std::string> symbols;
 	ProductionHandler handler;
+	bool nullable;
+	bool empty;
 };
 
 typedef std::pair<Production*, UInt> Item;
@@ -47,6 +49,9 @@ class Parser {
 	std::vector<std::unique_ptr<ItemSet>> states;
 	std::map<std::set<Item>, ItemSet*> itemsets;
 
+	std::map<std::string, std::set<std::string>> firsts;
+	std::map<std::string, std::set<std::string>> follows;
+
 	void push_token(Token*);
 	Token* next_token(std::istream*);
 
@@ -55,13 +60,23 @@ class Parser {
 	ItemSet* generate_itemset(std::set<Item>);
 	void expand_symbol_into_itemset(ItemSet*, std::string, std::set<std::string>*);
 
+	void generate_first_and_follow();
+	void generate_first_set(std::string);
+	void generate_follow_sets();
+
 	// TODO: decide which convention better :P
 	static bool is_item_done(Item);
 	static bool symbol_is_token(std::string);
+	static bool symbol_is_epsilon(std::string);
+	bool symbol_is_nullable(std::string);
 
 	static void debug(Parser*);
 	static void debug_production(Production*, Int = -1);
 	static void debug_item(Item);
+	static void debug_set(std::set<std::string>);
+
+	static const std::string END;
+	static const std::string EPSILON;
 public:
 	void set_start(std::string);
 	void add_token(std::string, std::string);
