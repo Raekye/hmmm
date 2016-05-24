@@ -180,7 +180,7 @@ public:
 		std::cout << "literal: " << (char) x->ch << std::endl;
 	}
 	void visit(RegexASTChain* x) override {
-		for (Int i = 0; i < x->sequence.size(); i++) {
+		for (size_t i = 0; i < x->sequence.size(); i++) {
 			x->sequence[i]->accept(this);
 		}
 	}

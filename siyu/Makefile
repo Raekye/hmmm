@@ -1,7 +1,7 @@
 CXX = g++
 LD = g++
-CXXFLAGS = -g -std=c++11 -c
-LDFLAGS = -g
+CXXFLAGS = -g -std=c++11 -Wall -Wno-unknown-pragmas -Werror -c
+LDFLAGS =
 LDLIBS =
 
 SRC_DIR = src
@@ -11,7 +11,6 @@ EXECUTABLE = $(BIN_DIR)/siyu
 
 SRCS = $(sort $(wildcard $(SRC_DIR)/*.cpp))
 OBJS = $(addsuffix .o,$(subst $(SRC_DIR),$(BIN_DIR),$(SRCS)))
-#DEPS = $(addsuffix .d,$(subst $(SRC_DIR),$(BIN_DIR),$(SRCS)))
 DEPS = $(sort $(wildcard $(BIN_DIR)/*.d))
 
 .PHONY: all prepare build clean
@@ -29,7 +28,7 @@ $(EXECUTABLE): $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 $(BIN_DIR)/%.o: $(SRC_DIR)/%
-	$(CXX) $(CXXFLAGS) -MM $< -MT '$@' -MF $(@:.o=.d)
+	$(CXX) $(CXXFLAGS) -MM $< -MT $@ -MF $(@:.o=.d)
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 $(BIN_DIR):

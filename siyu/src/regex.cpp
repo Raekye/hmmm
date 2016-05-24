@@ -62,7 +62,7 @@ void RegexParser::buffer_advance(Int delta) {
 }
 
 UInt RegexParser::buffer_char(Int delta) {
-	if (this->buffer_pos() + delta >= this->buffer.size()) {
+	if (this->buffer_pos() + delta >= (Int) this->buffer.size()) {
 		return 0;
 	}
 	return this->buffer[this->buffer_pos() + delta];
@@ -111,7 +111,7 @@ std::unique_ptr<RegexAST> RegexParser::parse(std::string str) {
 	if (!regex) {
 		return nullptr;
 	}
-	if (this->buffer_pos() != str.length()) {
+	if (this->buffer_pos() != (Int) str.length()) {
 		//delete regex;
 		return nullptr;
 	}
@@ -562,7 +562,7 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 	if (node->min == 0) {
 		this->root->epsilon = end_state;
 	} else {
-		for (Int i = 1; i < node->min; i++) {
+		for (UInt i = 1; i < node->min; i++) {
 			this->target_state = this->nfa.new_state();
 			node->node->accept(this);
 			this->root = this->target_state;
@@ -588,7 +588,7 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 			node->node->accept(this);
 			this->root = this->target_state;
 		}
-		for (Int i = node->min + 1; i < node->max; i++) {
+		for (UInt i = node->min + 1; i < node->max; i++) {
 			// branch to end state
 			this->target_state = end_state;
 			node->node->accept(this);
