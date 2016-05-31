@@ -48,7 +48,9 @@ int test_parser() {
 	parser.add_production("e", { "v" }, nullptr);
 	parser.add_production("v", { "X" }, nullptr);
 	parser.add_production("v", { "STAR", "e" }, nullptr);
-	parser.parse(nullptr);
+	std::stringstream ss;
+	ss << "x=*x";
+	parser.parse(&ss);
 	return 0;
 }
 

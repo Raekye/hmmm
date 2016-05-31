@@ -68,6 +68,10 @@ class Parser {
 	std::map<ExtendedSymbol, std::set<Symbol>> extended_firsts;
 	std::map<ExtendedSymbol, std::set<Symbol>> extended_follows;
 
+	std::vector<std::map<Symbol, Production*>> reductions;
+	std::vector<std::map<Symbol, void*>> action_goto_table;
+	std::stack<Int> parse_stack;
+
 	void push_token(Token*);
 	Token* next_token(std::istream*);
 
@@ -84,6 +88,9 @@ class Parser {
 	void generate_extended_first_and_follow();
 	void generate_extended_first_set(ExtendedSymbol);
 	void generate_extended_follow_sets();
+
+	void generate_reductions();
+	void generate_actions_and_gotos();
 
 	// TODO: decide which convention better :P
 	static bool is_item_done(Item);

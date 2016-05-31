@@ -53,6 +53,69 @@ void Parser::parse(std::istream* in) {
 	std::cout << std::endl;
 
 	Parser::debug(this);
+
+	this->generate_actions_and_gotos();
+
+	std::cout << std::endl << "===== Parsing" << std::endl;
+	this->parse_stack.push(0);
+	Symbol last_reduction = "";
+	while (true) {
+		std::unique_ptr<ItemSet>& current_state = this->states.at(this->parse_stack.top());
+		bool accept = false;
+		for (const Item& item : current_state->head) {
+			if (item.first->target == this->start && Parser::is_item_done(item)) {
+				accept = true;
+				break;
+			}
+		}
+		if (accept) {
+			std::cout << "Accepted." << std::endl;
+			//break;
+		}
+
+		Symbol lr2 = last_reduction;
+		last_reduction = "";
+		if (lr2.length() > 0) {
+			std::map<std::string, ItemSet*>::iterator it = current_state->next.find(lr2);
+			if (it != current_state->next.end()) {
+				std::cout << "goto " << it->second->index << std::endl;
+				this->parse_stack.push(it->second->index);
+				continue;
+			}
+		}
+		Token* t = this->next_token(in);
+		if (t == nullptr) {
+			std::cout << "Got null token, state " << current_state->index << std::endl;
+			std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
+			std::map<Symbol, Production*>::iterator it = reduction_row.find(Parser::END);
+			if (it != reduction_row.end()) {
+				std::cout << "Reducing via end" << std::endl;
+				t = new Token(Parser::END, "", LocationInfo(0, 0));
+			} else {
+				std::cout << "Breaking." << std::endl;
+				break;
+			}
+		}
+		std::cout << "Got token " << t->tag << ": " << t->lexeme << std::endl;
+		std::map<std::string, ItemSet*>::iterator it = current_state->next.find(t->tag);
+		if (it != current_state->next.end()) {
+			std::cout << "shift " << it->second->index << std::endl;
+			this->parse_stack.push(it->second->index);
+			continue;
+		}
+		std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
+		std::map<Symbol, Production*>::iterator it2 = reduction_row.find(t->tag);
+		if (it2 != reduction_row.end()) {
+			std::cout << "reducing via rule ";
+			Parser::debug_production(it2->second);
+			for (size_t i = 0; i < it2->second->symbols.size(); i++) {
+				this->parse_stack.pop();
+			}
+			last_reduction = it2->second->target;
+			this->push_token(t);
+			continue;
+		}
+	}
 	return;
 }
 
@@ -317,8 +380,62 @@ void Parser::generate_extended_first_and_follow() {
 	this->generate_extended_follow_sets();
 }
 
-bool Parser::is_item_done(Item item) {
-	return item.second == item.first->symbols.size();
+void Parser::generate_actions_and_gotos() {
+	this->generate_reductions();
+
+	this->action_goto_table.resize(this->itemsets.size());
+}
+
+void Parser::generate_reductions() {
+	this->reductions.resize(this->itemsets.size());
+	std::map<Int, Production*> lookup;
+	for (size_t i = 0; i < this->extended_grammar.size(); i++) {
+		std::unique_ptr<ExtendedProduction>& p1 = this->extended_grammar.at(i);
+		Int final_set = std::get<2>(p1->symbols.back());
+
+		std::map<Int, Production*>::iterator it = lookup.find(final_set);
+		if (it == lookup.end()) {
+			lookup[final_set] = p1->orig;
+		} else {
+			assert(it->second == p1->orig);
+		}
+
+		for (const Symbol& s : this->extended_follows.at(p1->target)) {
+			std::map<Symbol, Production*>::iterator it = this->reductions.at(final_set).find(s);
+			if (it == this->reductions.at(final_set).end()) {
+				this->reductions.at(final_set)[s] = p1->orig;
+			} else {
+				assert(it->second == p1->orig);
+			}
+		}
+
+		/*
+		for (size_t j = i + 1; j < this->extended_grammar.size(); j++) {
+			std::unique_ptr<ExtendedProduction>& p2 = this->extended_grammar.at(j);
+			if (p1->orig == p2->orig && final_set == std::get<2>(p2->symbols.back())) {
+				for (const Symbol& s : this->extended_follows.at(p1->target)) {
+					std::map<Symbol, Production*>::iterator it = this->reductions.at(final_set).find(s);
+					if (it == this->reductions.at(final_set).end()) {
+						this->reductions.at(final_set)[s] = p1->orig;
+					} else {
+						assert(it->second == p1->orig);
+					}
+				}
+			}
+		}
+		*/
+	}
+	std::cout << "===== Reductions" << std::endl;
+	Int i = 0;
+	for (const std::map<Symbol, Production*>& col : this->reductions) {
+		std::cout << "=== ItemSet " << i << std::endl;
+		for (auto& kv : col) {
+			std::cout << "- " << kv.first << ": ";
+			Parser::debug_production(kv.second);
+		}
+		std::cout << std::endl;
+		i++;
+	}
 }
 
 void Parser::push_token(Token* t) {
@@ -332,6 +449,10 @@ Token* Parser::next_token(std::istream* in) {
 	Token* t = this->token_buffer.top();
 	this->token_buffer.pop();
 	return t;
+}
+
+bool Parser::is_item_done(Item item) {
+	return item.second == item.first->symbols.size();
 }
 
 bool Parser::symbol_is_token(std::string str) {
