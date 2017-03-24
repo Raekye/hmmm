@@ -11,7 +11,6 @@
 #include "global.h"
 #include "lexer.h"
 
-// TODO: epsilon
 // TODO: named matches
 // TODO: use symbol typedef
 
