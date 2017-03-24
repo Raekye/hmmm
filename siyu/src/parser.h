@@ -20,8 +20,9 @@ typedef DFA<std::string, UInt> GrammarDFA;
 typedef NFA<std::string, UInt> GrammarNFA;
 
 struct Production;
+class Match;
 
-typedef std::function<void()> ProductionHandler;
+typedef std::function<void(Match*)> ProductionHandler;
 typedef std::pair<Production*, UInt> Item;
 typedef std::string Symbol;
 typedef std::tuple<Symbol, Int, Int> ExtendedSymbol;
@@ -47,9 +48,33 @@ struct ItemSet {
 	Int index;
 };
 
+class Match {
+public:
+	virtual ~Match() {
+		return;
+	}
+};
+class MatchedTerminal : public Match {
+public:
+	std::unique_ptr<Token> token;
+
+	virtual ~MatchedTerminal() {
+		return;
+	}
+};
+class MatchedNonterminal : public Match {
+public:
+	Production* production;
+	std::vector<std::unique_ptr<Match>> terms;
+
+	virtual ~MatchedNonterminal() {
+		return;
+	}
+};
+
 class Parser {
 	Lexer lexer;
-	std::stack<Token*> token_buffer;
+	std::stack<std::unique_ptr<Token>> token_buffer;
 
 	std::set<std::string> terminals;
 	std::map<std::string, std::vector<Production*>> nonterminals;
@@ -71,8 +96,8 @@ class Parser {
 	std::vector<std::map<Symbol, void*>> action_goto_table;
 	std::stack<Int> parse_stack;
 
-	void push_token(Token*);
-	Token* next_token(std::istream*);
+	void push_token(std::unique_ptr<Token>);
+	std::unique_ptr<Token> next_token(std::istream*);
 
 	void generate();
 	void generate(std::string);
@@ -97,13 +122,6 @@ class Parser {
 	static bool symbol_is_epsilon(std::string);
 	bool symbol_is_nullable(std::string);
 
-	static void debug(Parser*);
-	static void debug_production(Production*, Int = -1);
-	static void debug_item(Item);
-	static void debug_extended_symbol(ExtendedSymbol);
-	static void debug_extended_production(ExtendedProduction*);
-	static void debug_set(std::set<std::string>);
-
 	static const std::string END;
 	static const std::string EPSILON;
 public:
@@ -111,6 +129,13 @@ public:
 	void add_token(std::string, std::string);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
 	void parse(std::istream*);
+
+	static void debug(Parser*);
+	static void debug_production(Production*, Int = -1);
+	static void debug_item(Item);
+	static void debug_extended_symbol(ExtendedSymbol);
+	static void debug_extended_production(ExtendedProduction*);
+	static void debug_set(std::set<std::string>);
 };
 
 #endif /* SIYU_PARSER_H_INCLUDED */

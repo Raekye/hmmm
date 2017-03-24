@@ -85,7 +85,7 @@ void Lexer::add_rule(Rule rule) {
 	this->regenerate = true;
 }
 
-Token* Lexer::scan(std::istream* in) {
+std::unique_ptr<Token> Lexer::scan(std::istream* in) {
 	this->prepare();
 	if (this->current_state == nullptr) {
 		return nullptr;
@@ -95,7 +95,7 @@ Token* Lexer::scan(std::istream* in) {
 	std::string matched_str = "";
 	UInt matched_buffer_pos = this->buffer_pos;
 	std::string found_buffer = "";
-	Token* t = nullptr;
+	std::unique_ptr<Token> t;
 	while (true) {
 		if (this->current_state->terminal) {
 			matched = true;
@@ -108,7 +108,7 @@ Token* Lexer::scan(std::istream* in) {
 		std::map<UInt, RegexDFAState*>::iterator it = this->current_state->next_states.find(ch);
 		if (ch == 0 || it == this->current_state->next_states.end()) {
 			if (matched) {
-				t = new Token(matched_tag, matched_str, LocationInfo(0, 0));
+				t.reset(new Token(matched_tag, matched_str, LocationInfo(0, 0)));
 				break;
 			}
 			break;

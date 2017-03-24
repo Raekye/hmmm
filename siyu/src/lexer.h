@@ -58,7 +58,7 @@ public:
 	Lexer();
 
 	void add_rule(Rule);
-	Token* scan(std::istream*);
+	std::unique_ptr<Token> scan(std::istream*);
 };
 
 #endif /* SIYU_LEXER_H_INCLUDED */

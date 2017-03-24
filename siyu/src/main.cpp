@@ -20,7 +20,7 @@ int test_lexer() {
 	ss << "abcghi ";
 	ss << "abcdxyz ";
 	ss << "var x = 30; ";
-	Token* t = nullptr;
+	std::unique_ptr<Token> t = nullptr;
 	while ((t = l.scan(&ss))) {
 		mdk::printf("Read token tag %s, lexeme '%s'\n", t->tag.c_str(), t->lexeme.c_str());
 	}
@@ -29,17 +29,37 @@ int test_lexer() {
 }
 
 int test_parser() {
+	std::string indents = "";
+	std::function<void(Match*)> fn = [&indents, &fn](Match* m) -> void {
+		std::stack<Match*> s;
+		s.push(m);
+		while (s.size() > 0) {
+			m = s.top();
+			s.pop();
+			if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
+				mdk::logf("%s- terminal %s, %s\n", indents.c_str(), mt->token->tag.c_str(), mt->token->lexeme.c_str());
+			} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {
+				mdk::logf("%s- nonterminal ", indents.c_str());
+				Parser::debug_production(mnt->production);
+				indents += "  ";
+				for (std::unique_ptr<Match>& x : mnt->terms) {
+					fn(x.get());
+				}
+				indents = indents.substr(0, indents.length() - 2);
+			}
+		}
+	};
 	Parser parser;
 	parser.set_start("s");
 	parser.add_token("STAR", "\\*");
 	parser.add_token("X", "x");
 	parser.add_token("EQUALS", "=");
-	parser.add_production("s", { "n" }, nullptr);
-	parser.add_production("n", { "v", "EQUALS", "e" }, nullptr);
-	parser.add_production("n", { "e" }, nullptr);
-	parser.add_production("e", { "v" }, nullptr);
-	parser.add_production("v", { "X" }, nullptr);
-	parser.add_production("v", { "STAR", "e" }, nullptr);
+	parser.add_production("s", { "n" }, fn);
+	parser.add_production("n", { "v", "EQUALS", "e" }, fn);
+	parser.add_production("n", { "e" }, fn);
+	parser.add_production("e", { "v" }, fn);
+	parser.add_production("v", { "X" }, fn);
+	parser.add_production("v", { "STAR", "e" }, fn);
 	std::stringstream ss;
 	ss << "x=*x";
 	parser.parse(&ss);

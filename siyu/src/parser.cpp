@@ -83,14 +83,14 @@ void Parser::parse(std::istream* in) {
 				continue;
 			}
 		}
-		Token* t = this->next_token(in);
+		std::unique_ptr<Token> t = this->next_token(in);
 		if (t == nullptr) {
 			std::cout << "Got null token, state " << current_state->index << std::endl;
 			std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
 			std::map<Symbol, Production*>::iterator it = reduction_row.find(Parser::END);
 			if (it != reduction_row.end()) {
 				std::cout << "Reducing via end" << std::endl;
-				t = new Token(Parser::END, "", LocationInfo(0, 0));
+				t.reset(new Token(Parser::END, "", LocationInfo(0, 0)));
 			} else {
 				std::cout << "Breaking." << std::endl;
 				break;
@@ -106,13 +106,14 @@ void Parser::parse(std::istream* in) {
 		std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
 		std::map<Symbol, Production*>::iterator it2 = reduction_row.find(t->tag);
 		if (it2 != reduction_row.end()) {
+			it2->second->handler(nullptr);
 			std::cout << "reducing via rule ";
 			Parser::debug_production(it2->second);
 			for (size_t i = 0; i < it2->second->symbols.size(); i++) {
 				this->parse_stack.pop();
 			}
 			last_reduction = it2->second->target;
-			this->push_token(t);
+			this->push_token(std::move(t));
 			continue;
 		}
 	}
@@ -438,15 +439,15 @@ void Parser::generate_reductions() {
 	}
 }
 
-void Parser::push_token(Token* t) {
-	this->token_buffer.push(t);
+void Parser::push_token(std::unique_ptr<Token> t) {
+	this->token_buffer.push(std::move(t));
 }
 
-Token* Parser::next_token(std::istream* in) {
+std::unique_ptr<Token> Parser::next_token(std::istream* in) {
 	if (this->token_buffer.empty()) {
 		return this->lexer.scan(in);
 	}
-	Token* t = this->token_buffer.top();
+	std::unique_ptr<Token> t = std::move(this->token_buffer.top());
 	this->token_buffer.pop();
 	return t;
 }
