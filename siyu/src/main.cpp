@@ -67,6 +67,6 @@ int test_parser() {
 }
 
 int main() {
-	//return test_lexer();
+	test_lexer();
 	return test_parser();
 }

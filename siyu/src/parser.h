@@ -13,11 +13,15 @@
 
 // TODO: named matches
 // TODO: use symbol typedef
+// TODO: asserts
+// TODO: unique ptr
 
+/*
 typedef DFAState<std::string, UInt> GrammarDFAState;
 typedef NFAState<std::string, UInt> GrammarNFAState;
 typedef DFA<std::string, UInt> GrammarDFA;
 typedef NFA<std::string, UInt> GrammarNFA;
+*/
 
 struct Production;
 class Match;
@@ -50,26 +54,20 @@ struct ItemSet {
 
 class Match {
 public:
-	virtual ~Match() {
-		return;
-	}
+	virtual ~Match() = 0;
 };
 class MatchedTerminal : public Match {
 public:
 	std::unique_ptr<Token> token;
 
-	virtual ~MatchedTerminal() {
-		return;
-	}
+	MatchedTerminal(std::unique_ptr<Token>);
 };
 class MatchedNonterminal : public Match {
 public:
 	Production* production;
 	std::vector<std::unique_ptr<Match>> terms;
 
-	virtual ~MatchedNonterminal() {
-		return;
-	}
+	MatchedNonterminal(Production*);
 };
 
 class Parser {
@@ -95,6 +93,7 @@ class Parser {
 	std::vector<std::map<Symbol, Production*>> reductions;
 	std::vector<std::map<Symbol, void*>> action_goto_table;
 	std::stack<Int> parse_stack;
+	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
 	void push_token(std::unique_ptr<Token>);
 	std::unique_ptr<Token> next_token(std::istream*);
@@ -136,6 +135,7 @@ public:
 	static void debug_extended_symbol(ExtendedSymbol);
 	static void debug_extended_production(ExtendedProduction*);
 	static void debug_set(std::set<std::string>);
+	static void debug_match(Match*, Int);
 };
 
 #endif /* SIYU_PARSER_H_INCLUDED */

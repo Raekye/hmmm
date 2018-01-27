@@ -4,6 +4,16 @@
 const std::string Parser::END = "$";
 const std::string Parser::EPSILON = "NIL";
 
+Match::~Match() {
+	return;
+}
+MatchedTerminal::MatchedTerminal(std::unique_ptr<Token> t) : token(std::move(t)) {
+	return;
+}
+MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms(p->symbols.size()) {
+	return;
+}
+
 void Parser::set_start(std::string start) {
 	this->start = start;
 }
@@ -32,8 +42,6 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 }
 
 void Parser::parse(std::istream* in) {
-	(void) in;
-
 	this->generate();
 	std::cout << std::endl;
 
@@ -81,11 +89,15 @@ void Parser::parse(std::istream* in) {
 				std::cout << "goto " << it->second->index << std::endl;
 				this->parse_stack.push(it->second->index);
 				continue;
+			} else {
+				// TODO: what?
+				std::cout << "No next state" << std::endl;
 			}
 		}
 		std::unique_ptr<Token> t = this->next_token(in);
 		if (t == nullptr) {
 			std::cout << "Got null token, state " << current_state->index << std::endl;
+			// TODO: refactor?
 			std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
 			std::map<Symbol, Production*>::iterator it = reduction_row.find(Parser::END);
 			if (it != reduction_row.end()) {
@@ -101,6 +113,7 @@ void Parser::parse(std::istream* in) {
 		if (it != current_state->next.end()) {
 			std::cout << "shift " << it->second->index << std::endl;
 			this->parse_stack.push(it->second->index);
+			this->parse_stack_matches.push(std::unique_ptr<Match>(new MatchedTerminal(std::move(t))));
 			continue;
 		}
 		std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
@@ -109,14 +122,26 @@ void Parser::parse(std::istream* in) {
 			it2->second->handler(nullptr);
 			std::cout << "reducing via rule ";
 			Parser::debug_production(it2->second);
+			std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(it2->second));
 			for (size_t i = 0; i < it2->second->symbols.size(); i++) {
 				this->parse_stack.pop();
+				std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
+				this->parse_stack_matches.pop();
+				std::cout << "Removing entry ";
+				Parser::debug_match(m.get(), 0);
+				mnt->terms[it2->second->symbols.size() - i - 1] = std::move(m);
 			}
+			this->parse_stack_matches.push(std::move(mnt));
 			last_reduction = it2->second->target;
 			this->push_token(std::move(t));
 			continue;
+		} else {
+			// TODO: what is this?
+			std::cout << "No reduction" << std::endl;
 		}
 	}
+	assert(this->parse_stack.size() == 1);
+	assert(this->parse_stack_matches.size() == 1);
 	return;
 }
 
@@ -519,6 +544,24 @@ void Parser::debug_set(std::set<std::string> s) {
 		std::cout << " " << str;
 	}
 	std::cout << " }" << std::endl;
+}
+
+void Parser::debug_match(Match* m, Int levels) {
+	std::string indent(levels, '\t');
+	std::cout << indent;
+	if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
+		std::cout << "{ matched terminal " + mt->token->tag << ": " << mt->token->lexeme << " }" << std::endl;
+	} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {
+		std::cout << "{ matched nonterminal ";
+		Parser::debug_production(mnt->production);
+		for (std::unique_ptr<Match>& t : mnt->terms) {
+			Parser::debug_match(t.get(), levels + 1);
+		}
+		std::cout << indent << "}" << std::endl;
+	} else {
+		// TODO
+		std::cout << "Badness in debug match" << std::endl;
+	}
 }
 
 void Parser::debug(Parser* p) {

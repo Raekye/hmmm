@@ -122,7 +122,9 @@ template class NFAState<UInt, std::string>;
 template class DFA<UInt, std::string>;
 template class NFA<UInt, std::string>;
 
+/*
 template class DFAState<std::string, UInt>;
 template class NFAState<std::string, UInt>;
 template class DFA<std::string, UInt>;
 template class NFA<std::string, UInt>;
+*/
