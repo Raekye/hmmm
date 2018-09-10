@@ -9,13 +9,14 @@ What I can actually compile and run is not very impressive, but I think the sour
 See my [compiler for a custom soft processor on a FPGA][1] for this put in practice (that project also shows lower-level code generation; this project uses LLVM for that).
 
 ## Directory map
-The names are not particularly meaningful; just something unique and identifiable (not "lexer" or "compiler_1") I thought of at the moment.
+The names are not particularly meaningful; just something unique and identifiable (not "lexer" or "compiler\_1") I thought of at the moment.
 Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 
 - `madoka/`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
 - `sayaka/` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
 - `primed/`: hand written LL(1) regex parser and NFA state generator
-- `siyu/` (in progress): successor to `primed/`, DFA state generator, lexer-generator, and parser-generator
+- `siyu/`: successor to `primed/`, DFA state generator, lexer-generator, and parser-generator
+- `tk`: successor to `siyu/`, hmmmm
 
 ### Siyu
 - generate DFA states from NFA states
