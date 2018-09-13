@@ -1,8 +1,14 @@
 #include "parser.h"
 #include <cassert>
+#include "helper.h"
+
+/*
+ * TODO
+ * - for loops const and auto and by reference
+ */
 
 const std::string Parser::END = "$";
-const std::string Parser::EPSILON = "NIL";
+const std::string Parser::EPSILON = "0";
 
 Match::~Match() {
 	return;
@@ -28,41 +34,12 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 	p->target = target;
 	p->symbols = symbols;
 	p->handler = handler;
-	p->nullable = false;
-	p->empty = true;
-	for (std::string s : symbols) {
-		if (Parser::symbol_is_epsilon(s)) {
-			p->nullable = true;
-		} else {
-			p->empty = false;
-		}
-	}
 	this->nonterminals[target].push_back(p.get());
 	this->productions.push_back(std::move(p));
 }
 
 void Parser::parse(std::istream* in) {
-	this->generate();
-	std::cout << std::endl;
-
-	std::cout << "=== Generating extended grammar" << std::endl;
-	this->generate_extended_grammar();
-	std::cout << "=== Done extended grammar" << std::endl;
-	std::cout << std::endl;
-
-	std::cout << "=== Generating first and follow sets" << std::endl;
-	this->generate_first_and_follow();
-	std::cout << "=== Done first and follow sets" << std::endl;
-	std::cout << std::endl;
-
-	std::cout << "=== Generating extended sets" << std::endl;
-	this->generate_extended_first_and_follow();
-	std::cout << "=== Done extended sets" << std::endl;
-	std::cout << std::endl;
-
-	Parser::debug(this);
-
-	this->generate_actions_and_gotos();
+	this->generate(this->start);
 
 	std::cout << std::endl << "===== Parsing" << std::endl;
 	this->parse_stack.push(0);
@@ -71,7 +48,7 @@ void Parser::parse(std::istream* in) {
 		std::unique_ptr<ItemSet>& current_state = this->states.at(this->parse_stack.top());
 		bool accept = false;
 		for (const Item& item : current_state->head) {
-			if (item.first->target == this->start && Parser::is_item_done(item)) {
+			if (item.first->target == this->start && Parser::item_is_done(item)) {
 				accept = true;
 				break;
 			}
@@ -99,10 +76,12 @@ void Parser::parse(std::istream* in) {
 			std::cout << "Got null token, state " << current_state->index << std::endl;
 			// TODO: refactor?
 			std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
-			std::map<Symbol, Production*>::iterator it = reduction_row.find(Parser::END);
-			if (it != reduction_row.end()) {
+			if (reduction_row.find(Parser::END) != reduction_row.end()) {
 				std::cout << "Reducing via end" << std::endl;
 				t.reset(new Token(Parser::END, "", LocationInfo(0, 0)));
+			} else if (reduction_row.find(Parser::EPSILON) != reduction_row.end()) {
+				std::cout << "Reducing via epsilon" << std::endl;
+				t.reset(new Token(Parser::EPSILON, "", LocationInfo(0, 0)));
 			} else {
 				std::cout << "Breaking." << std::endl;
 				break;
@@ -140,27 +119,113 @@ void Parser::parse(std::istream* in) {
 			std::cout << "No reduction" << std::endl;
 		}
 	}
+	mdk::printf("[debug] parse stack size %zd\n", this->parse_stack.size());
 	assert(this->parse_stack.size() == 1);
 	assert(this->parse_stack_matches.size() == 1);
 	return;
 }
 
-#pragma mark - Parser - private
-void Parser::generate() {
-	this->generate(this->start);
+std::unique_ptr<Parser> Parser::load(std::istream* f) {
+	Parser bootstrap;
+	bootstrap.set_start("start");
+	bootstrap.add_token("SEMICOLON", ";");
+	//bootstrap.add_token("COLON", ":");
+	//bootstrap.add_token("EQUALS", "=");
+	//bootstrap.add_token("BAR", "\\|");
+	//bootstrap.add_token("TOKEN", "[A-Z][a-zA-Z0-9_]*");
+	//bootstrap.add_token("PRODUCTION", "[a-z][a-zA-Z0-9_]*");
+	//bootstrap.add_token("REGEX", "/[a-zA-Z0-9_-. ]+");
+
+	std::unique_ptr<Parser> ret(new Parser);
+
+	ProductionHandler token_handler = [&bootstrap, &ret](Match* m) -> void {
+		(void) bootstrap;
+		(void) ret;
+		if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
+			mdk::printf("[token] got terminal %s, %s\n",  mt->token->tag.c_str(), mt->token->lexeme.c_str());
+		} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {
+			mdk::print("[token] got nonterminal %s\n", mnt->production->target.c_str());
+		} else {
+			// TODO badness
+			mdk::printf("[token] else\n");
+		}
+	};
+	ProductionHandler production_handler = [&bootstrap, &ret](Match* m) -> void {
+		(void) bootstrap;
+		(void) ret;
+		if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
+			mdk::printf("[production] got terminal %s, %s\n",  mt->token->tag.c_str(), mt->token->lexeme.c_str());
+		} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {
+			mdk::print("[production] got nonterminal %s\n", mnt->production->target.c_str());
+		} else {
+			// TODO badness
+			mdk::printf("[production] else\n");
+		}
+	};
+	ProductionHandler log_handler = [](Match* m) -> void {
+		mdk::printf("=== log handler\n");
+		Parser::debug_match(m, 0);
+		return;
+	};
+
+	bootstrap.add_production("start", { "data" }, log_handler);
+	bootstrap.add_production("data", { "line", "data" }, log_handler);
+	bootstrap.add_production("data", { }, log_handler);
+	bootstrap.add_production("line", { "SEMICOLON" }, log_handler);
+	/*
+	bootstrap.add_production("line", { "token" }, log_handler);
+	bootstrap.add_production("line", { "production" }, log_handler);
+	bootstrap.add_production("token", { "TOKEN", "COLON", "REGEX", "SEMICOLON" }, token_handler);
+	bootstrap.add_production("production", { "PRODUCTION", "EQUALS", "production_list", "SEMICOLON" }, production_handler);
+	bootstrap.add_production("production_list", { "production_entry", "SEMICOLON" }, log_handler);
+	//bootstrap.add_production("production_cdr", { "BAR", "production_entry" }, log_handler);
+	//bootstrap.add_production("production_cdr", { Parser::EPSILON }, log_handler);
+	bootstrap.add_production("production_entry", { "production_term", "production_entry" }, log_handler);
+	bootstrap.add_production("production_entry", { "production_term" }, log_handler);
+	bootstrap.add_production("production_term", { "TOKEN" }, log_handler);
+	bootstrap.add_production("production_term", { "PRODUCTION" }, log_handler);
+	*/
+
+	bootstrap.parse(f);
+
+	return ret;
 }
 
+#pragma mark - Parser - private
 void Parser::generate(std::string symbol) {
 	std::set<Item> head;
-	for (auto p : this->nonterminals.at(symbol)) {
+	for (Production* p : this->nonterminals.at(symbol)) {
 		head.insert(Item(p, 0));
 	}
 	this->generate_itemset(head);
+
+	std::cout << std::endl;
+
+	std::cout << "=== Generating extended grammar" << std::endl;
+	this->generate_extended_grammar();
+	std::cout << "=== Done extended grammar" << std::endl;
+	std::cout << std::endl;
+
+	std::cout << "=== Generating first and follow sets" << std::endl;
+	this->generate_first_sets();
+	this->generate_follow_sets();
+	std::cout << "=== Done first and follow sets" << std::endl;
+	std::cout << std::endl;
+
+	std::cout << "=== Generating extended sets" << std::endl;
+	this->generate_extended_first_sets();
+	this->generate_extended_follow_sets();
+	std::cout << "=== Done extended sets" << std::endl;
+	std::cout << std::endl;
+
+	Parser::debug(this);
+
+	this->generate_actions_and_gotos();
 }
 
 ItemSet* Parser::generate_itemset(std::set<Item> head) {
 	std::cout << "=== Generating head:" << std::endl;
-	for (auto& x : head) {
+	for (const Item& x : head) {
 		std::cout << "\t";
 		Parser::debug_item(x);
 	}
@@ -178,8 +243,8 @@ ItemSet* Parser::generate_itemset(std::set<Item> head) {
 	this->itemsets[head] = ret;
 	this->states.push_back(std::move(is));
 	std::set<std::string> encountered_terminals;
-	for (auto& item : head) {
-		if (Parser::is_item_done(item)) {
+	for (const Item& item : head) {
+		if (Parser::item_is_done(item)) {
 			continue;
 		}
 		std::string next_symbol = item.first->symbols.at(item.second);
@@ -189,15 +254,15 @@ ItemSet* Parser::generate_itemset(std::set<Item> head) {
 	std::set<Item> combined(ret->head);
 	combined.insert(ret->additionals.begin(), ret->additionals.end());
 	assert(combined.size() == ret->head.size() + ret->additionals.size());
-	for (auto& item : combined) {
-		if (Parser::is_item_done(item)) {
+	for (const Item& item : combined) {
+		if (Parser::item_is_done(item)) {
 			continue;
 		}
 		std::string next_symbol = item.first->symbols.at(item.second);
 		if (ret->next.find(next_symbol) == ret->next.end()) {
 			std::set<Item> h2;
-			for (auto& i2 : combined) {
-				if (Parser::is_item_done(i2)) {
+			for (const Item& i2 : combined) {
+				if (Parser::item_is_done(i2)) {
 					continue;
 				}
 				std::string ns2 = i2.first->symbols.at(i2.second);
@@ -223,7 +288,9 @@ void Parser::expand_symbol_into_itemset(ItemSet* is, std::string symbol, std::se
 				std::cout << "\t";
 				Parser::debug_production(p);
 				is->additionals.insert(Item(p, 0));
-				this->expand_symbol_into_itemset(is, p->symbols.front(), encountered_terminals);
+				if (!p->is_epsilon()) {
+					this->expand_symbol_into_itemset(is, p->symbols.front(), encountered_terminals);
+				}
 			}
 		} else {
 			std::cout << "=== expand symbol into itemset: existing nonterminal " << symbol << std::endl;
@@ -231,64 +298,51 @@ void Parser::expand_symbol_into_itemset(ItemSet* is, std::string symbol, std::se
 	}
 }
 
-void Parser::generate_first_set(std::string symbol) {
-	if (Parser::symbol_is_token(symbol)) {
-		this->firsts[symbol].insert(symbol);
-	} else {
-		for (Production* p : this->nonterminals.at(symbol)) {
-			if (p->empty) {
-				this->firsts[symbol].insert(Parser::EPSILON);
+/*
+ * Dragon book page 221
+ */
+void Parser::generate_first_sets() {
+	for (const std::string& t : this->terminals) {
+		this->firsts[t].insert(t);
+	}
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (const std::unique_ptr<Production>& p : this->productions) {
+			if (p->is_epsilon()) {
+				changed = changed || this->firsts[p->target].insert(Parser::EPSILON).second;
 			} else {
-				size_t i = 0;
-				for (std::string s : p->symbols) {
-					this->generate_first_set(s);
-					this->firsts[symbol].insert(this->firsts[s].begin(), this->firsts[s].end());
-					if (!Parser::symbol_is_nullable(s)) {
+				size_t old = this->firsts[p->target].size();
+				// if `FIRST(p->target)` contains `epsilon`, make sure we don't remove it later
+				std::set<std::string>::iterator it = this->firsts[p->target].find(Parser::EPSILON);
+				for (const std::string& s : p->symbols) {
+					this->firsts[p->target].insert(this->firsts[s].begin(), this->firsts[s].end());
+					if (this->firsts[s].find(Parser::EPSILON) == this->firsts[s].end()) {
+						if (it == this->firsts[p->target].end()) {
+							this->firsts[p->target].erase(Parser::EPSILON);
+						}
 						break;
 					}
-					i++;
 				}
-				if (i != p->symbols.size()) {
-					this->firsts[symbol].erase(Parser::EPSILON);
-				}
+				changed = changed || (this->firsts[p->target].size() != old);
 			}
 		}
 	}
 }
 
-void Parser::generate_extended_first_set(ExtendedSymbol es) {
-	Symbol s = std::get<0>(es);
-	if (Parser::symbol_is_token(s)) {
-		this->extended_firsts[es].insert(s);
-	} else {
-		for (ExtendedProduction* ep : this->extended_nonterminals.at(es)) {
-			if (ep->orig->empty) {
-				this->extended_firsts[es].insert(Parser::EPSILON);
-			} else {
-				size_t i = 0;
-				for (ExtendedSymbol& x : ep->symbols) {
-					this->generate_extended_first_set(x);
-					this->extended_firsts[es].insert(this->extended_firsts[x].begin(), this->extended_firsts[x].end());
-					if (!Parser::symbol_is_nullable(std::get<0>(x))) {
-						break;
-					}
-					i++;
-				}
-				if (i != ep->symbols.size()) {
-					this->extended_firsts[es].erase(Parser::EPSILON);
-				}
-			}
-		}
-	}
-}
-
+/*
+ * Dragon book page 221-222
+ */
 void Parser::generate_follow_sets() {
 	this->follows[this->start].insert(Parser::END);
 	bool changed = true;
 	while (changed) {
 		changed = false;
-		for (auto& kv : this->nonterminals) {
+		for (const std::map<std::string, std::vector<Production*>>::value_type& kv : this->nonterminals) {
 			for (Production* p : kv.second) {
+				if (p->is_epsilon()) {
+					continue;
+				}
 				size_t len = p->symbols.size();
 				assert(len > 0);
 				std::string z = p->symbols.at(len - 1);
@@ -297,53 +351,13 @@ void Parser::generate_follow_sets() {
 					this->follows[z].insert(this->follows[p->target].begin(), this->follows[p->target].end());
 					changed = changed || (this->follows[z].size() != old);
 				}
-				for (size_t i = 0; i < len - 1; i++) {
-					std::string x = p->symbols.at(i);
+				for (size_t i = 1; i < len; i++) {
+					std::string x = p->symbols.at(i - 1);
 					if (!Parser::symbol_is_token(x)) {
-						std::string y = p->symbols.at(i + 1);
+						std::string y = p->symbols.at(i);
 						size_t old = this->follows[x].size();
 						this->follows[x].insert(this->firsts[y].begin(), this->firsts[y].end());
 						changed = changed || (this->follows[x].size() != old);
-					}
-				}
-			}
-		}
-	}
-}
-
-void Parser::generate_extended_follow_sets() {
-	bool changed = true;
-	while (changed) {
-		changed = false;
-		std::cout << "Heresauce" << std::endl;
-		for (auto& kv : this->extended_nonterminals) {
-			std::cout << "\t- generating extended follow ";
-			Parser::debug_extended_symbol(kv.first);
-			std::cout << std::endl;
-			if (std::get<2>(kv.first) == -1) {
-				this->extended_follows[kv.first].insert(Parser::END);
-			}
-			for (ExtendedProduction* ep : kv.second) {
-				size_t len = ep->symbols.size();
-				assert(len > 0);
-				ExtendedSymbol z = ep->symbols.at(len - 1);
-				if (!Parser::symbol_is_token(std::get<0>(z))) {
-					size_t old = this->extended_follows[z].size();
-					this->extended_follows[z].insert(this->extended_follows[ep->target].begin(), this->extended_follows[ep->target].end());
-					changed = changed || (this->extended_follows[z].size() != old);
-				}
-				for (size_t i = 0; i < len - 1; i++) {
-					ExtendedSymbol x = ep->symbols.at(i);
-					if (!Parser::symbol_is_token(std::get<0>(x))) {
-						ExtendedSymbol y = ep->symbols.at(i + 1);
-						size_t old = this->extended_follows[x].size();
-						std::cout << "\t\t- adding to ";
-						Parser::debug_extended_symbol(x);
-						std::cout << " from ";
-						Parser::debug_extended_symbol(y);
-						std::cout << std::endl;
-						this->extended_follows[x].insert(this->extended_firsts[y].begin(), this->extended_firsts[y].end());
-						changed = changed || (this->extended_follows[x].size() != old);
 					}
 				}
 			}
@@ -385,26 +399,80 @@ void Parser::generate_extended_grammar() {
 		}
 	}
 }
-
-void Parser::generate_first_and_follow() {
-	for (std::string s : this->terminals) {
-		this->generate_first_set(s);
-	}
-	for (auto& kv : this->nonterminals) {
-		this->generate_first_set(kv.first);
-	}
-	this->generate_follow_sets();
-}
-
-void Parser::generate_extended_first_and_follow() {
-	for (auto& ep : this->extended_grammar) {
-		this->generate_extended_first_set(ep->target);
-		for (ExtendedSymbol& es : ep->symbols) {
-			this->generate_extended_first_set(es);
+void Parser::generate_extended_first_sets() {
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (const std::unique_ptr<ExtendedProduction>& ep : this->extended_grammar) {
+			if (ep->orig->is_epsilon()) {
+				changed = changed || this->extended_firsts[ep->target].insert(Parser::EPSILON).second;
+			} else {
+				size_t old = this->extended_firsts[ep->target].size();
+				// see `Parser::generate_first_sets()`
+				std::set<std::string>::iterator it = this->extended_firsts[ep->target].find(Parser::EPSILON);
+				for (const ExtendedSymbol& es : ep->symbols) {
+					Symbol s = std::get<0>(es);
+					if (Parser::symbol_is_token(s)) {
+						changed = changed || this->extended_firsts[es].insert(s).second;
+					} else {
+						this->extended_firsts[ep->target].insert(this->extended_firsts[es].begin(), this->extended_firsts[es].end());
+						if (this->extended_firsts[es].find(Parser::EPSILON) == this->extended_firsts[es].end()) {
+							if (it == this->extended_firsts[ep->target].end()) {
+								this->extended_firsts[ep->target].erase(Parser::EPSILON);
+							}
+							break;
+						}
+					}
+				}
+				changed = changed || (this->extended_firsts[ep->target].size() != old);
+			}
 		}
 	}
-	this->generate_extended_follow_sets();
 }
+
+void Parser::generate_extended_follow_sets() {
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (auto& kv : this->extended_nonterminals) {
+			std::cout << "\t- generating extended follow ";
+			Parser::debug_extended_symbol(kv.first);
+			std::cout << std::endl;
+			if (std::get<2>(kv.first) == -1) {
+				this->extended_follows[kv.first].insert(Parser::END);
+			}
+			for (ExtendedProduction* ep : kv.second) {
+				if (ep->orig->is_epsilon()) {
+					// TODO
+					continue;
+				}
+				size_t len = ep->symbols.size();
+				assert(len > 0);
+				ExtendedSymbol z = ep->symbols.at(len - 1);
+				if (!Parser::symbol_is_token(std::get<0>(z))) {
+					size_t old = this->extended_follows[z].size();
+					this->extended_follows[z].insert(this->extended_follows[ep->target].begin(), this->extended_follows[ep->target].end());
+					changed = changed || (this->extended_follows[z].size() != old);
+				}
+				for (size_t i = 0; i < len - 1; i++) {
+					ExtendedSymbol x = ep->symbols.at(i);
+					if (!Parser::symbol_is_token(std::get<0>(x))) {
+						ExtendedSymbol y = ep->symbols.at(i + 1);
+						size_t old = this->extended_follows[x].size();
+						std::cout << "\t\t- adding to ";
+						Parser::debug_extended_symbol(x);
+						std::cout << " from ";
+						Parser::debug_extended_symbol(y);
+						std::cout << std::endl;
+						this->extended_follows[x].insert(this->extended_firsts[y].begin(), this->extended_firsts[y].end());
+						changed = changed || (this->extended_follows[x].size() != old);
+					}
+				}
+			}
+		}
+	}
+}
+
 
 void Parser::generate_actions_and_gotos() {
 	this->generate_reductions();
@@ -417,6 +485,10 @@ void Parser::generate_reductions() {
 	std::map<Int, Production*> lookup;
 	for (size_t i = 0; i < this->extended_grammar.size(); i++) {
 		std::unique_ptr<ExtendedProduction>& p1 = this->extended_grammar.at(i);
+		if (p1->orig->is_epsilon()) {
+			// TODO
+			continue;
+		}
 		Int final_set = std::get<2>(p1->symbols.back());
 
 		std::map<Int, Production*>::iterator it = lookup.find(final_set);
@@ -477,8 +549,8 @@ std::unique_ptr<Token> Parser::next_token(std::istream* in) {
 	return t;
 }
 
-bool Parser::is_item_done(Item item) {
-	return item.second == item.first->symbols.size();
+bool Parser::item_is_done(Item item) {
+	return item.second == (Int) item.first->symbols.size();
 }
 
 bool Parser::symbol_is_token(std::string str) {
@@ -495,13 +567,14 @@ bool Parser::symbol_is_nullable(std::string str) {
 		return Parser::symbol_is_epsilon(str);
 	}
 	for (Production* p : this->nonterminals.at(str)) {
-		if (p->nullable) {
+		if (p->symbols.empty()) {
 			return true;
 		}
 	}
 	return false;
 }
 
+#pragma mark - Parser - debug
 void Parser::debug_production(Production* p, Int dot) {
 	std::cout << p->target << " ::=";
 	Int i = 0;

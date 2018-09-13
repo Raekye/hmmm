@@ -27,7 +27,7 @@ struct Production;
 class Match;
 
 typedef std::function<void(Match*)> ProductionHandler;
-typedef std::pair<Production*, UInt> Item;
+typedef std::pair<Production*, Int> Item;
 typedef std::string Symbol;
 typedef std::tuple<Symbol, Int, Int> ExtendedSymbol;
 
@@ -35,8 +35,10 @@ struct Production {
 	std::string target;
 	std::vector<std::string> symbols;
 	ProductionHandler handler;
-	bool nullable;
-	bool empty;
+
+	inline bool is_epsilon() const {
+		return symbols.empty();
+	}
 };
 
 struct ExtendedProduction {
@@ -71,6 +73,9 @@ public:
 };
 
 class Parser {
+	static const std::string END;
+	static const std::string EPSILON;
+
 	Lexer lexer;
 	std::stack<std::unique_ptr<Token>> token_buffer;
 
@@ -98,36 +103,32 @@ class Parser {
 	void push_token(std::unique_ptr<Token>);
 	std::unique_ptr<Token> next_token(std::istream*);
 
-	void generate();
 	void generate(std::string);
 	ItemSet* generate_itemset(std::set<Item>);
 	void expand_symbol_into_itemset(ItemSet*, std::string, std::set<std::string>*);
 
-	void generate_first_and_follow();
-	void generate_first_set(std::string);
+	void generate_first_sets();
 	void generate_follow_sets();
 
 	void generate_extended_grammar();
-	void generate_extended_first_and_follow();
-	void generate_extended_first_set(ExtendedSymbol);
+	void generate_extended_first_sets();
 	void generate_extended_follow_sets();
 
 	void generate_reductions();
 	void generate_actions_and_gotos();
 
-	// TODO: decide which convention better :P
-	static bool is_item_done(Item);
+	bool symbol_is_nullable(std::string);
+	static bool item_is_done(Item);
 	static bool symbol_is_token(std::string);
 	static bool symbol_is_epsilon(std::string);
-	bool symbol_is_nullable(std::string);
 
-	static const std::string END;
-	static const std::string EPSILON;
 public:
 	void set_start(std::string);
 	void add_token(std::string, std::string);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
 	void parse(std::istream*);
+
+	static std::unique_ptr<Parser> load(std::istream*);
 
 	static void debug(Parser*);
 	static void debug_production(Production*, Int = -1);

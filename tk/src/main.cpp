@@ -1,4 +1,5 @@
 #include <sstream>
+#include <fstream>
 #include "helper.h"
 #include "regex.h"
 #include "lexer.h"
@@ -30,7 +31,7 @@ int test_lexer() {
 
 int test_parser() {
 	std::string indents = "";
-	std::function<void(Match*)> fn = [&indents, &fn](Match* m) -> void {
+	ProductionHandler fn = [&indents, &fn](Match* m) -> void {
 		std::stack<Match*> s;
 		s.push(m);
 		while (s.size() > 0) {
@@ -66,7 +67,16 @@ int test_parser() {
 	return 0;
 }
 
+int test_generator() {
+	std::fstream f("src/parser.txt", std::fstream::in);
+	std::unique_ptr<Parser> p = Parser::load(&f);
+	(void) p;
+	return 0;
+}
+
 int main() {
 	test_lexer();
-	return test_parser();
+	test_parser();
+	test_generator();
+	return 0;
 }

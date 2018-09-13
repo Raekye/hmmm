@@ -13,7 +13,7 @@ namespace mdk {
 		std::cout << t;
 		print(args...);
 	}
-	void printf(const char* fmt, ...) {
+	inline void printf(const char* fmt, ...) {
 		va_list args;
 		va_start(args, fmt);
 		vfprintf(stdout, fmt, args);
@@ -26,7 +26,7 @@ namespace mdk {
 		std::cerr << t;
 		log(args...);
 	}
-	void logf(const char* fmt, ...) {
+	inline void logf(const char* fmt, ...) {
 		va_list args;
 		va_start(args, fmt);
 		vfprintf(stderr, fmt, args);
