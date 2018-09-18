@@ -45,9 +45,12 @@ void Parser::parse(std::istream* in) {
 	this->parse_stack.push(0);
 	Symbol last_reduction = "";
 	while (true) {
+		mdk::printf("[debug] parse at state %d\n", this->parse_stack.top());
 		std::unique_ptr<ItemSet>& current_state = this->states.at(this->parse_stack.top());
 		bool accept = false;
 		for (const Item& item : current_state->head) {
+			mdk::printf("[debug] checking head ");
+			Parser::debug_item(item);
 			if (item.first->target == this->start && Parser::item_is_done(item)) {
 				accept = true;
 				break;
@@ -125,10 +128,10 @@ void Parser::parse(std::istream* in) {
 	return;
 }
 
-std::unique_ptr<Parser> Parser::load(std::istream* f) {
+std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 	Parser bootstrap;
 	bootstrap.set_start("start");
-	bootstrap.add_token("SEMICOLON", ";");
+	bootstrap.add_token("A", "a");
 	//bootstrap.add_token("COLON", ":");
 	//bootstrap.add_token("EQUALS", "=");
 	//bootstrap.add_token("BAR", "\\|");
@@ -168,10 +171,8 @@ std::unique_ptr<Parser> Parser::load(std::istream* f) {
 		return;
 	};
 
-	bootstrap.add_production("start", { "data" }, log_handler);
-	bootstrap.add_production("data", { "line", "data" }, log_handler);
-	bootstrap.add_production("data", { }, log_handler);
-	bootstrap.add_production("line", { "SEMICOLON" }, log_handler);
+	bootstrap.add_production("start", { "list" }, log_handler);
+	bootstrap.add_production("list", { }, log_handler);
 	/*
 	bootstrap.add_production("line", { "token" }, log_handler);
 	bootstrap.add_production("line", { "production" }, log_handler);
@@ -218,9 +219,9 @@ void Parser::generate(std::string symbol) {
 	std::cout << "=== Done extended sets" << std::endl;
 	std::cout << std::endl;
 
-	Parser::debug(this);
+	this->generate_reductions();
 
-	this->generate_actions_and_gotos();
+	Parser::debug(this);
 }
 
 ItemSet* Parser::generate_itemset(std::set<Item> head) {
@@ -367,7 +368,7 @@ void Parser::generate_follow_sets() {
 
 void Parser::generate_extended_grammar() {
 	Int num = 0;
-	auto fn = [&num](Item item, ItemSet* is, Parser* self) -> void {
+	auto fn = [&num](Parser* self, Item item, ItemSet* is) -> void {
 		if (item.second != 0) {
 			return;
 		}
@@ -392,10 +393,10 @@ void Parser::generate_extended_grammar() {
 	};
 	for (auto& kv : this->itemsets) {
 		for (auto& item : kv.first) {
-			fn(item, kv.second, this);
+			fn(this, item, kv.second);
 		}
 		for (auto& item : kv.second->additionals) {
-			fn(item, kv.second, this);
+			fn(this, item, kv.second);
 		}
 	}
 }
@@ -471,13 +472,6 @@ void Parser::generate_extended_follow_sets() {
 			}
 		}
 	}
-}
-
-
-void Parser::generate_actions_and_gotos() {
-	this->generate_reductions();
-
-	this->action_goto_table.resize(this->itemsets.size());
 }
 
 void Parser::generate_reductions() {
@@ -560,18 +554,6 @@ bool Parser::symbol_is_token(std::string str) {
 
 bool Parser::symbol_is_epsilon(std::string str) {
 	return str == Parser::EPSILON;
-}
-
-bool Parser::symbol_is_nullable(std::string str) {
-	if (Parser::symbol_is_token(str)) {
-		return Parser::symbol_is_epsilon(str);
-	}
-	for (Production* p : this->nonterminals.at(str)) {
-		if (p->symbols.empty()) {
-			return true;
-		}
-	}
-	return false;
 }
 
 #pragma mark - Parser - debug

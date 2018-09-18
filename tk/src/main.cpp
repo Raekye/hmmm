@@ -69,7 +69,7 @@ int test_parser() {
 
 int test_generator() {
 	std::fstream f("src/parser.txt", std::fstream::in);
-	std::unique_ptr<Parser> p = Parser::load(&f);
+	std::unique_ptr<Parser> p = Parser::from_file(&f);
 	(void) p;
 	return 0;
 }

@@ -76,6 +76,10 @@ class Parser {
 	static const std::string END;
 	static const std::string EPSILON;
 
+	static bool item_is_done(Item);
+	static bool symbol_is_token(std::string);
+	static bool symbol_is_epsilon(std::string);
+
 	Lexer lexer;
 	std::stack<std::unique_ptr<Token>> token_buffer;
 
@@ -115,20 +119,14 @@ class Parser {
 	void generate_extended_follow_sets();
 
 	void generate_reductions();
-	void generate_actions_and_gotos();
-
-	bool symbol_is_nullable(std::string);
-	static bool item_is_done(Item);
-	static bool symbol_is_token(std::string);
-	static bool symbol_is_epsilon(std::string);
 
 public:
+	static std::unique_ptr<Parser> from_file(std::istream*);
+
 	void set_start(std::string);
 	void add_token(std::string, std::string);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
 	void parse(std::istream*);
-
-	static std::unique_ptr<Parser> load(std::istream*);
 
 	static void debug(Parser*);
 	static void debug_production(Production*, Int = -1);
