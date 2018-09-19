@@ -33,6 +33,9 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 	std::unique_ptr<Production> p(new Production);
 	p->target = target;
 	p->symbols = symbols;
+	if (p->symbols.empty()) {
+		p->symbols.push_back(Parser::EPSILON);
+	}
 	p->handler = handler;
 	this->nonterminals[target].push_back(p.get());
 	this->productions.push_back(std::move(p));
@@ -61,6 +64,7 @@ void Parser::parse(std::istream* in) {
 			//break;
 		}
 
+		mdk::printf("[debug] last reduction is {%s}\n", last_reduction.c_str());
 		Symbol lr2 = last_reduction;
 		last_reduction = "";
 		if (lr2.length() > 0) {
@@ -72,6 +76,7 @@ void Parser::parse(std::istream* in) {
 			} else {
 				// TODO: what?
 				std::cout << "No next state" << std::endl;
+				break;
 			}
 		}
 		std::unique_ptr<Token> t = this->next_token(in);
@@ -82,12 +87,18 @@ void Parser::parse(std::istream* in) {
 			if (reduction_row.find(Parser::END) != reduction_row.end()) {
 				std::cout << "Reducing via end" << std::endl;
 				t.reset(new Token(Parser::END, "", LocationInfo(0, 0)));
+			/*
 			} else if (reduction_row.find(Parser::EPSILON) != reduction_row.end()) {
 				std::cout << "Reducing via epsilon" << std::endl;
 				t.reset(new Token(Parser::EPSILON, "", LocationInfo(0, 0)));
+			*/
 			} else {
-				std::cout << "Breaking." << std::endl;
-				break;
+				if (current_state->next.find(Parser::EPSILON) != current_state->next.end()) {
+					t.reset(new Token(Parser::EPSILON, "", LocationInfo(0, 0)));
+				} else {
+					std::cout << "Breaking." << std::endl;
+					break;
+				}
 			}
 		}
 		std::cout << "Got token " << t->tag << ": " << t->lexeme << std::endl;
@@ -101,7 +112,6 @@ void Parser::parse(std::istream* in) {
 		std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
 		std::map<Symbol, Production*>::iterator it2 = reduction_row.find(t->tag);
 		if (it2 != reduction_row.end()) {
-			it2->second->handler(nullptr);
 			std::cout << "reducing via rule ";
 			Parser::debug_production(it2->second);
 			std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(it2->second));
@@ -113,6 +123,7 @@ void Parser::parse(std::istream* in) {
 				Parser::debug_match(m.get(), 0);
 				mnt->terms[it2->second->symbols.size() - i - 1] = std::move(m);
 			}
+			it2->second->handler(mnt.get());
 			this->parse_stack_matches.push(std::move(mnt));
 			last_reduction = it2->second->target;
 			this->push_token(std::move(t));
@@ -132,6 +143,7 @@ std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 	Parser bootstrap;
 	bootstrap.set_start("start");
 	bootstrap.add_token("A", "a");
+	bootstrap.add_token("B", "b");
 	//bootstrap.add_token("COLON", ":");
 	//bootstrap.add_token("EQUALS", "=");
 	//bootstrap.add_token("BAR", "\\|");
@@ -172,6 +184,7 @@ std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 	};
 
 	bootstrap.add_production("start", { "list" }, log_handler);
+	bootstrap.add_production("list", { "A", "list", }, log_handler);
 	bootstrap.add_production("list", { }, log_handler);
 	/*
 	bootstrap.add_production("line", { "token" }, log_handler);
@@ -205,12 +218,6 @@ void Parser::generate(std::string symbol) {
 	std::cout << "=== Generating extended grammar" << std::endl;
 	this->generate_extended_grammar();
 	std::cout << "=== Done extended grammar" << std::endl;
-	std::cout << std::endl;
-
-	std::cout << "=== Generating first and follow sets" << std::endl;
-	this->generate_first_sets();
-	this->generate_follow_sets();
-	std::cout << "=== Done first and follow sets" << std::endl;
 	std::cout << std::endl;
 
 	std::cout << "=== Generating extended sets" << std::endl;
@@ -278,7 +285,7 @@ ItemSet* Parser::generate_itemset(std::set<Item> head) {
 }
 
 void Parser::expand_symbol_into_itemset(ItemSet* is, std::string symbol, std::set<std::string>* encountered_terminals) {
-	if (Parser::symbol_is_token(symbol)) {
+	if (Parser::symbol_is_token(symbol) || Parser::symbol_is_epsilon(symbol)) {
 		std::cout << "=== expand symbol into itemset: token " << symbol << std::endl;
 		return;
 	} else {
@@ -289,79 +296,10 @@ void Parser::expand_symbol_into_itemset(ItemSet* is, std::string symbol, std::se
 				std::cout << "\t";
 				Parser::debug_production(p);
 				is->additionals.insert(Item(p, 0));
-				if (!p->is_epsilon()) {
-					this->expand_symbol_into_itemset(is, p->symbols.front(), encountered_terminals);
-				}
+				this->expand_symbol_into_itemset(is, p->symbols.front(), encountered_terminals);
 			}
 		} else {
 			std::cout << "=== expand symbol into itemset: existing nonterminal " << symbol << std::endl;
-		}
-	}
-}
-
-/*
- * Dragon book page 221
- */
-void Parser::generate_first_sets() {
-	for (const std::string& t : this->terminals) {
-		this->firsts[t].insert(t);
-	}
-	bool changed = true;
-	while (changed) {
-		changed = false;
-		for (const std::unique_ptr<Production>& p : this->productions) {
-			if (p->is_epsilon()) {
-				changed = changed || this->firsts[p->target].insert(Parser::EPSILON).second;
-			} else {
-				size_t old = this->firsts[p->target].size();
-				// if `FIRST(p->target)` contains `epsilon`, make sure we don't remove it later
-				std::set<std::string>::iterator it = this->firsts[p->target].find(Parser::EPSILON);
-				for (const std::string& s : p->symbols) {
-					this->firsts[p->target].insert(this->firsts[s].begin(), this->firsts[s].end());
-					if (this->firsts[s].find(Parser::EPSILON) == this->firsts[s].end()) {
-						if (it == this->firsts[p->target].end()) {
-							this->firsts[p->target].erase(Parser::EPSILON);
-						}
-						break;
-					}
-				}
-				changed = changed || (this->firsts[p->target].size() != old);
-			}
-		}
-	}
-}
-
-/*
- * Dragon book page 221-222
- */
-void Parser::generate_follow_sets() {
-	this->follows[this->start].insert(Parser::END);
-	bool changed = true;
-	while (changed) {
-		changed = false;
-		for (const std::map<std::string, std::vector<Production*>>::value_type& kv : this->nonterminals) {
-			for (Production* p : kv.second) {
-				if (p->is_epsilon()) {
-					continue;
-				}
-				size_t len = p->symbols.size();
-				assert(len > 0);
-				std::string z = p->symbols.at(len - 1);
-				if (!Parser::symbol_is_token(z)) {
-					size_t old = this->follows[z].size();
-					this->follows[z].insert(this->follows[p->target].begin(), this->follows[p->target].end());
-					changed = changed || (this->follows[z].size() != old);
-				}
-				for (size_t i = 1; i < len; i++) {
-					std::string x = p->symbols.at(i - 1);
-					if (!Parser::symbol_is_token(x)) {
-						std::string y = p->symbols.at(i);
-						size_t old = this->follows[x].size();
-						this->follows[x].insert(this->firsts[y].begin(), this->firsts[y].end());
-						changed = changed || (this->follows[x].size() != old);
-					}
-				}
-			}
 		}
 	}
 }
@@ -400,16 +338,20 @@ void Parser::generate_extended_grammar() {
 		}
 	}
 }
+
+/*
+ * Dragon book page 221
+ */
 void Parser::generate_extended_first_sets() {
 	bool changed = true;
 	while (changed) {
 		changed = false;
 		for (const std::unique_ptr<ExtendedProduction>& ep : this->extended_grammar) {
-			if (ep->orig->is_epsilon()) {
+			if (Parser::production_is_epsilon(ep->orig)) {
 				changed = changed || this->extended_firsts[ep->target].insert(Parser::EPSILON).second;
 			} else {
 				size_t old = this->extended_firsts[ep->target].size();
-				// see `Parser::generate_first_sets()`
+				// if `FIRST(ep->target)` contains `epsilon`, make sure we don't remove it later
 				std::set<std::string>::iterator it = this->extended_firsts[ep->target].find(Parser::EPSILON);
 				for (const ExtendedSymbol& es : ep->symbols) {
 					Symbol s = std::get<0>(es);
@@ -443,8 +385,7 @@ void Parser::generate_extended_follow_sets() {
 				this->extended_follows[kv.first].insert(Parser::END);
 			}
 			for (ExtendedProduction* ep : kv.second) {
-				if (ep->orig->is_epsilon()) {
-					// TODO
+				if (Parser::production_is_epsilon(ep->orig)) {
 					continue;
 				}
 				size_t len = ep->symbols.size();
@@ -479,10 +420,6 @@ void Parser::generate_reductions() {
 	std::map<Int, Production*> lookup;
 	for (size_t i = 0; i < this->extended_grammar.size(); i++) {
 		std::unique_ptr<ExtendedProduction>& p1 = this->extended_grammar.at(i);
-		if (p1->orig->is_epsilon()) {
-			// TODO
-			continue;
-		}
 		Int final_set = std::get<2>(p1->symbols.back());
 
 		std::map<Int, Production*>::iterator it = lookup.find(final_set);
@@ -496,6 +433,7 @@ void Parser::generate_reductions() {
 			std::map<Symbol, Production*>::iterator it = this->reductions.at(final_set).find(s);
 			if (it == this->reductions.at(final_set).end()) {
 				this->reductions.at(final_set)[s] = p1->orig;
+				mdk::printf("[debug] creating reduction from %d to %s from %s\n", final_set, p1->orig->target.c_str(), s.c_str());
 			} else {
 				assert(it->second == p1->orig);
 			}
@@ -543,10 +481,6 @@ std::unique_ptr<Token> Parser::next_token(std::istream* in) {
 	return t;
 }
 
-bool Parser::item_is_done(Item item) {
-	return item.second == (Int) item.first->symbols.size();
-}
-
 bool Parser::symbol_is_token(std::string str) {
 	UInt ch = str[0];
 	return ('A' <= ch) && (ch <= 'Z');
@@ -554,6 +488,14 @@ bool Parser::symbol_is_token(std::string str) {
 
 bool Parser::symbol_is_epsilon(std::string str) {
 	return str == Parser::EPSILON;
+}
+
+bool Parser::production_is_epsilon(Production* p) {
+	return p->symbols.size() == 1 && Parser::symbol_is_epsilon(p->symbols.front());
+}
+
+bool Parser::item_is_done(Item item) {
+	return item.second == (Int) item.first->symbols.size();
 }
 
 #pragma mark - Parser - debug
@@ -615,7 +557,7 @@ void Parser::debug_match(Match* m, Int levels) {
 		std::cout << indent << "}" << std::endl;
 	} else {
 		// TODO
-		std::cout << "Badness in debug match" << std::endl;
+		std::cout << "Badness in debug match: " << m << std::endl;
 	}
 }
 
@@ -639,16 +581,6 @@ void Parser::debug(Parser* p) {
 		}
 		std::cout << "=== done " << is->index << std::endl;
 		std::cout << std::endl;
-	}
-	std::cout << "=== First sets" << std::endl;
-	for (auto& kv : p->firsts) {
-		std::cout << "\t" << kv.first << ": ";
-		Parser::debug_set(kv.second);
-	}
-	std::cout << "=== Follow sets" << std::endl;
-	for (auto& kv : p->follows) {
-		std::cout << "\t" << kv.first << ": ";
-		Parser::debug_set(kv.second);
 	}
 	std::cout << "=== Extended firsts" << std::endl;
 	for (auto& kv : p->extended_firsts) {

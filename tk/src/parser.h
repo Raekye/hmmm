@@ -35,10 +35,6 @@ struct Production {
 	std::string target;
 	std::vector<std::string> symbols;
 	ProductionHandler handler;
-
-	inline bool is_epsilon() const {
-		return symbols.empty();
-	}
 };
 
 struct ExtendedProduction {
@@ -76,9 +72,10 @@ class Parser {
 	static const std::string END;
 	static const std::string EPSILON;
 
-	static bool item_is_done(Item);
 	static bool symbol_is_token(std::string);
 	static bool symbol_is_epsilon(std::string);
+	static bool production_is_epsilon(Production*);
+	static bool item_is_done(Item);
 
 	Lexer lexer;
 	std::stack<std::unique_ptr<Token>> token_buffer;
@@ -90,9 +87,6 @@ class Parser {
 
 	std::vector<std::unique_ptr<ItemSet>> states;
 	std::map<std::set<Item>, ItemSet*> itemsets;
-
-	std::map<std::string, std::set<std::string>> firsts;
-	std::map<std::string, std::set<std::string>> follows;
 
 	std::vector<std::unique_ptr<ExtendedProduction>> extended_grammar;
 	std::map<ExtendedSymbol, std::vector<ExtendedProduction*>> extended_nonterminals;
