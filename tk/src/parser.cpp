@@ -32,10 +32,7 @@ void Parser::add_token(std::string tag, std::string pattern) {
 void Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler) {
 	std::unique_ptr<Production> p(new Production);
 	p->target = target;
-	p->symbols = symbols;
-	if (p->symbols.empty()) {
-		p->symbols.push_back(Parser::EPSILON);
-	}
+	p->symbols = symbols.empty() ? std::vector<Symbol>{ Parser::EPSILON } : symbols;
 	p->handler = handler;
 	this->nonterminals[target].push_back(p.get());
 	this->productions.push_back(std::move(p));
@@ -79,6 +76,7 @@ void Parser::parse(std::istream* in) {
 				break;
 			}
 		}
+
 		std::unique_ptr<Token> t = this->next_token(in);
 		if (t == nullptr) {
 			std::cout << "Got null token, state " << current_state->index << std::endl;
@@ -87,11 +85,6 @@ void Parser::parse(std::istream* in) {
 			if (reduction_row.find(Parser::END) != reduction_row.end()) {
 				std::cout << "Reducing via end" << std::endl;
 				t.reset(new Token(Parser::END, "", LocationInfo(0, 0)));
-			/*
-			} else if (reduction_row.find(Parser::EPSILON) != reduction_row.end()) {
-				std::cout << "Reducing via epsilon" << std::endl;
-				t.reset(new Token(Parser::EPSILON, "", LocationInfo(0, 0)));
-			*/
 			} else {
 				if (current_state->next.find(Parser::EPSILON) != current_state->next.end()) {
 					t.reset(new Token(Parser::EPSILON, "", LocationInfo(0, 0)));
@@ -119,18 +112,31 @@ void Parser::parse(std::istream* in) {
 				this->parse_stack.pop();
 				std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
 				this->parse_stack_matches.pop();
-				std::cout << "Removing entry ";
-				Parser::debug_match(m.get(), 0);
+				//std::cout << "Removing entry ";
+				//Parser::debug_match(m.get(), 0);
 				mnt->terms[it2->second->symbols.size() - i - 1] = std::move(m);
 			}
 			it2->second->handler(mnt.get());
 			this->parse_stack_matches.push(std::move(mnt));
 			last_reduction = it2->second->target;
-			this->push_token(std::move(t));
+			if (t->tag != Parser::EPSILON) {
+				mdk::printf("[debug] pushing token %s\n", t->tag.c_str());
+				this->push_token(std::move(t));
+			}
 			continue;
 		} else {
 			// TODO: what is this?
-			std::cout << "No reduction" << std::endl;
+			if (current_state->next.find(Parser::EPSILON) != current_state->next.end()) {
+				mdk::printf("[debug] shift has epsilon\n");
+				this->push_token(std::move(t));
+				this->push_token(std::unique_ptr<Token>(new Token(Parser::EPSILON, "", LocationInfo(0, 0))));
+			} else if (reduction_row.find(Parser::EPSILON) != reduction_row.end()) {
+				mdk::printf("[debug] reduction has epsilon\n");
+				this->push_token(std::move(t));
+				this->push_token(std::unique_ptr<Token>(new Token(Parser::EPSILON, "", LocationInfo(0, 0))));
+			} else {
+				std::cout << "No reduction" << std::endl;
+			}
 		}
 	}
 	mdk::printf("[debug] parse stack size %zd\n", this->parse_stack.size());
@@ -183,9 +189,12 @@ std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 		return;
 	};
 
-	bootstrap.add_production("start", { "list" }, log_handler);
-	bootstrap.add_production("list", { "A", "list", }, log_handler);
-	bootstrap.add_production("list", { }, log_handler);
+	//bootstrap.add_production("start", { "as", }, log_handler);
+	bootstrap.add_production("start", { "as", "bs" }, log_handler);
+	bootstrap.add_production("as", { "A", "as", }, log_handler);
+	bootstrap.add_production("as", { }, log_handler);
+	bootstrap.add_production("bs", { "B", "bs", }, log_handler);
+	bootstrap.add_production("bs", { }, log_handler);
 	/*
 	bootstrap.add_production("line", { "token" }, log_handler);
 	bootstrap.add_production("line", { "production" }, log_handler);
