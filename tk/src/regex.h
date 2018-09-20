@@ -47,18 +47,18 @@ private:
 	std::unique_ptr<RegexAST> parse_parentheses();
 	std::unique_ptr<RegexAST> parse_literal();
 	std::unique_ptr<RegexAST> parse_group();
-	UInt* parse_absolute_literal();
+	std::unique_ptr<UInt> parse_absolute_literal();
 
-	std::tuple<UInt, UInt>* parse_mul_range();
+	std::unique_ptr<std::tuple<UInt, UInt>> parse_mul_range();
 
 	std::unique_ptr<RegexAST> parse_group_contents();
 	std::unique_ptr<RegexAST> parse_group_element();
 	std::unique_ptr<RegexAST> parse_group_range();
-	UInt* parse_group_literal();
+	std::unique_ptr<UInt> parse_group_literal();
 
-	UInt* parse_hex_byte();
-	UInt* parse_hex_int();
-	UInt* parse_dec_int();
+	std::unique_ptr<UInt> parse_hex_byte();
+	std::unique_ptr<UInt> parse_hex_int();
+	std::unique_ptr<UInt> parse_dec_int();
 
 	static bool is_special_char(UInt);
 	static bool is_group_special_char(UInt);

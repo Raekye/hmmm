@@ -136,7 +136,6 @@ std::unique_ptr<RegexAST> RegexParser::parse_lr_or() {
 	this->buffer_advance(1);
 	std::unique_ptr<RegexAST> r = this->parse_lr_or();
 	if (!r) {
-		//delete l;
 		this->buffer_pop(2);
 		return nullptr;
 	}
@@ -186,22 +185,21 @@ std::unique_ptr<RegexAST> RegexParser::parse_lr_mul() {
 		this->buffer_push(this->buffer_pop(2));
 		return RegexParser::make_regex_ast_multiplication(&l, 0, 1);
 	}
-	std::tuple<UInt, UInt>* range = this->parse_mul_range();
+	std::unique_ptr<std::tuple<UInt, UInt>> range = this->parse_mul_range();
 	if (!range) {
 		return l;
 	}
 	this->buffer_push(this->buffer_pop(2));
 	std::unique_ptr<RegexAST> r = RegexParser::make_regex_ast_multiplication(&l, std::get<0>(*range), std::get<1>(*range));
-	delete range;
 	return r;
 }
 
-std::tuple<UInt, UInt>* RegexParser::parse_mul_range() {
+std::unique_ptr<std::tuple<UInt, UInt>> RegexParser::parse_mul_range() {
 	if (this->buffer_char() != '{') {
 		return nullptr;
 	}
 	this->buffer_advance(1);
-	UInt* lower = this->parse_dec_int();
+	std::unique_ptr<UInt> lower = this->parse_dec_int();
 	if (!lower) {
 		this->buffer_pop(1);
 		return nullptr;
@@ -211,22 +209,17 @@ std::tuple<UInt, UInt>* RegexParser::parse_mul_range() {
 		return nullptr;
 	}
 	this->buffer_advance(1);
-	UInt* upper = this->parse_dec_int();
+	std::unique_ptr<UInt> upper = this->parse_dec_int();
 	if (!upper) {
-		delete lower;
 		this->buffer_pop(3);
 		return nullptr;
 	}
 	if (this->buffer_char() != '}') {
-		delete lower;
-		delete upper;
 		this->buffer_pop(4);
 		return nullptr;
 	}
 	this->buffer_push(this->buffer_pop(4) + 1);
-	std::tuple<UInt, UInt>* range = new std::tuple<UInt, UInt>(*lower, *upper);
-	delete lower;
-	delete upper;
+	std::unique_ptr<std::tuple<UInt, UInt>> range(new std::tuple<UInt, UInt>(*lower, *upper));
 	return range;
 }
 
@@ -256,7 +249,6 @@ std::unique_ptr<RegexAST> RegexParser::parse_parentheses() {
 		return nullptr;
 	}
 	if (this->buffer_char() != ')') {
-		//delete node;
 		this->buffer_pop(2);
 		return nullptr;
 	}
@@ -265,10 +257,9 @@ std::unique_ptr<RegexAST> RegexParser::parse_parentheses() {
 }
 
 std::unique_ptr<RegexAST> RegexParser::parse_literal() {
-	UInt* x = this->parse_absolute_literal();
+	std::unique_ptr<UInt> x = this->parse_absolute_literal();
 	if (x) {
 		std::unique_ptr<RegexAST> r = RegexParser::make_regex_ast_literal(*x);
-		delete x;
 		return r;
 	}
 	UInt ch = this->buffer_char();
@@ -298,7 +289,6 @@ std::unique_ptr<RegexAST> RegexParser::parse_group() {
 		return nullptr;
 	}
 	if (this->buffer_char() != RegexParser::TOKEN_RBRACKET) {
-		//delete contents;
 		this->buffer_pop(2);
 		return nullptr;
 	}
@@ -323,16 +313,15 @@ std::unique_ptr<RegexAST> RegexParser::parse_group_contents() {
 std::unique_ptr<RegexAST> RegexParser::parse_group_element() {
 	if (std::unique_ptr<RegexAST> node = this->parse_group_range()) {
 		return node;
-	} else if (UInt* x = this->parse_group_literal()) {
+	} else if (std::unique_ptr<UInt> x = this->parse_group_literal()) {
 		 std::unique_ptr<RegexAST> r = RegexParser::make_regex_ast_literal(*x);
-		 delete x;
 		 return r;
 	}
 	return nullptr;
 }
 
-UInt* RegexParser::parse_group_literal() {
-	UInt* l = this->parse_absolute_literal();
+std::unique_ptr<UInt> RegexParser::parse_group_literal() {
+	std::unique_ptr<UInt> l = this->parse_absolute_literal();
 	if (l) {
 		return l;
 	}
@@ -341,42 +330,38 @@ UInt* RegexParser::parse_group_literal() {
 		ch = this->buffer_char(1);
 		if (RegexParser::is_group_special_char(ch)) {
 			this->buffer_advance(2);
-			return new UInt(ch);
+			return std::unique_ptr<UInt>(new UInt(ch));
 		}
 		return nullptr;
 	}
 	if (!RegexParser::is_group_special_char(ch) && 32 <= ch && ch < 127) {
 		this->buffer_advance(1);
-		return new UInt(ch);
+		return std::unique_ptr<UInt>(new UInt(ch));
 	}
 	return nullptr;
 }
 
 std::unique_ptr<RegexAST> RegexParser::parse_group_range() {
-	UInt* lower = this->parse_group_literal();
+	std::unique_ptr<UInt> lower = this->parse_group_literal();
 	if (!lower) {
 		return nullptr;
 	}
 	if (this->buffer_char() != '-') {
-		delete lower;
 		this->buffer_pop(1);
 		return nullptr;
 	}
 	this->buffer_advance(1);
-	UInt* upper = this->parse_group_literal();
+	std::unique_ptr<UInt> upper = this->parse_group_literal();
 	if (!upper) {
-		delete lower;
 		this->buffer_pop(2);
 		return nullptr;
 	}
 	std::unique_ptr<RegexAST> node = RegexParser::make_regex_ast_range(*lower, *upper);
-	delete lower;
-	delete upper;
 	this->buffer_push(this->buffer_pop(3));
 	return node;
 }
 
-UInt* RegexParser::parse_absolute_literal() {
+std::unique_ptr<UInt> RegexParser::parse_absolute_literal() {
 	if (this->buffer_char() != RegexParser::TOKEN_ESCAPE) {
 		return nullptr;
 	}
@@ -384,7 +369,7 @@ UInt* RegexParser::parse_absolute_literal() {
 	UInt ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_X) {
 		this->buffer_advance(1);
-		UInt* x = this->parse_hex_byte();
+		std::unique_ptr<UInt> x = this->parse_hex_byte();
 		if (!x) {
 			this->buffer_pop(2);
 			return nullptr;
@@ -393,7 +378,7 @@ UInt* RegexParser::parse_absolute_literal() {
 		return x;
 	} else if (ch == RegexParser::TOKEN_U) {
 		this->buffer_advance(1);
-		UInt* x = this->parse_hex_int();
+		std::unique_ptr<UInt> x = this->parse_hex_int();
 		if (!x) {
 			this->buffer_pop(2);
 			return nullptr;
@@ -403,21 +388,21 @@ UInt* RegexParser::parse_absolute_literal() {
 	} else if (ch == RegexParser::TOKEN_T) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new UInt('\t');
+		return std::unique_ptr<UInt>(new UInt('\t'));
 	} else if (ch == RegexParser::TOKEN_N) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new UInt('\n');
+		return std::unique_ptr<UInt>(new UInt('\n'));
 	} else if (ch == RegexParser::TOKEN_R) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new UInt('\r');
+		return std::unique_ptr<UInt>(new UInt('\r'));
 	}
 	this->buffer_pop(1);
 	return nullptr;
 }
 
-UInt* RegexParser::parse_hex_byte() {
+std::unique_ptr<UInt> RegexParser::parse_hex_byte() {
 	Int upper = this->buffer_char();
 	if (!RegexParser::is_hex_digit(upper)) {
 		return nullptr;
@@ -439,26 +424,25 @@ UInt* RegexParser::parse_hex_byte() {
 		x |= upper - 'a' + 10;
 	}
 	this->buffer_advance(2);
-	return new UInt(x);
+	return std::unique_ptr<UInt>(new UInt(x));
 }
 
-UInt* RegexParser::parse_hex_int() {
+std::unique_ptr<UInt> RegexParser::parse_hex_int() {
 	UInt x = 0;
 	this->buffer_advance(0);
 	for (Int i = 0; i < 4; i++) {
-		UInt* b = this->parse_hex_byte();
+		std::unique_ptr<UInt> b = this->parse_hex_byte();
 		if (!b) {
 			this->buffer_pop(1);
 			return nullptr;
 		}
 		x = (x << 8) + *b;
-		delete b;
 		this->buffer_push(this->buffer_pop(2));
 	}
-	return new UInt(x);
+	return std::unique_ptr<UInt>(new UInt(x));
 }
 
-UInt* RegexParser::parse_dec_int() {
+std::unique_ptr<UInt> RegexParser::parse_dec_int() {
 	UInt x = 0;
 	Int delta = 0;
 	while (true) {
@@ -470,7 +454,7 @@ UInt* RegexParser::parse_dec_int() {
 		delta++;
 	}
 	this->buffer_advance(delta);
-	return new UInt(x);
+	return std::unique_ptr<UInt>(new UInt(x));
 }
 
 bool RegexParser::is_special_char(UInt ch) {
