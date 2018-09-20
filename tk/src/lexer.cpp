@@ -9,20 +9,16 @@ void Lexer::generate() {
 	std::cout << "=== Rules" << std::endl;
 	for (size_t i = 0; i < this->rules.size(); i++) {
 		std::cout << "Rule " << i << " - " << this->rules[i].tag << " - " << this->rules[i].pattern << std::endl;
-		std::unique_ptr<RegexAST> regex = this->regex_parser.parse(this->rules[i].pattern);
-		if (!regex) {
-			throw std::runtime_error("Invalid regex " + this->rules[i].pattern + " for rule " + this->rules[i].tag);
-		}
 
 		RegexASTPrinter rp;
 		rp.indents = 2;
 		std::cout << "\tRegex AST" << std::endl;
-		regex->accept(&rp);
+		this->rules_regex[i]->accept(&rp);
 		std::cout << "\tEnd regex ast" << std::endl;
 		std::cout << std::endl;
 
 		this->regex_nfa_generator.new_rule(this->rules[i].tag);
-		regex->accept(&(this->regex_nfa_generator));
+		this->rules_regex[i]->accept(&(this->regex_nfa_generator));
 
 		std::cout << "End rule " << this->rules[i].tag << std::endl;
 		std::cout << std::endl;
@@ -80,9 +76,15 @@ void Lexer::prepare() {
 	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root;
 }
 
-void Lexer::add_rule(Rule rule) {
+bool Lexer::add_rule(Rule rule) {
+	std::unique_ptr<RegexAST> regex = this->regex_parser.parse(rule.pattern);
+	if (!regex) {
+		return false;
+	}
+	this->rules_regex.push_back(std::move(regex));
 	this->rules.push_back(rule);
 	this->regenerate = true;
+	return true;
 }
 
 std::unique_ptr<Token> Lexer::scan(std::istream* in) {

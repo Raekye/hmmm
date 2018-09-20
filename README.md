@@ -18,13 +18,16 @@ Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 - `siyu/`: successor to `primed/`, DFA state generator, lexer-generator, and parser-generator
 - `tk`: successor to `siyu/`, hmmmm
 
+### Primed
+- hand written, recursive descent basic regex parser (builds AST)
+- regex used to define tokens, lexer-generator generates states and next-states for a lexer (a big FSM)
+
 ### Siyu
 - generate DFA states from NFA states
 - `siyu-1/` is a start at generating DFA states directly from a regex based on the dragon book
 
-### Primed
-- hand written, recursive descent basic regex parser (builds AST)
-- regex used to define tokens, lexer-generator generates states and next-states for a lexer (a big FSM)
+### Tk
+- fixed parser handling epsilon productions
 
 #### Regex grammar
 - multiplication is repetition
@@ -198,5 +201,6 @@ dec_int
 - http://stackoverflow.com/questions/14307906/c-llvm-class-functionality
 - http://swtch.com/~rsc/regexp/regexp1.html
 - http://stackoverflow.com/questions/2245962/is-there-an-alternative-for-flex-bison-that-is-usable-on-8-bit-embedded-systems
+- https://web.cs.dal.ca/~sjackson/lalr1.html
 
 [1]: https://github.com/Raekye/bdel_and_dfr_compiler

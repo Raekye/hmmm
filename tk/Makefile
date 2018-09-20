@@ -1,6 +1,6 @@
 CXX = g++
 LD = g++
-CXXFLAGS = -g -c -std=c++11 -Werror -Wall -Wextra -Wno-unknown-pragmas
+CXXFLAGS = -g -c -std=c++11 -Werror -Wall -Wextra -Wno-unknown-pragmas -fno-exceptions
 LDFLAGS =
 LDLIBS =
 

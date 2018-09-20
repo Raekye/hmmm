@@ -112,13 +112,11 @@ std::unique_ptr<RegexAST> RegexParser::parse(std::string str) {
 		return nullptr;
 	}
 	if (this->buffer_pos() != (Int) str.length()) {
-		//delete regex;
 		return nullptr;
 	}
 	this->pos.pop();
 	if (this->pos.size() != 1) {
-		//delete regex;
-		throw std::runtime_error("RegexParser did not finish with pos stack 1");
+		return nullptr;
 	}
 	return regex;
 }

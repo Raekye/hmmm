@@ -38,7 +38,7 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 	this->productions.push_back(std::move(p));
 }
 
-void Parser::parse(std::istream* in) {
+std::unique_ptr<Match> Parser::parse(std::istream* in) {
 	this->generate(this->start);
 
 	std::cout << std::endl << "===== Parsing" << std::endl;
@@ -142,7 +142,7 @@ void Parser::parse(std::istream* in) {
 	mdk::printf("[debug] parse stack size %zd\n", this->parse_stack.size());
 	assert(this->parse_stack.size() == 1);
 	assert(this->parse_stack_matches.size() == 1);
-	return;
+	return std::move(this->parse_stack_matches.top());
 }
 
 std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
@@ -448,6 +448,7 @@ void Parser::generate_reductions() {
 			}
 		}
 
+		// God knows what this is and why it's commented out
 		/*
 		for (size_t j = i + 1; j < this->extended_grammar.size(); j++) {
 			std::unique_ptr<ExtendedProduction>& p2 = this->extended_grammar.at(j);
@@ -564,8 +565,9 @@ void Parser::debug_match(Match* m, Int levels) {
 			Parser::debug_match(t.get(), levels + 1);
 		}
 		std::cout << indent << "}" << std::endl;
+	} else if (m == nullptr) {
+		std::cout << "{ match null }" << std::endl;
 	} else {
-		// TODO
 		std::cout << "Badness in debug match: " << m << std::endl;
 	}
 }

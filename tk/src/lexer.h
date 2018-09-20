@@ -39,6 +39,7 @@ struct Rule {
 class Lexer {
 private:
 	std::vector<Rule> rules;
+	std::vector<std::unique_ptr<RegexAST>> rules_regex;
 	bool regenerate;
 	RegexParser regex_parser;
 
@@ -57,7 +58,7 @@ private:
 public:
 	Lexer();
 
-	void add_rule(Rule);
+	bool add_rule(Rule);
 	std::unique_ptr<Token> scan(std::istream*);
 };
 

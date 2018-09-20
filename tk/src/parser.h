@@ -94,7 +94,6 @@ class Parser {
 	std::map<ExtendedSymbol, std::set<Symbol>> extended_follows;
 
 	std::vector<std::map<Symbol, Production*>> reductions;
-	std::vector<std::map<Symbol, void*>> action_goto_table;
 	std::stack<Int> parse_stack;
 	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
@@ -104,9 +103,6 @@ class Parser {
 	void generate(std::string);
 	ItemSet* generate_itemset(std::set<Item>);
 	void expand_symbol_into_itemset(ItemSet*, std::string, std::set<std::string>*);
-
-	void generate_first_sets();
-	void generate_follow_sets();
 
 	void generate_extended_grammar();
 	void generate_extended_first_sets();
@@ -120,7 +116,7 @@ public:
 	void set_start(std::string);
 	void add_token(std::string, std::string);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
-	void parse(std::istream*);
+	std::unique_ptr<Match> parse(std::istream*);
 
 	static void debug(Parser*);
 	static void debug_production(Production*, Int = -1);
