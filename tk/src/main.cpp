@@ -35,7 +35,7 @@ int test_parser() {
 	};
 
 	p.set_start("regex");
-	p.add_production("regex", { "lr_add" }, fn);
+	p.add_production("regex", { "lr_or" }, fn);
 	p.add_production("lr_or", { "lr_add", "OR", "lr_or" }, fn);
 	p.add_production("lr_or", { "lr_add" }, fn);
 	p.add_production("lr_add", { "lr_mul", "lr_add" }, fn);
@@ -56,7 +56,7 @@ int test_parser() {
 	p.add_production("literal", { "escaped_literal" }, fn);
 	p.add_production("literal", { "ANY" }, fn);
 
-	p.add_production("group", { "LBRACKET", "group_contents", "RBACKET" }, fn);
+	p.add_production("group", { "LBRACKET", "group_contents", "RBRACKET" }, fn);
 	p.add_production("group_contents", { "group_element", "group_contents" }, fn);
 	p.add_production("group_contents", { "group_element" }, fn);
 	p.add_production("group_element", { "group_range" }, fn);
@@ -72,7 +72,7 @@ int test_parser() {
 	p.add_production("dec_int", { "ANY" }, fn);
 
 	std::stringstream ss;
-	ss << "abc|def";
+	ss << "abc|def[ghi]";
 	p.parse(&ss);
 	return 0;
 }

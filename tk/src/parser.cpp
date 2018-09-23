@@ -103,6 +103,7 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 			continue;
 		}
 		std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
+		mdk::printf("[debug] getting reductions at %d, tag is %s\n", current_state->index, t->tag.c_str());
 		std::map<Symbol, Production*>::iterator it2 = reduction_row.find(t->tag);
 		if (it2 != reduction_row.end()) {
 			std::cout << "reducing via rule ";
@@ -353,6 +354,14 @@ void Parser::generate_extended_grammar() {
  * Dragon book page 221
  */
 void Parser::generate_extended_first_sets() {
+	for (const std::unique_ptr<ExtendedProduction>& ep : this->extended_grammar) {
+		for (ExtendedSymbol const& es : ep->symbols) {
+			Symbol s = std::get<0>(es);
+			if (Parser::symbol_is_token(s) || Parser::symbol_is_epsilon(s)) {
+				this->extended_firsts[es].insert(s);
+			}
+		}
+	}
 	bool changed = true;
 	while (changed) {
 		changed = false;
@@ -366,13 +375,16 @@ void Parser::generate_extended_first_sets() {
 				// if `FIRST(ep->target)` contains `epsilon`, make sure we don't remove it later
 				std::set<std::string>::iterator it = this->extended_firsts[ep->target].find(Parser::EPSILON);
 				for (const ExtendedSymbol& es : ep->symbols) {
+					/*
 					Symbol s = std::get<0>(es);
 					if (Parser::symbol_is_token(s)) {
 						changed = changed || this->extended_firsts[es].insert(s).second;
 						this->extended_firsts[ep->target].insert(s);
 					} else {
+					*/
+						// TODO: there may be a bug here regarding nullable productions
 						this->extended_firsts[ep->target].insert(this->extended_firsts[es].begin(), this->extended_firsts[es].end());
-						mdk::printf("[debug] inserting %s to %s is: ", s.c_str(), std::get<0>(ep->target).c_str());
+						//mdk::printf("[debug] inserting %s to %s is: ", s.c_str(), std::get<0>(ep->target).c_str());
 						Parser::debug_set(this->extended_firsts[ep->target]);
 						if (this->extended_firsts[es].find(Parser::EPSILON) == this->extended_firsts[es].end()) {
 							if (it == this->extended_firsts[ep->target].end()) {
@@ -380,7 +392,7 @@ void Parser::generate_extended_first_sets() {
 							}
 							break;
 						}
-					}
+					//}
 				}
 				changed = changed || (this->extended_firsts[ep->target].size() != old);
 			}
