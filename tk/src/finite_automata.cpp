@@ -66,7 +66,8 @@ template <typename K, typename T> std::unique_ptr<DFA<K, T>> NFA<K, T>::to_dfa()
 		for (auto& nfa_state : nfa_grouped_state) {
 			if (nfa_state->terminal) {
 				if (dfa_state->terminal && dfa_state->data != nfa_state->data) {
-					fprintf(stderr, "Warn: ambiguous NFA terminal at state %u conflicts with %u.\n", dfa_state->id, nfa_state->id);
+					// TODO better handle this
+					fprintf(stderr, "[warn]: ambiguous NFA terminal at state %u conflicts with %u.\n", dfa_state->id, nfa_state->id);
 				} else {
 					dfa_state->terminal = true;
 					dfa_state->data = nfa_state->data;
@@ -121,6 +122,11 @@ template class DFAState<UInt, std::string>;
 template class NFAState<UInt, std::string>;
 template class DFA<UInt, std::string>;
 template class NFA<UInt, std::string>;
+
+template class DFAState<Long, std::string>;
+template class NFAState<Long, std::string>;
+template class DFA<Long, std::string>;
+template class NFA<Long, std::string>;
 
 /*
 template class DFAState<std::string, UInt>;

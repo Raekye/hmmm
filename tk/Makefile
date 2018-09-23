@@ -4,10 +4,12 @@ CXXFLAGS = -g -c -std=c++11 -Werror -Wall -Wextra -Wno-unknown-pragmas -fno-exce
 LDFLAGS =
 LDLIBS =
 
+EXECUTABLE_NAME = tk
+
 SRC_DIR = src
 BIN_DIR = bin
 
-EXECUTABLE = $(BIN_DIR)/tk
+EXECUTABLE = $(BIN_DIR)/$(EXECUTABLE_NAME)
 
 SRCS = $(sort $(wildcard $(SRC_DIR)/*.cpp))
 OBJS = $(addsuffix .o,$(subst $(SRC_DIR),$(BIN_DIR),$(SRCS)))

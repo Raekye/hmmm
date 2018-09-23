@@ -34,7 +34,11 @@ void Lexer::generate() {
 		}
 		std::cout << std::endl;
 		for (auto& kv : state->next_states) {
-			std::cout << "\t\tChar " << (char) kv.first << ": ";
+			if (kv.first == -1) {
+				std::cout << "\t\tWildcard: ";
+			} else {
+				std::cout << "\t\tChar " << (char) kv.first << ": ";
+			}
 			for (auto& next_state : kv.second) {
 				std::cout << " " << next_state->id << ",";
 			}
@@ -56,7 +60,11 @@ void Lexer::generate() {
 		}
 		std::cout << std::endl;
 		for (auto& kv : state->next_states) {
-			std::cout << "\t\tChar " << (char) kv.first << " to " << kv.second->id << std::endl;
+			if (kv.first == -1) {
+				std::cout << "\t\tWildcard to " << kv.second->id << std::endl;
+			} else {
+				std::cout << "\t\tChar " << (char) kv.first << " to " << kv.second->id << std::endl;
+			}
 		}
 	}
 	std::cout << "=== End dfa states" << std::endl;
@@ -76,15 +84,10 @@ void Lexer::prepare() {
 	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root;
 }
 
-bool Lexer::add_rule(Rule rule) {
-	std::unique_ptr<RegexAST> regex = this->regex_parser.parse(rule.pattern);
-	if (!regex) {
-		return false;
-	}
+void Lexer::add_rule(Rule rule, std::unique_ptr<RegexAST> regex) {
 	this->rules_regex.push_back(std::move(regex));
 	this->rules.push_back(rule);
 	this->regenerate = true;
-	return true;
 }
 
 std::unique_ptr<Token> Lexer::scan(std::istream* in) {
@@ -93,7 +96,7 @@ std::unique_ptr<Token> Lexer::scan(std::istream* in) {
 		return nullptr;
 	}
 	bool matched = false;
-	std::string matched_tag = "-";
+	std::string matched_tag = "";
 	std::string matched_str = "";
 	UInt matched_buffer_pos = this->buffer_pos;
 	std::string found_buffer = "";
@@ -107,7 +110,10 @@ std::unique_ptr<Token> Lexer::scan(std::istream* in) {
 			found_buffer = "";
 		}
 		UInt ch = this->read(in);
-		std::map<UInt, RegexDFAState*>::iterator it = this->current_state->next_states.find(ch);
+		std::map<Long, RegexDFAState*>::iterator it = this->current_state->next_states.find(ch);
+		if (it == this->current_state->next_states.end()) {
+			it = this->current_state->next_states.find(-1);
+		}
 		if (ch == 0 || it == this->current_state->next_states.end()) {
 			if (matched) {
 				t.reset(new Token(matched_tag, matched_str, LocationInfo(0, 0)));

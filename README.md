@@ -12,10 +12,10 @@ See my [compiler for a custom soft processor on a FPGA][1] for this put in pract
 The names are not particularly meaningful; just something unique and identifiable (not "lexer" or "compiler\_1") I thought of at the moment.
 Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 
-- `madoka/`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
-- `sayaka/` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
-- `primed/`: hand written LL(1) regex parser and NFA state generator
-- `siyu/`: successor to `primed/`, DFA state generator, lexer-generator, and parser-generator
+- `madoka`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
+- `sayaka` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
+- `primed`: hand written LL(1) regex parser and NFA state generator
+- `siyu`: successor to `primed/`, DFA state generator, lexer-generator, and parser-generator
 - `tk`: successor to `siyu/`, hmmmm
 
 ### Primed
@@ -24,7 +24,7 @@ Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 
 ### Siyu
 - generate DFA states from NFA states
-- `siyu-1/` is a start at generating DFA states directly from a regex based on the dragon book
+- `siyu-1` is a start at generating DFA states directly from a regex based on the dragon book
 
 ### Tk
 - fixed parser handling epsilon productions
@@ -106,7 +106,7 @@ not_lr
 	;
 
 mul_range
-	: TOKEN_LBRACE dec_int TOKEN_COMMA dec_int TOKEN_LBRACE
+	: TOKEN_LBRACE dec_int TOKEN_COMMA dec_int TOKEN_RBRACE
 	;
 
 parentheses

@@ -24,8 +24,8 @@ void Parser::set_start(std::string start) {
 	this->start = start;
 }
 
-void Parser::add_token(std::string tag, std::string pattern) {
-	this->lexer.add_rule(Rule(tag, pattern));
+void Parser::add_token(std::string tag, std::string pattern, std::unique_ptr<RegexAST> regex) {
+	this->lexer.add_rule(Rule(tag, pattern), std::move(regex));
 	this->terminals.insert(tag);
 }
 
@@ -140,6 +140,7 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 		}
 	}
 	mdk::printf("[debug] parse stack size %zd\n", this->parse_stack.size());
+	Parser::debug_match(this->parse_stack_matches.top().get(), 0);
 	assert(this->parse_stack.size() == 1);
 	assert(this->parse_stack_matches.size() == 1);
 	return std::move(this->parse_stack_matches.top());
@@ -148,8 +149,8 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 	Parser bootstrap;
 	bootstrap.set_start("start");
-	bootstrap.add_token("A", "a");
-	bootstrap.add_token("B", "b");
+	//bootstrap.add_token("A", "a");
+	//bootstrap.add_token("B", "b");
 	//bootstrap.add_token("COLON", ":");
 	//bootstrap.add_token("EQUALS", "=");
 	//bootstrap.add_token("BAR", "\\|");
@@ -356,6 +357,8 @@ void Parser::generate_extended_first_sets() {
 	while (changed) {
 		changed = false;
 		for (const std::unique_ptr<ExtendedProduction>& ep : this->extended_grammar) {
+			mdk::printf("[debug] generating first set for\n");
+			Parser::debug_extended_production(ep.get());
 			if (Parser::production_is_epsilon(ep->orig)) {
 				changed = changed || this->extended_firsts[ep->target].insert(Parser::EPSILON).second;
 			} else {
@@ -366,8 +369,11 @@ void Parser::generate_extended_first_sets() {
 					Symbol s = std::get<0>(es);
 					if (Parser::symbol_is_token(s)) {
 						changed = changed || this->extended_firsts[es].insert(s).second;
+						this->extended_firsts[ep->target].insert(s);
 					} else {
 						this->extended_firsts[ep->target].insert(this->extended_firsts[es].begin(), this->extended_firsts[es].end());
+						mdk::printf("[debug] inserting %s to %s is: ", s.c_str(), std::get<0>(ep->target).c_str());
+						Parser::debug_set(this->extended_firsts[ep->target]);
 						if (this->extended_firsts[es].find(Parser::EPSILON) == this->extended_firsts[es].end()) {
 							if (it == this->extended_firsts[ep->target].end()) {
 								this->extended_firsts[ep->target].erase(Parser::EPSILON);

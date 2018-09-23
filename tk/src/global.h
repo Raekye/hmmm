@@ -19,8 +19,8 @@ static_assert(sizeof(Short) == 2, "sanity");
 static_assert(sizeof(Int) == 4, "sanity");
 static_assert(sizeof(Long) == 8, "sanity");
 static_assert(sizeof(size_t) == 8, "sanity");
+static_assert(std::is_same<Int, int>::value, "sanity");
 static_assert(std::is_same<ULong, size_t>::value, "sanity");
 static_assert(!std::is_same<Long, size_t>::value, "sanity");
-static_assert(std::is_same<int, Int>::value, "sanity");
 
 #endif /* TK_GLOBAL_H_INCLUDED */

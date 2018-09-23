@@ -16,13 +16,6 @@
 // TODO: asserts
 // TODO: unique ptr
 
-/*
-typedef DFAState<std::string, UInt> GrammarDFAState;
-typedef NFAState<std::string, UInt> GrammarNFAState;
-typedef DFA<std::string, UInt> GrammarDFA;
-typedef NFA<std::string, UInt> GrammarNFA;
-*/
-
 struct Production;
 class Match;
 
@@ -114,7 +107,7 @@ public:
 	static std::unique_ptr<Parser> from_file(std::istream*);
 
 	void set_start(std::string);
-	void add_token(std::string, std::string);
+	void add_token(std::string, std::string, std::unique_ptr<RegexAST>);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
 	std::unique_ptr<Match> parse(std::istream*);
 

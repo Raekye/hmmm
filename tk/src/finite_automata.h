@@ -12,6 +12,7 @@ public:
 	UInt id;
 	bool terminal;
 	std::map<K, DFAState<K, T>*> next_states;
+	std::map<K, DFAState<K, T>*> not_states;
 	T data;
 
 	DFAState(UInt);
@@ -22,6 +23,7 @@ public:
 	UInt id;
 	bool terminal;
 	std::map<K, std::vector<NFAState<K, T>*>> next_states;
+	std::map<K, std::vector<NFAState<K, T>*>> not_states;
 	NFAState<K, T>* epsilon;
 	T data;
 

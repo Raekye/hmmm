@@ -41,7 +41,6 @@ private:
 	std::vector<Rule> rules;
 	std::vector<std::unique_ptr<RegexAST>> rules_regex;
 	bool regenerate;
-	RegexParser regex_parser;
 
 	RegexNFAGenerator regex_nfa_generator;
 	std::unique_ptr<RegexDFA> dfa;
@@ -58,7 +57,7 @@ private:
 public:
 	Lexer();
 
-	bool add_rule(Rule);
+	void add_rule(Rule, std::unique_ptr<RegexAST>);
 	std::unique_ptr<Token> scan(std::istream*);
 };
 
