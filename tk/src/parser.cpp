@@ -10,13 +10,17 @@
 const std::string Parser::END = "$";
 const std::string Parser::EPSILON = "0";
 
+ParserAST::~ParserAST() {
+	return;
+}
+
 Match::~Match() {
 	return;
 }
 MatchedTerminal::MatchedTerminal(std::unique_ptr<Token> t) : token(std::move(t)) {
 	return;
 }
-MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms(p->symbols.size()) {
+MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms(p->symbols.size()), value(nullptr) {
 	return;
 }
 
@@ -38,6 +42,7 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 	this->productions.push_back(std::move(p));
 }
 
+// TODO better return type possible?
 std::unique_ptr<Match> Parser::parse(std::istream* in) {
 	this->generate(this->start);
 
@@ -117,7 +122,7 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 				//Parser::debug_match(m.get(), 0);
 				mnt->terms[it2->second->symbols.size() - i - 1] = std::move(m);
 			}
-			it2->second->handler(mnt.get());
+			mnt->value = it2->second->handler(mnt.get());
 			this->parse_stack_matches.push(std::move(mnt));
 			last_reduction = it2->second->target;
 			if (t->tag != Parser::EPSILON) {
@@ -144,7 +149,9 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 	Parser::debug_match(this->parse_stack_matches.top().get(), 0);
 	assert(this->parse_stack.size() == 1);
 	assert(this->parse_stack_matches.size() == 1);
-	return std::move(this->parse_stack_matches.top());
+	std::unique_ptr<Match> ret = std::move(this->parse_stack_matches.top());
+	this->parse_stack_matches.pop();
+	return ret;
 }
 
 std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
@@ -161,7 +168,7 @@ std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 
 	std::unique_ptr<Parser> ret(new Parser);
 
-	ProductionHandler token_handler = [&bootstrap, &ret](Match* m) -> void {
+	ProductionHandler token_handler = [&bootstrap, &ret](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) bootstrap;
 		(void) ret;
 		if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
@@ -172,8 +179,9 @@ std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 			// TODO badness
 			mdk::printf("[token] else\n");
 		}
+		return nullptr;
 	};
-	ProductionHandler production_handler = [&bootstrap, &ret](Match* m) -> void {
+	ProductionHandler production_handler = [&bootstrap, &ret](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) bootstrap;
 		(void) ret;
 		if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
@@ -184,11 +192,12 @@ std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
 			// TODO badness
 			mdk::printf("[production] else\n");
 		}
+		return nullptr;
 	};
-	ProductionHandler log_handler = [](Match* m) -> void {
+	ProductionHandler log_handler = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		mdk::printf("=== log handler\n");
 		Parser::debug_match(m, 0);
-		return;
+		return nullptr;
 	};
 
 	//bootstrap.add_production("start", { "as", }, log_handler);

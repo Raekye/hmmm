@@ -17,12 +17,18 @@
 // TODO: unique ptr
 
 struct Production;
-class Match;
+class MatchedNonterminal;
+class ParserAST;
 
-typedef std::function<void(Match*)> ProductionHandler;
+typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::pair<Production*, Int> Item;
 typedef std::string Symbol;
 typedef std::tuple<Symbol, Int, Int> ExtendedSymbol;
+
+class ParserAST {
+public:
+	virtual ~ParserAST() = 0;
+};
 
 struct Production {
 	std::string target;
@@ -57,8 +63,15 @@ class MatchedNonterminal : public Match {
 public:
 	Production* production;
 	std::vector<std::unique_ptr<Match>> terms;
+	std::unique_ptr<ParserAST> value;
 
 	MatchedNonterminal(Production*);
+	inline MatchedTerminal* terminal(Int i) {
+		return dynamic_cast<MatchedTerminal*>(this->terms[i].get());
+	}
+	inline MatchedNonterminal* nonterminal(Int i) {
+		return dynamic_cast<MatchedNonterminal*>(this->terms[i].get());
+	}
 };
 
 class Parser {

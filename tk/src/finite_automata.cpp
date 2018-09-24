@@ -5,6 +5,23 @@
 #include <iostream>
 #include <cstdio>
 
+#pragma mark - Finite automata templates
+template class DFAState<UInt, std::string>;
+template class NFAState<UInt, std::string>;
+template class DFA<UInt, std::string>;
+template class NFA<UInt, std::string>;
+
+template class DFAState<Long, std::string>;
+template class NFAState<Long, std::string>;
+template class DFA<Long, std::string>;
+template class NFA<Long, std::string>;
+
+/*
+template class DFAState<std::string, UInt>;
+template class NFAState<std::string, UInt>;
+template class DFA<std::string, UInt>;
+template class NFA<std::string, UInt>;
+*/
 
 #pragma mark - Local types
 template <typename K, typename T> using NFAGroupedState = std::set<NFAState<K, T>*>;
@@ -116,21 +133,3 @@ template <typename K, typename T> std::unique_ptr<DFA<K, T>> NFA<K, T>::to_dfa()
 
 	return dfa;
 }
-
-#pragma mark - Finite automata templates
-template class DFAState<UInt, std::string>;
-template class NFAState<UInt, std::string>;
-template class DFA<UInt, std::string>;
-template class NFA<UInt, std::string>;
-
-template class DFAState<Long, std::string>;
-template class NFAState<Long, std::string>;
-template class DFA<Long, std::string>;
-template class NFA<Long, std::string>;
-
-/*
-template class DFAState<std::string, UInt>;
-template class NFAState<std::string, UInt>;
-template class DFA<std::string, UInt>;
-template class NFA<std::string, UInt>;
-*/
