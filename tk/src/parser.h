@@ -117,8 +117,6 @@ class Parser {
 	void generate_reductions();
 
 public:
-	static std::unique_ptr<Parser> from_file(std::istream*);
-
 	void set_start(std::string);
 	void add_token(std::string, std::string, std::unique_ptr<RegexAST>);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);

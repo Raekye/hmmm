@@ -92,6 +92,7 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 				t.reset(new Token(Parser::END, "", LocationInfo(0, 0)));
 			} else {
 				if (current_state->next.find(Parser::EPSILON) != current_state->next.end()) {
+					mdk::printf("[debug] Reducing via epsilon\n");
 					t.reset(new Token(Parser::EPSILON, "", LocationInfo(0, 0)));
 				} else {
 					std::cout << "Breaking." << std::endl;
@@ -151,77 +152,6 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 	assert(this->parse_stack_matches.size() == 1);
 	std::unique_ptr<Match> ret = std::move(this->parse_stack_matches.top());
 	this->parse_stack_matches.pop();
-	return ret;
-}
-
-std::unique_ptr<Parser> Parser::from_file(std::istream* f) {
-	Parser bootstrap;
-	bootstrap.set_start("start");
-	//bootstrap.add_token("A", "a");
-	//bootstrap.add_token("B", "b");
-	//bootstrap.add_token("COLON", ":");
-	//bootstrap.add_token("EQUALS", "=");
-	//bootstrap.add_token("BAR", "\\|");
-	//bootstrap.add_token("TOKEN", "[A-Z][a-zA-Z0-9_]*");
-	//bootstrap.add_token("PRODUCTION", "[a-z][a-zA-Z0-9_]*");
-	//bootstrap.add_token("REGEX", "/[a-zA-Z0-9_-. ]+");
-
-	std::unique_ptr<Parser> ret(new Parser);
-
-	ProductionHandler token_handler = [&bootstrap, &ret](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		(void) bootstrap;
-		(void) ret;
-		if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
-			mdk::printf("[token] got terminal %s, %s\n",  mt->token->tag.c_str(), mt->token->lexeme.c_str());
-		} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {
-			mdk::print("[token] got nonterminal %s\n", mnt->production->target.c_str());
-		} else {
-			// TODO badness
-			mdk::printf("[token] else\n");
-		}
-		return nullptr;
-	};
-	ProductionHandler production_handler = [&bootstrap, &ret](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		(void) bootstrap;
-		(void) ret;
-		if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
-			mdk::printf("[production] got terminal %s, %s\n",  mt->token->tag.c_str(), mt->token->lexeme.c_str());
-		} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {
-			mdk::print("[production] got nonterminal %s\n", mnt->production->target.c_str());
-		} else {
-			// TODO badness
-			mdk::printf("[production] else\n");
-		}
-		return nullptr;
-	};
-	ProductionHandler log_handler = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		mdk::printf("=== log handler\n");
-		Parser::debug_match(m, 0);
-		return nullptr;
-	};
-
-	//bootstrap.add_production("start", { "as", }, log_handler);
-	bootstrap.add_production("start", { "as", "bs" }, log_handler);
-	bootstrap.add_production("as", { "A", "as", }, log_handler);
-	bootstrap.add_production("as", { }, log_handler);
-	bootstrap.add_production("bs", { "B", "bs", }, log_handler);
-	bootstrap.add_production("bs", { }, log_handler);
-	/*
-	bootstrap.add_production("line", { "token" }, log_handler);
-	bootstrap.add_production("line", { "production" }, log_handler);
-	bootstrap.add_production("token", { "TOKEN", "COLON", "REGEX", "SEMICOLON" }, token_handler);
-	bootstrap.add_production("production", { "PRODUCTION", "EQUALS", "production_list", "SEMICOLON" }, production_handler);
-	bootstrap.add_production("production_list", { "production_entry", "SEMICOLON" }, log_handler);
-	//bootstrap.add_production("production_cdr", { "BAR", "production_entry" }, log_handler);
-	//bootstrap.add_production("production_cdr", { Parser::EPSILON }, log_handler);
-	bootstrap.add_production("production_entry", { "production_term", "production_entry" }, log_handler);
-	bootstrap.add_production("production_entry", { "production_term" }, log_handler);
-	bootstrap.add_production("production_term", { "TOKEN" }, log_handler);
-	bootstrap.add_production("production_term", { "PRODUCTION" }, log_handler);
-	*/
-
-	bootstrap.parse(f);
-
 	return ret;
 }
 

@@ -22,6 +22,8 @@ public:
 };
 
 class RegexParserGenerator {
+	static void add_literal(Parser*, std::string, std::string, UInt);
+
 public:
 	static std::unique_ptr<Parser> make();
 };

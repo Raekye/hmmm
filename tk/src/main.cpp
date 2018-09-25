@@ -10,49 +10,13 @@ int test_parser() {
 	std::unique_ptr<Parser> p = RegexParserGenerator::make();
 
 	std::stringstream ss;
-	ss << "abc{3,4}|def[ghi]+";
+	ss << "a(bc){3,4}\\[|def[ghi\\t0-9]+";
+	//ss << "[x-zabc-f]";
 	std::unique_ptr<Match> m = p->parse(&ss);
 	MatchedNonterminal* n = dynamic_cast<MatchedNonterminal*>(m.get());
 	ParserRegexAST* r = dynamic_cast<ParserRegexAST*>(n->value.get());
 	RegexASTPrinter printer;
 	r->regex->accept(&printer);
-	return 0;
-}
-
-int test_lexer() {
-	Lexer l;
-	l.add_rule(Rule("STAR", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('*')));
-	l.add_rule(Rule("PLUS", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('+')));
-	l.add_rule(Rule("QUESTION", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('?')));
-	l.add_rule(Rule("OR", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('|')));
-	l.add_rule(Rule("ESCAPE", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('\\')));
-	l.add_rule(Rule("DOT", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('.')));
-
-	l.add_rule(Rule("LPAREN", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('(')));
-	l.add_rule(Rule("RPAREN", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral(')')));
-	l.add_rule(Rule("LBRACE", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('{')));
-	l.add_rule(Rule("RBRACE", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('}')));
-	l.add_rule(Rule("LBRACKET", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('[')));
-	l.add_rule(Rule("RBRACKET", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral(']')));
-
-	l.add_rule(Rule("DASH", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('-')));
-	l.add_rule(Rule("COMMA", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral(',')));
-
-	l.add_rule(Rule("X", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('x')));
-	l.add_rule(Rule("T", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('t')));
-	l.add_rule(Rule("N", ""), std::unique_ptr<RegexAST>(new RegexASTLiteral('n')));
-
-	l.add_rule(Rule("ANY", ""), std::unique_ptr<RegexAST>(new RegexASTWildcard));
-
-	std::stringstream ss;
-	ss << "abcghi ";
-	ss << "abcdxyz ";
-	ss << "var x = 30; ";
-	std::unique_ptr<Token> t = nullptr;
-	while ((t = l.scan(&ss))) {
-		mdk::printf("Read token tag %s, lexeme '%s'\n", t->tag.c_str(), t->lexeme.c_str());
-	}
-	mdk::print("Done.\n");
 	return 0;
 }
 
@@ -104,7 +68,6 @@ int test_generator() {
 */
 
 int main() {
-	test_lexer();
 	test_parser();
 	//test_generator();
 	return 0;
