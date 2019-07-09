@@ -103,10 +103,11 @@ class Parser {
 	std::stack<Int> parse_stack;
 	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
+	void reset();
+
 	void push_token(std::unique_ptr<Token>);
 	std::unique_ptr<Token> next_token(std::istream*);
 
-	void generate(std::string);
 	ItemSet* generate_itemset(std::set<Item>);
 	void expand_symbol_into_itemset(ItemSet*, std::string, std::set<std::string>*);
 
@@ -120,6 +121,7 @@ public:
 	void set_start(std::string);
 	void add_token(std::string, std::string, std::unique_ptr<RegexAST>);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
+	void generate(std::string);
 	std::unique_ptr<Match> parse(std::istream*);
 
 	static void debug(Parser*);

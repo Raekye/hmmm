@@ -24,10 +24,6 @@ MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms(p->
 	return;
 }
 
-void Parser::set_start(std::string start) {
-	this->start = start;
-}
-
 void Parser::add_token(std::string tag, std::string pattern, std::unique_ptr<RegexAST> regex) {
 	this->lexer.add_rule(Rule(tag, pattern), std::move(regex));
 	this->terminals.insert(tag);
@@ -42,10 +38,35 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 	this->productions.push_back(std::move(p));
 }
 
+void Parser::generate(std::string symbol) {
+	this->start = symbol;
+	std::set<Item> head;
+	for (Production* p : this->nonterminals.at(symbol)) {
+		head.insert(Item(p, 0));
+	}
+	this->generate_itemset(head);
+
+	std::cout << std::endl;
+
+	std::cout << "=== Generating extended grammar" << std::endl;
+	this->generate_extended_grammar();
+	std::cout << "=== Done extended grammar" << std::endl;
+	std::cout << std::endl;
+
+	std::cout << "=== Generating extended sets" << std::endl;
+	this->generate_extended_first_sets();
+	this->generate_extended_follow_sets();
+	std::cout << "=== Done extended sets" << std::endl;
+	std::cout << std::endl;
+
+	this->generate_reductions();
+
+	Parser::debug(this);
+}
+
 // TODO better return type possible?
 std::unique_ptr<Match> Parser::parse(std::istream* in) {
-	this->generate(this->start);
-
+	this->reset();
 	std::cout << std::endl << "===== Parsing" << std::endl;
 	this->parse_stack.push(0);
 	Symbol last_reduction = "";
@@ -156,29 +177,14 @@ std::unique_ptr<Match> Parser::parse(std::istream* in) {
 }
 
 #pragma mark - Parser - private
-void Parser::generate(std::string symbol) {
-	std::set<Item> head;
-	for (Production* p : this->nonterminals.at(symbol)) {
-		head.insert(Item(p, 0));
+void Parser::reset() {
+	this->lexer.reset();
+	while (!this->parse_stack.empty()) {
+		this->parse_stack.pop();
 	}
-	this->generate_itemset(head);
-
-	std::cout << std::endl;
-
-	std::cout << "=== Generating extended grammar" << std::endl;
-	this->generate_extended_grammar();
-	std::cout << "=== Done extended grammar" << std::endl;
-	std::cout << std::endl;
-
-	std::cout << "=== Generating extended sets" << std::endl;
-	this->generate_extended_first_sets();
-	this->generate_extended_follow_sets();
-	std::cout << "=== Done extended sets" << std::endl;
-	std::cout << std::endl;
-
-	this->generate_reductions();
-
-	Parser::debug(this);
+	while (!this->parse_stack_matches.empty()) {
+		this->parse_stack_matches.pop();
+	}
 }
 
 ItemSet* Parser::generate_itemset(std::set<Item> head) {

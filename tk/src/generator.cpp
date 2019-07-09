@@ -41,7 +41,6 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 
 	p->add_token("ANY", "", std::unique_ptr<RegexAST>(new RegexASTWildcard));
 
-	p->set_start("regex");
 	p->add_production("regex", { "lr_or" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
@@ -270,14 +269,22 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		assert(l >= 0);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral((UInt) l))));
 	});
-	p->add_production("hex_int", { "hex_digit", "hex_int" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		std::string str1 = m->terminal(0)->token->lexeme;
+	p->add_production("hex_int", { "hex_digit", "hex_digit" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::string str1 = dynamic_cast<ParserStringAST*>(m->nonterminal(0)->value.get())->str;
 		std::string str2 = dynamic_cast<ParserStringAST*>(m->nonterminal(1)->value.get())->str;
 		return std::unique_ptr<ParserAST>(new ParserStringAST(str1 + str2));
 	});
-	p->add_production("hex_int", { "hex_digit" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		MatchedNonterminal* n = m->nonterminal(0);
-		return std::move(n->value);
+	p->add_production("hex_int", {
+		"hex_digit", "hex_digit", "hex_digit", "hex_digit",
+		"hex_digit", "hex_digit", "hex_digit", "hex_digit",
+	}, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::string str = "";
+		for (Int i = 0; i < 8; i++) {
+			str += dynamic_cast<ParserStringAST*>(m->nonterminal(i)->value.get())->str;
+		}
+		std::string str1 = dynamic_cast<ParserStringAST*>(m->nonterminal(0)->value.get())->str;
+		std::string str2 = dynamic_cast<ParserStringAST*>(m->nonterminal(1)->value.get())->str;
+		return std::unique_ptr<ParserAST>(new ParserStringAST(str));
 	});
 	p->add_production("hex_digit", { "DEC" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::unique_ptr<ParserAST>(new ParserStringAST(m->terminal(0)->token->lexeme));
@@ -304,6 +311,7 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		return std::unique_ptr<ParserAST>(new ParserStringAST(m->terminal(0)->token->lexeme));
 	});
 
+	p->generate("regex");
 	return p;
 }
 

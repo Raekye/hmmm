@@ -9,14 +9,16 @@
 int test_parser() {
 	std::unique_ptr<Parser> p = RegexParserGenerator::make();
 
-	std::stringstream ss;
-	ss << "a(bc){3,4}\\[|def[ghi\\t0-9]+";
-	//ss << "[x-zabc-f]";
-	std::unique_ptr<Match> m = p->parse(&ss);
-	MatchedNonterminal* n = dynamic_cast<MatchedNonterminal*>(m.get());
-	ParserRegexAST* r = dynamic_cast<ParserRegexAST*>(n->value.get());
-	RegexASTPrinter printer;
-	r->regex->accept(&printer);
+	for (int i = 0; i < 2; i++) {
+		std::stringstream ss;
+		ss << "a(bc){3,4}\\[|def[ghi\\t0-9\\-]+\\000000x2dz(\\x2d)d";
+		//ss << "[x-zabc-f]";
+		std::unique_ptr<Match> m = p->parse(&ss);
+		MatchedNonterminal* n = dynamic_cast<MatchedNonterminal*>(m.get());
+		ParserRegexAST* r = dynamic_cast<ParserRegexAST*>(n->value.get());
+		RegexASTPrinter printer;
+		r->regex->accept(&printer);
+	}
 	return 0;
 }
 

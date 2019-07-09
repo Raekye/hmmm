@@ -59,6 +59,7 @@ public:
 
 	void add_rule(Rule, std::unique_ptr<RegexAST>);
 	std::unique_ptr<Token> scan(std::istream*);
+	void reset();
 };
 
 #endif /* TK_LEXER_H_INCLUDED */

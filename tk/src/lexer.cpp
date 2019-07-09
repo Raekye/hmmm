@@ -35,9 +35,9 @@ void Lexer::generate() {
 		std::cout << std::endl;
 		for (auto& kv : state->next_states) {
 			if (kv.first == -1) {
-				std::cout << "\t\tWildcard: ";
+				std::cout << "\t\tWildcard:";
 			} else {
-				std::cout << "\t\tChar " << (char) kv.first << ": ";
+				std::cout << "\t\tChar " << (char) kv.first << ":";
 			}
 			for (auto& next_state : kv.second) {
 				std::cout << " " << next_state->id << ",";
@@ -81,6 +81,13 @@ void Lexer::prepare() {
 		this->generate();
 		this->regenerate = false;
 	}
+	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root;
+}
+
+void Lexer::reset() {
+	this->eof = false;
+	this->buffer = "";
+	this->buffer_pos = 0;
 	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root;
 }
 
