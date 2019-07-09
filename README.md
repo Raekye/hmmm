@@ -1,12 +1,7 @@
 hmmm
 ====
-
-## About
 Me playing around, learning to build compilers.
-The compiler parses some (custom) language, but I'm not documenting that because this project focuses on compiler design, not language design.
-The grammar is always changing.
-What I can actually compile and run is not very impressive, but I think the source code - handling language constructs - is interesting.
-See my [compiler for a custom soft processor on a FPGA][1] for this put in practice (that project also shows lower-level code generation; this project uses LLVM for that).
+See my [compiler for a custom soft processor on an FPGA][1] for this put in practice.
 
 ## Directory map
 The names are not particularly meaningful; just something unique and identifiable (not "lexer" or "compiler\_1") I thought of at the moment.
@@ -14,22 +9,20 @@ Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 
 - `madoka`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
 - `sayaka` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
-- `primed`: hand written LL(1) regex parser and NFA state generator
-- `siyu`: successor to `primed/`, DFA state generator, lexer-generator, and parser-generator
-- `tk`: successor to `siyu/`, hmmmm
-
-### Primed
-- hand written, recursive descent basic regex parser (builds AST)
-- regex used to define tokens, lexer-generator generates states and next-states for a lexer (a big FSM)
+- `siyu`: hand written LL(1) regex parser, NFA state generator, DFA state generator, lexer-generator, and parser-generator
+- `tk`: successor to `siyu/`, completed LALR(1) parser generator
+- `midori`: successor to `tk/`, hmmmm
 
 ### Siyu
+- hand written, recursive descent basic regex parser (builds AST)
+- regex used to define tokens, lexer-generator generates states and next-states for a lexer (a big FSM)
 - generate DFA states from NFA states
 - `siyu-1` is a start at generating DFA states directly from a regex based on the dragon book
 
 ### Tk
 - fixed parser handling epsilon productions
 
-#### Regex grammar
+## Regex grammar
 - multiplication is repetition
 - addition is concatenation
 - multiplication, addition, and logical or have the same precedence as they usually would in a programming language (in that order)
@@ -174,11 +167,6 @@ dec_int
 - bison
 - gdb (debug)
 - valgrind (debug)
-
-## TODO
-- function types
-- nullptr
-- for each loops
 
 ## Flex and Bison stuff
 - http://flex.sourceforge.net/manual/

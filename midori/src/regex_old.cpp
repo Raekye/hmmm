@@ -1,67 +1,41 @@
-#include "regex.h"
+#include "regex_old.h"
 #include <cctype>
 #include <iterator>
 
+//namespace mami {
+using namespace mami;
+
 #pragma mark - RegexAST
-RegexASTChain::RegexASTChain(std::vector<RegexAST*> sequence) : sequence(sequence) {
-	return;
-}
-
-RegexASTLiteral::RegexASTLiteral(Int ch) {
-	this->ch = ch;
-}
-
-RegexASTOr::RegexASTOr(RegexAST* left, RegexAST* right) {
-	this->left = left;
-	this->right = right;
-}
-
-RegexASTMultiplication::RegexASTMultiplication(RegexAST* node, Int min, Int max) {
-	this->node = node;
-	this->min = min;
-	this->max = max;
-}
-
-RegexASTRange::RegexASTRange(UInt lower, UInt upper) : lower(lower), upper(upper) {
-	for (UInt i = lower; i <= upper; i++) {
-		this->nodes.push_back(new RegexASTLiteral(i));
-	}
-}
-
 RegexAST::~RegexAST() {
 	return;
 }
 
-RegexASTChain::~RegexASTChain() {
-	for (Int i = 0; i < this->sequence.size(); i++) {
-		delete this->sequence[i];
-	}
-}
-
-RegexASTLiteral::~RegexASTLiteral() {
+RegexASTLiteral::RegexASTLiteral(UInt ch) : ch(ch) {
 	return;
 }
 
-RegexASTOr::~RegexASTOr() {
-	delete this->left;
-	delete this->right;
+RegexASTChain::RegexASTChain(std::vector<std::unique_ptr<RegexAST>> sequence) : sequence(std::move(sequence)) {
+	return;
 }
 
-RegexASTMultiplication::~RegexASTMultiplication() {
-	delete this->node;
+RegexASTOr::RegexASTOr(std::unique_ptr<RegexAST> left, std::unique_ptr<RegexAST> right) : left(std::move(left)), right(std::move(right)) {
+	return;
 }
 
-RegexASTRange::~RegexASTRange() {
-	for (std::vector<RegexAST*>::iterator it = this->nodes.begin(); it != this->nodes.end(); it++) {
-		delete *it;
-	}
+RegexASTMultiplication::RegexASTMultiplication(std::unique_ptr<RegexAST> node, Int min, Int max) : node(std::move(node)), min(min), max(max) {
+	return;
 }
 
-void RegexASTChain::accept(IRegexASTVisitor* visitor) {
+RegexASTRange::RegexASTRange(UInt lower, UInt upper) : lower(lower), upper(upper) {
+	return;
+}
+
+#pragma mark - RegexAT - visitor pattern
+void RegexASTLiteral::accept(IRegexASTVisitor* visitor) {
 	visitor->visit(this);
 }
 
-void RegexASTLiteral::accept(IRegexASTVisitor* visitor) {
+void RegexASTChain::accept(IRegexASTVisitor* visitor) {
 	visitor->visit(this);
 }
 
@@ -91,7 +65,7 @@ void RegexParser::buffer_advance(Int delta) {
 }
 
 UInt RegexParser::buffer_char(Int delta) {
-	if (this->buffer_pos() + delta >= this->buffer.size()) {
+	if (this->buffer_pos() + delta >= (Int) this->buffer.size()) {
 		return 0;
 	}
 	return this->buffer[this->buffer_pos() + delta];
@@ -109,239 +83,248 @@ Int RegexParser::buffer_pop(Int times) {
 	return popped;
 }
 
+#pragma mark - RegexParser - make RegexAST
+std::unique_ptr<RegexAST> RegexParser::make_regex_ast_literal(UInt ch) {
+	return std::unique_ptr<RegexAST>(new RegexASTLiteral(ch));
+}
+
+std::unique_ptr<RegexAST> RegexParser::make_regex_ast_chain(std::vector<std::unique_ptr<RegexAST>>* vec) {
+	return std::unique_ptr<RegexAST>(new RegexASTChain(std::move(*vec)));
+}
+
+std::unique_ptr<RegexAST> RegexParser::make_regex_ast_or(std::unique_ptr<RegexAST>* l, std::unique_ptr<RegexAST>* r) {
+	return std::unique_ptr<RegexAST>(new RegexASTOr(std::move(*l), std::move(*r)));
+}
+
+std::unique_ptr<RegexAST> RegexParser::make_regex_ast_multiplication(std::unique_ptr<RegexAST>* node, UInt min, UInt max) {
+	return std::unique_ptr<RegexAST>(new RegexASTMultiplication(std::move(*node), min, max));
+}
+
+std::unique_ptr<RegexAST> RegexParser::make_regex_ast_range(UInt lower, UInt upper) {
+	return std::unique_ptr<RegexAST>(new RegexASTRange(lower, upper));
+}
+
+
 #pragma mark - RegexParser - parsing
-RegexAST* RegexParser::parse(std::string str) {
+std::unique_ptr<RegexAST> RegexParser::parse(std::string str) {
 	this->buffer = str;
 	this->pos = std::stack<Int>();
 	this->pos.push(0);
-	RegexAST* regex = this->parse_toplevel();
+	std::unique_ptr<RegexAST> regex = this->parse_toplevel();
 	if (!regex) {
-		return NULL;
+		return nullptr;
 	}
-	if (this->buffer_pos() != str.length()) {
-		delete regex;
-		return NULL;
+	if (this->buffer_pos() != (Int) str.length()) {
+		return nullptr;
 	}
 	this->pos.pop();
 	if (this->pos.size() != 1) {
-		delete regex;
-		throw std::runtime_error("RegexParser did not finish with pos stack 1");
+		return nullptr;
 	}
 	return regex;
 }
 
-RegexAST* RegexParser::parse_toplevel() {
+std::unique_ptr<RegexAST> RegexParser::parse_toplevel() {
 	return this->parse_lr_or();
 }
 
-RegexAST* RegexParser::parse_lr_or() {
-	RegexAST* l = this->parse_not_lr_or();
+std::unique_ptr<RegexAST> RegexParser::parse_lr_or() {
+	std::unique_ptr<RegexAST> l = this->parse_not_lr_or();
 	if (!l) {
-		return NULL;
+		return nullptr;
 	}
 	if (this->buffer_char() != RegexParser::TOKEN_OR) {
 		return l;
 	}
 	this->buffer_advance(1);
-	RegexAST* r = this->parse_lr_or();
+	std::unique_ptr<RegexAST> r = this->parse_lr_or();
 	if (!r) {
-		delete l;
 		this->buffer_pop(2);
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_push(this->buffer_pop(3));
-	return new RegexASTOr(l, r);
+	return RegexParser::make_regex_ast_or(&l, &r);
 }
 
-RegexAST* RegexParser::parse_not_lr_or() {
+std::unique_ptr<RegexAST> RegexParser::parse_not_lr_or() {
 	return this->parse_lr_add();
 }
 
-RegexAST* RegexParser::parse_lr_add() {
-	RegexAST* car = this->parse_not_lr_add();
+std::unique_ptr<RegexAST> RegexParser::parse_lr_add() {
+	std::unique_ptr<RegexAST> car = this->parse_not_lr_add();
 	if (!car) {
-		return NULL;
+		return nullptr;
 	}
-	std::vector<RegexAST*> chain;
-	chain.push_back(car);
+	std::vector<std::unique_ptr<RegexAST>> chain;
+	chain.push_back(std::move(car));
 	while (true) {
-		RegexAST* next = this->parse_not_lr_add();
+		std::unique_ptr<RegexAST> next = this->parse_not_lr_add();
 		if (!next) {
 			break;
 		}
-		chain.push_back(next);
+		chain.push_back(std::move(next));
 		this->buffer_push(this->buffer_pop(2));
 	}
-	return new RegexASTChain(chain);
+	return RegexParser::make_regex_ast_chain(&chain);
 }
 
-RegexAST* RegexParser::parse_not_lr_add() {
+std::unique_ptr<RegexAST> RegexParser::parse_not_lr_add() {
 	return this->parse_lr_mul();
 }
 
-RegexAST* RegexParser::parse_lr_mul() {
-	RegexAST* l = this->parse_not_lr_mul();
+std::unique_ptr<RegexAST> RegexParser::parse_lr_mul() {
+	std::unique_ptr<RegexAST> l = this->parse_not_lr_mul();
 	UInt ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_STAR) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new RegexASTMultiplication(l, 0, 0);
+		return RegexParser::make_regex_ast_multiplication(&l, 0, 0);
 	} else if (ch == RegexParser::TOKEN_PLUS) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new RegexASTMultiplication(l, 1, 0);
+		return RegexParser::make_regex_ast_multiplication(&l, 1, 0);
 	} else if (ch == RegexParser::TOKEN_QUESTION_MARK) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new RegexASTMultiplication(l, 0, 1);
+		return RegexParser::make_regex_ast_multiplication(&l, 0, 1);
 	}
-	std::tuple<UInt, UInt>* range = this->parse_mul_range();
+	std::unique_ptr<std::tuple<UInt, UInt>> range = this->parse_mul_range();
 	if (!range) {
 		return l;
 	}
 	this->buffer_push(this->buffer_pop(2));
-	RegexAST* r = new RegexASTMultiplication(l, std::get<0>(*range), std::get<1>(*range));
-	delete range;
+	std::unique_ptr<RegexAST> r = RegexParser::make_regex_ast_multiplication(&l, std::get<0>(*range), std::get<1>(*range));
 	return r;
 }
 
-std::tuple<UInt, UInt>* RegexParser::parse_mul_range() {
+std::unique_ptr<std::tuple<UInt, UInt>> RegexParser::parse_mul_range() {
 	if (this->buffer_char() != '{') {
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_advance(1);
-	UInt* lower = this->parse_dec_int();
+	std::unique_ptr<UInt> lower = this->parse_dec_int();
 	if (!lower) {
 		this->buffer_pop(1);
-		return NULL;
+		return nullptr;
 	}
 	if (this->buffer_char() != ',') {
 		this->buffer_pop(2);
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_advance(1);
-	UInt* upper = this->parse_dec_int();
+	std::unique_ptr<UInt> upper = this->parse_dec_int();
 	if (!upper) {
-		delete lower;
 		this->buffer_pop(3);
-		return NULL;
+		return nullptr;
 	}
 	if (this->buffer_char() != '}') {
-		delete lower;
-		delete upper;
 		this->buffer_pop(4);
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_push(this->buffer_pop(4) + 1);
-	std::tuple<UInt, UInt>* range = new std::tuple<UInt, UInt>(*lower, *upper);
-	delete lower;
-	delete upper;
+	std::unique_ptr<std::tuple<UInt, UInt>> range(new std::tuple<UInt, UInt>(*lower, *upper));
 	return range;
 }
 
-RegexAST* RegexParser::parse_not_lr_mul() {
+std::unique_ptr<RegexAST> RegexParser::parse_not_lr_mul() {
 	return this->parse_not_lr();
 }
 
-RegexAST* RegexParser::parse_not_lr() {
-	if (RegexAST* r = this->parse_parentheses()) {
+std::unique_ptr<RegexAST> RegexParser::parse_not_lr() {
+	if (std::unique_ptr<RegexAST> r = this->parse_parentheses()) {
 		return r;
-	} else if (RegexAST* r = this->parse_literal()) {
+	} else if (std::unique_ptr<RegexAST> r = this->parse_literal()) {
 		return r;
-	} else if (RegexAST* r = this->parse_group()) {
+	} else if (std::unique_ptr<RegexAST> r = this->parse_group()) {
 		return r;
 	}
-	return NULL;
+	return nullptr;
 }
 
-RegexAST* RegexParser::parse_parentheses() {
+std::unique_ptr<RegexAST> RegexParser::parse_parentheses() {
 	if (this->buffer_char() != '(') {
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_advance(1);
-	RegexAST* node = this->parse_toplevel();
+	std::unique_ptr<RegexAST> node = this->parse_toplevel();
 	if (!node) {
 		this->buffer_pop(1);
-		return NULL;
+		return nullptr;
 	}
 	if (this->buffer_char() != ')') {
-		delete node;
 		this->buffer_pop(2);
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_push(this->buffer_pop(2) + 1);
 	return node;
 }
 
-RegexAST* RegexParser::parse_literal() {
-	UInt* x = this->parse_absolute_literal();
+std::unique_ptr<RegexAST> RegexParser::parse_literal() {
+	std::unique_ptr<UInt> x = this->parse_absolute_literal();
 	if (x) {
-		RegexAST* r = new RegexASTLiteral(*x);
-		delete x;
+		std::unique_ptr<RegexAST> r = RegexParser::make_regex_ast_literal(*x);
 		return r;
 	}
-	Int ch = this->buffer_char();
+	UInt ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_ESCAPE) {
 		ch = this->buffer_char(1);
 		if (RegexParser::is_special_char(ch)) {
 			this->buffer_advance(2);
-			return new RegexASTLiteral(ch);
+			return RegexParser::make_regex_ast_literal(ch);
 		}
-		return NULL;
+		return nullptr;
 	}
 	if (!RegexParser::is_special_char(ch) && 32 <= ch && ch < 127) {
 		this->buffer_advance(1);
-		return new RegexASTLiteral(ch);
+		return RegexParser::make_regex_ast_literal(ch);
 	}
-	return NULL;
+	return nullptr;
 }
 
-RegexAST* RegexParser::parse_group() {
+std::unique_ptr<RegexAST> RegexParser::parse_group() {
 	if (this->buffer_char() != RegexParser::TOKEN_LBRACKET) {
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_advance(1);
-	RegexAST* contents = this->parse_group_contents();
+	std::unique_ptr<RegexAST> contents = this->parse_group_contents();
 	if (!contents) {
 		this->buffer_pop(1);
-		return NULL;
+		return nullptr;
 	}
 	if (this->buffer_char() != RegexParser::TOKEN_RBRACKET) {
-		delete contents;
 		this->buffer_pop(2);
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_advance(1);
 	this->buffer_push(this->buffer_pop(3));
 	return contents;
 }
 
-RegexAST* RegexParser::parse_group_contents() {
-	RegexAST* car = this->parse_group_element();
+std::unique_ptr<RegexAST> RegexParser::parse_group_contents() {
+	std::unique_ptr<RegexAST> car = this->parse_group_element();
 	if (!car) {
-		return NULL;
+		return nullptr;
 	}
-	RegexAST* cdr = this->parse_group_contents();
+	std::unique_ptr<RegexAST> cdr = this->parse_group_contents();
 	if (!cdr) {
 		return car;
 	}
 	this->buffer_push(this->buffer_pop(2));
-	return new RegexASTOr(car, cdr);
+	return RegexParser::make_regex_ast_or(&car, &cdr);
 }
 
-RegexAST* RegexParser::parse_group_element() {
-	if (RegexAST* node = this->parse_group_range()) {
+std::unique_ptr<RegexAST> RegexParser::parse_group_element() {
+	if (std::unique_ptr<RegexAST> node = this->parse_group_range()) {
 		return node;
-	} else if (UInt* x= this->parse_group_literal()) {
-		 RegexAST* r =new RegexASTLiteral(*x);
-		 delete x;
+	} else if (std::unique_ptr<UInt> x = this->parse_group_literal()) {
+		 std::unique_ptr<RegexAST> r = RegexParser::make_regex_ast_literal(*x);
 		 return r;
 	}
-	return NULL;
+	return nullptr;
 }
 
-UInt* RegexParser::parse_group_literal() {
-	UInt* l = this->parse_absolute_literal();
+std::unique_ptr<UInt> RegexParser::parse_group_literal() {
+	std::unique_ptr<UInt> l = this->parse_absolute_literal();
 	if (l) {
 		return l;
 	}
@@ -350,90 +333,86 @@ UInt* RegexParser::parse_group_literal() {
 		ch = this->buffer_char(1);
 		if (RegexParser::is_group_special_char(ch)) {
 			this->buffer_advance(2);
-			return new UInt(ch);
+			return std::unique_ptr<UInt>(new UInt(ch));
 		}
-		return NULL;
+		return nullptr;
 	}
 	if (!RegexParser::is_group_special_char(ch) && 32 <= ch && ch < 127) {
 		this->buffer_advance(1);
-		return new UInt(ch);
+		return std::unique_ptr<UInt>(new UInt(ch));
 	}
-	return NULL;
+	return nullptr;
 }
 
-RegexAST* RegexParser::parse_group_range() {
-	UInt* lower = this->parse_group_literal();
+std::unique_ptr<RegexAST> RegexParser::parse_group_range() {
+	std::unique_ptr<UInt> lower = this->parse_group_literal();
 	if (!lower) {
-		return NULL;
+		return nullptr;
 	}
 	if (this->buffer_char() != '-') {
-		delete lower;
 		this->buffer_pop(1);
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_advance(1);
-	UInt* upper = this->parse_group_literal();
+	std::unique_ptr<UInt> upper = this->parse_group_literal();
 	if (!upper) {
-		delete lower;
 		this->buffer_pop(2);
-		return NULL;
+		return nullptr;
 	}
-	RegexAST* node = new RegexASTRange(*lower, *upper);
-	delete lower;
-	delete upper;
+	std::unique_ptr<RegexAST> node = RegexParser::make_regex_ast_range(*lower, *upper);
 	this->buffer_push(this->buffer_pop(3));
 	return node;
 }
 
-UInt* RegexParser::parse_absolute_literal() {
+std::unique_ptr<UInt> RegexParser::parse_absolute_literal() {
 	if (this->buffer_char() != RegexParser::TOKEN_ESCAPE) {
-		return NULL;
+		return nullptr;
 	}
 	this->buffer_advance(1);
 	UInt ch = this->buffer_char();
 	if (ch == RegexParser::TOKEN_X) {
 		this->buffer_advance(1);
-		UInt* x = this->parse_hex_byte();
+		std::unique_ptr<UInt> x = this->parse_hex_byte();
 		if (!x) {
 			this->buffer_pop(2);
-			return NULL;
+			return nullptr;
 		}
 		this->buffer_push(this->buffer_pop(2));
 		return x;
 	} else if (ch == RegexParser::TOKEN_U) {
 		this->buffer_advance(1);
-		UInt* x = this->parse_hex_int();
+		std::unique_ptr<UInt> x = this->parse_hex_int();
 		if (!x) {
 			this->buffer_pop(2);
-			return NULL;
+			return nullptr;
 		}
 		this->buffer_push(this->buffer_pop(2));
 		return x;
 	} else if (ch == RegexParser::TOKEN_T) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new UInt('\t');
+		return std::unique_ptr<UInt>(new UInt('\t'));
 	} else if (ch == RegexParser::TOKEN_N) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new UInt('\n');
+		return std::unique_ptr<UInt>(new UInt('\n'));
 	} else if (ch == RegexParser::TOKEN_R) {
 		this->buffer_advance(1);
 		this->buffer_push(this->buffer_pop(2));
-		return new UInt('\r');
+		return std::unique_ptr<UInt>(new UInt('\r'));
 	}
 	this->buffer_pop(1);
-	return NULL;
+	return nullptr;
 }
 
-UInt* RegexParser::parse_hex_byte() {
+std::unique_ptr<UInt> RegexParser::parse_hex_byte() {
 	Int upper = this->buffer_char();
 	if (!RegexParser::is_hex_digit(upper)) {
-		return NULL;
+		return nullptr;
 	}
 	Int lower = this->buffer_char(1);
 	if (!RegexParser::is_hex_digit(lower)) {
-		return NULL;
+		return nullptr;
 	}
 	UInt x = 0;
 	if (RegexParser::is_dec_digit(upper)) {
@@ -448,26 +427,25 @@ UInt* RegexParser::parse_hex_byte() {
 		x |= upper - 'a' + 10;
 	}
 	this->buffer_advance(2);
-	return new UInt(x);
+	return std::unique_ptr<UInt>(new UInt(x));
 }
 
-UInt* RegexParser::parse_hex_int() {
+std::unique_ptr<UInt> RegexParser::parse_hex_int() {
 	UInt x = 0;
 	this->buffer_advance(0);
 	for (Int i = 0; i < 4; i++) {
-		UInt* b = this->parse_hex_byte();
+		std::unique_ptr<UInt> b = this->parse_hex_byte();
 		if (!b) {
 			this->buffer_pop(1);
-			return NULL;
+			return nullptr;
 		}
 		x = (x << 8) + *b;
-		delete b;
 		this->buffer_push(this->buffer_pop(2));
 	}
-	return new UInt(x);
+	return std::unique_ptr<UInt>(new UInt(x));
 }
 
-UInt* RegexParser::parse_dec_int() {
+std::unique_ptr<UInt> RegexParser::parse_dec_int() {
 	UInt x = 0;
 	Int delta = 0;
 	while (true) {
@@ -479,7 +457,7 @@ UInt* RegexParser::parse_dec_int() {
 		delta++;
 	}
 	this->buffer_advance(delta);
-	return new UInt(x);
+	return std::unique_ptr<UInt>(new UInt(x));
 }
 
 bool RegexParser::is_special_char(UInt ch) {
@@ -526,12 +504,20 @@ RegexNFAGenerator::RegexNFAGenerator() {
 
 void RegexNFAGenerator::reset() {
 	this->root = this->nfa.root;
+}
+
+void RegexNFAGenerator::new_rule(std::string tag) {
 	this->target_state = this->nfa.new_state();
 	this->target_state->terminal = true;
+	this->target_state->data = tag;
 }
 
 RegexNFAState* RegexNFAGenerator::next_state() {
-	return this->target_state == NULL ? this->nfa.new_state() : this->target_state;
+	return this->target_state == nullptr ? this->nfa.new_state() : this->target_state;
+}
+
+void RegexNFAGenerator::visit(RegexASTLiteral* node) {
+	this->root->next_states[node->ch].push_back(this->target_state);
 }
 
 void RegexNFAGenerator::visit(RegexASTChain* node) {
@@ -545,10 +531,6 @@ void RegexNFAGenerator::visit(RegexASTChain* node) {
 		i++;
 	}
 	this->root = saved_root;
-}
-
-void RegexNFAGenerator::visit(RegexASTLiteral* node) {
-	this->root->next_states[node->ch].push_back(this->target_state);
 }
 
 void RegexNFAGenerator::visit(RegexASTOr* node) {
@@ -565,7 +547,7 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 	if (node->min == 0) {
 		this->root->epsilon = end_state;
 	} else {
-		for (Int i = 1; i < node->min; i++) {
+		for (UInt i = 1; i < node->min; i++) {
 			this->target_state = this->nfa.new_state();
 			node->node->accept(this);
 			this->root = this->target_state;
@@ -591,7 +573,7 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 			node->node->accept(this);
 			this->root = this->target_state;
 		}
-		for (Int i = node->min + 1; i < node->max; i++) {
+		for (UInt i = node->min + 1; i < node->max; i++) {
 			// branch to end state
 			this->target_state = end_state;
 			node->node->accept(this);
@@ -609,10 +591,12 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 }
 
 void RegexNFAGenerator::visit(RegexASTRange* node) {
-	RegexAST* r = new RegexASTLiteral(node->upper);
+	std::unique_ptr<RegexAST> r(new RegexASTLiteral(node->upper));
 	for (UInt i = node->upper - 1; i >= node->lower; i--) {
-		r = new RegexASTOr(new RegexASTLiteral(i), r);
+		std::unique_ptr<RegexAST> r2(new RegexASTOr(std::unique_ptr<RegexAST>(new RegexASTLiteral(i)), std::move(r)));
+		r = std::move(r2);
 	}
 	r->accept(this);
-	delete r;
 }
+
+//} // namespace mami

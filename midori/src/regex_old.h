@@ -1,5 +1,5 @@
-#ifndef PRIMED_REGEX_H_INCLUDED
-#define PRIMED_REGEX_H_INCLUDED
+#ifndef MIDORI_REGEX_OLD_H_INCLUDED
+#define MIDORI_REGEX_OLD_H_INCLUDED
 
 #include <string>
 #include <vector>
@@ -7,13 +7,16 @@
 #include <stack>
 #include <tuple>
 #include <iostream>
-#include "types.h"
+#include <memory>
+#include "global.h"
 #include "finite_automata.h"
 
-typedef NFAState<std::string> RegexNFAState;
-typedef NFA<std::string> RegexNFA;
-typedef DFAState<std::string> RegexDFAState;
-typedef DFA<std::string> RegexDFA;
+namespace mami {
+
+typedef NFAState<UInt, std::string> RegexNFAState;
+typedef NFA<UInt, std::string> RegexNFA;
+typedef DFAState<UInt, std::string> RegexDFAState;
+typedef DFA<UInt, std::string> RegexDFA;
 
 class RegexAST;
 class IRegexASTVisitor;
@@ -23,35 +26,41 @@ private:
 	std::string buffer;
 	std::stack<Int> pos;
 
-	RegexAST* parse_toplevel();
-	RegexAST* parse_lr_or();
-	RegexAST* parse_not_lr_or();
-	RegexAST* parse_lr_add();
-	RegexAST* parse_not_lr_add();
-	RegexAST* parse_lr_mul();
-	RegexAST* parse_not_lr_mul();
-	RegexAST* parse_not_lr();
-	RegexAST* parse_parentheses();
-	RegexAST* parse_literal();
-	RegexAST* parse_group();
-	UInt* parse_absolute_literal();
-
-	std::tuple<UInt, UInt>* parse_mul_range();
-
-	RegexAST* parse_group_contents();
-	RegexAST* parse_group_element();
-	RegexAST* parse_group_range();
-	UInt* parse_group_literal();
-
-	UInt* parse_hex_byte();
-	UInt* parse_hex_int();
-	UInt* parse_dec_int();
-
 	Int buffer_pos();
 	void buffer_advance(Int);
 	UInt buffer_char(Int = 0);
 	void buffer_push(Int);
 	Int buffer_pop(Int);
+
+	static std::unique_ptr<RegexAST> make_regex_ast_literal(UInt);
+	static std::unique_ptr<RegexAST> make_regex_ast_chain(std::vector<std::unique_ptr<RegexAST>>*);
+	static std::unique_ptr<RegexAST> make_regex_ast_or(std::unique_ptr<RegexAST>*, std::unique_ptr<RegexAST>*);
+	static std::unique_ptr<RegexAST> make_regex_ast_multiplication(std::unique_ptr<RegexAST>*, UInt, UInt);
+	static std::unique_ptr<RegexAST> make_regex_ast_range(UInt, UInt);
+
+	std::unique_ptr<RegexAST> parse_toplevel();
+	std::unique_ptr<RegexAST> parse_lr_or();
+	std::unique_ptr<RegexAST> parse_not_lr_or();
+	std::unique_ptr<RegexAST> parse_lr_add();
+	std::unique_ptr<RegexAST> parse_not_lr_add();
+	std::unique_ptr<RegexAST> parse_lr_mul();
+	std::unique_ptr<RegexAST> parse_not_lr_mul();
+	std::unique_ptr<RegexAST> parse_not_lr();
+	std::unique_ptr<RegexAST> parse_parentheses();
+	std::unique_ptr<RegexAST> parse_literal();
+	std::unique_ptr<RegexAST> parse_group();
+	std::unique_ptr<UInt> parse_absolute_literal();
+
+	std::unique_ptr<std::tuple<UInt, UInt>> parse_mul_range();
+
+	std::unique_ptr<RegexAST> parse_group_contents();
+	std::unique_ptr<RegexAST> parse_group_element();
+	std::unique_ptr<RegexAST> parse_group_range();
+	std::unique_ptr<UInt> parse_group_literal();
+
+	std::unique_ptr<UInt> parse_hex_byte();
+	std::unique_ptr<UInt> parse_hex_int();
+	std::unique_ptr<UInt> parse_dec_int();
 
 	static bool is_special_char(UInt);
 	static bool is_group_special_char(UInt);
@@ -77,7 +86,7 @@ private:
 	static const UInt TOKEN_R = 'r';
 
 public:
-	RegexAST* parse(std::string);
+	std::unique_ptr<RegexAST> parse(std::string);
 };
 
 class RegexAST {
@@ -86,43 +95,39 @@ public:
 	virtual void accept(IRegexASTVisitor*) = 0;
 };
 
-class RegexASTChain : public RegexAST {
-public:
-	std::vector<RegexAST*> sequence;
-
-	RegexASTChain(std::vector<RegexAST*>);
-	virtual ~RegexASTChain();
-	virtual void accept(IRegexASTVisitor*) override;
-};
-
 class RegexASTLiteral : public RegexAST {
 public:
 	UInt ch;
 
-	RegexASTLiteral(Int);
-	virtual ~RegexASTLiteral();
-	virtual void accept(IRegexASTVisitor*) override;
+	RegexASTLiteral(UInt);
+	void accept(IRegexASTVisitor*) override;
+};
+
+class RegexASTChain : public RegexAST {
+public:
+	std::vector<std::unique_ptr<RegexAST>> sequence;
+
+	RegexASTChain(std::vector<std::unique_ptr<RegexAST>>);
+	void accept(IRegexASTVisitor*) override;
 };
 
 class RegexASTOr : public RegexAST {
 public:
-	RegexAST* left;
-	RegexAST* right;
+	std::unique_ptr<RegexAST> left;
+	std::unique_ptr<RegexAST> right;
 
-	RegexASTOr(RegexAST*, RegexAST*);
-	virtual ~RegexASTOr();
-	virtual void accept(IRegexASTVisitor*) override;
+	RegexASTOr(std::unique_ptr<RegexAST>, std::unique_ptr<RegexAST>);
+	void accept(IRegexASTVisitor*) override;
 };
 
 class RegexASTMultiplication : public RegexAST {
 public:
+	std::unique_ptr<RegexAST> node;
 	UInt min;
 	UInt max;
-	RegexAST* node;
 
-	RegexASTMultiplication(RegexAST*, Int, Int);
-	virtual ~RegexASTMultiplication();
-	virtual void accept(IRegexASTVisitor*) override;
+	RegexASTMultiplication(std::unique_ptr<RegexAST>, Int, Int);
+	void accept(IRegexASTVisitor*) override;
 
 	bool is_infinite();
 };
@@ -131,17 +136,15 @@ class RegexASTRange : public RegexAST {
 public:
 	UInt lower;
 	UInt upper;
-	std::vector<RegexAST*> nodes;
 
 	RegexASTRange(UInt, UInt);
-	virtual ~RegexASTRange();
-	virtual void accept(IRegexASTVisitor*) override;
+	void accept(IRegexASTVisitor*) override;
 };
 
 class IRegexASTVisitor {
 public:
-	virtual void visit(RegexASTChain*) = 0;
 	virtual void visit(RegexASTLiteral*) = 0;
+	virtual void visit(RegexASTChain*) = 0;
 	virtual void visit(RegexASTOr*) = 0;
 	virtual void visit(RegexASTMultiplication*) = 0;
 	virtual void visit(RegexASTRange*) = 0;
@@ -157,9 +160,10 @@ public:
 
 	RegexNFAGenerator();
 	void reset();
+	void new_rule(std::string);
 
-	void visit(RegexASTChain*) override;
 	void visit(RegexASTLiteral*) override;
+	void visit(RegexASTChain*) override;
 	void visit(RegexASTOr*) override;
 	void visit(RegexASTMultiplication*) override;
 	void visit(RegexASTRange*) override;
@@ -173,8 +177,12 @@ public:
 			std::cout << "\t";
 		}
 	}
+	void visit(RegexASTLiteral* x) override {
+		f();
+		std::cout << "literal: " << (char) x->ch << std::endl;
+	}
 	void visit(RegexASTChain* x) override {
-		for (Int i = 0; i < x->sequence.size(); i++) {
+		for (size_t i = 0; i < x->sequence.size(); i++) {
 			x->sequence[i]->accept(this);
 		}
 	}
@@ -189,10 +197,6 @@ public:
 		indents--;
 		f();
 		std::cout << "endor" << std::endl;
-	}
-	void visit(RegexASTLiteral* x) override {
-		f();
-		std::cout << "literal: " << (char) x->ch << std::endl;
 	}
 	void visit(RegexASTMultiplication* x) override {
 		f();
@@ -209,4 +213,6 @@ public:
 	}
 };
 
-#endif /* PRIMED_REGEX_H_INCLUDED */
+} // namespace mami
+
+#endif /* MIDORI_REGEX_OLD_H_INCLUDED */
