@@ -59,6 +59,7 @@ public:
 
 	MatchedTerminal(std::unique_ptr<Token>);
 };
+
 class MatchedNonterminal : public Match {
 public:
 	Production* production;

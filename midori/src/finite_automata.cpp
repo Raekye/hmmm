@@ -1,6 +1,5 @@
 #include "finite_automata.h"
 #include <list>
-#include <cassert>
 
 #include <iostream>
 #include <cstdio>
@@ -15,13 +14,6 @@ template class DFAState<Long, std::string>;
 template class NFAState<Long, std::string>;
 template class DFA<Long, std::string>;
 template class NFA<Long, std::string>;
-
-/*
-template class DFAState<std::string, UInt>;
-template class NFAState<std::string, UInt>;
-template class DFA<std::string, UInt>;
-template class NFA<std::string, UInt>;
-*/
 
 #pragma mark - Local types
 template <typename K, typename T> using NFAGroupedState = std::set<NFAState<K, T>*>;

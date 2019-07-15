@@ -5,6 +5,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "generator.h"
+#include "interval_tree.h"
 
 int test_parser() {
 	std::unique_ptr<Parser> p = RegexParserGenerator::make();
@@ -69,8 +70,40 @@ int test_generator() {
 }
 */
 
+int test_interval_tree() {
+	typedef IntervalTree<UInt, Int> Foo;
+	Foo a;
+	for (UInt i = 0; i < 100; i++) {
+		a.insert(Foo::Interval(i, i + 10), i);
+	}
+	a.invariants();
+	std::unique_ptr<Foo::SearchList> all = a.all();
+	std::cout << all->size() << std::endl;
+
+	std::unique_ptr<Foo::SearchList> results = a.pop(Foo::Interval(3, 3));
+	a.invariants();
+	std::cout << results->size() << std::endl;
+
+	results = a.pop(Foo::Interval(50, 51));
+	a.invariants();
+	std::cout << results->size() << std::endl;
+
+	Foo b;
+	for (UInt i = 0; i < 1000; i++) {
+		b.insert(Foo::Interval(i, i), i);
+	}
+	b.invariants();
+	results = b.pop(Foo::Interval(800, 899));
+	b.invariants();
+	std::cout << results->size() << std::endl;
+	return 0;
+}
+
 int main() {
-	test_parser();
+	ULong x = ~0;
+	std::cout << "-1 is " << x << std::endl;
+	test_interval_tree();
+	//test_parser();
 	//test_generator();
 	return 0;
 }

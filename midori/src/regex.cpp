@@ -105,12 +105,12 @@ void RegexNFAGenerator::visit(RegexASTWildcard* node) {
 void RegexNFAGenerator::visit(RegexASTChain* node) {
 	RegexNFAState* saved_root = this->root;
 	RegexNFAState* saved_target_state = this->target_state;
-	UInt i = 1;
+	UInt i = 0;
 	for (auto& each : node->sequence) {
-		this->target_state = i == node->sequence.size() ? saved_target_state : this->nfa.new_state();
+		i++;
+		this->target_state = (i == node->sequence.size()) ? saved_target_state : this->nfa.new_state();
 		each->accept(this);
 		this->root = this->target_state;
-		i++;
 	}
 	this->root = saved_root;
 }
@@ -173,6 +173,7 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 }
 
 void RegexNFAGenerator::visit(RegexASTRange* node) {
+	// TODO: simplify?
 	std::unique_ptr<RegexAST> r(new RegexASTLiteral(node->upper));
 	for (UInt i = node->upper - 1; i >= node->lower; i--) {
 		std::unique_ptr<RegexAST> r2(new RegexASTOr(std::unique_ptr<RegexAST>(new RegexASTLiteral(i)), std::move(r)));
@@ -183,10 +184,5 @@ void RegexNFAGenerator::visit(RegexASTRange* node) {
 
 void RegexNFAGenerator::visit(RegexASTNot* node) {
 	(void) node;
-	// TODO: the following is incorrect
-	/*
-	this->inversion = !this->inversion;
-	node->node->accept(this);
-	this->inversion = !this->inversion;
-	*/
+	// TODO
 }

@@ -1,5 +1,4 @@
 #include "generator.h"
-#include <cassert>
 
 #include "helper.h"
 
@@ -67,10 +66,10 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		std::unique_ptr<RegexAST> ret(new RegexASTChain(std::move(vec)));
 		/*
 		 * The following does not work
-		std::unique_ptr<RegexAST> ret(new RegexASTChain({
-			std::move(r1->regex),
-			std::move(r2->regex),
-		}));
+			std::unique_ptr<RegexAST> ret(new RegexASTChain({
+				std::move(r1->regex),
+				std::move(r2->regex),
+			}));
 		 */
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::move(ret)));
 	});

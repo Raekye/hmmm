@@ -2,6 +2,7 @@
 #define MIDORI_GLOBAL_H_INCLUDED
 
 #include <cstdint>
+#include <cassert>
 #include <cstddef>
 #include <type_traits>
 

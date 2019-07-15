@@ -1,5 +1,4 @@
 #include "parser.h"
-#include <cassert>
 #include "helper.h"
 
 /*
