@@ -1,11 +1,11 @@
 #include <sstream>
 #include <fstream>
-#include "helper.h"
-#include "regex.h"
-#include "lexer.h"
-#include "parser.h"
-#include "generator.h"
-#include "interval_tree.h"
+#include "midori/helper.h"
+#include "midori/regex.h"
+#include "midori/lexer.h"
+#include "midori/parser.h"
+#include "midori/generator.h"
+#include "midori/interval_tree.h"
 
 int test_parser() {
 	std::unique_ptr<Parser> p = RegexParserGenerator::make();

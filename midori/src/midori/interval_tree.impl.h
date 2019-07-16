@@ -23,16 +23,20 @@ template <typename K, typename V> std::unique_ptr<typename IntervalTree<K, V>::S
 	return results;
 }
 
+template <typename K, typename V> std::unique_ptr<typename IntervalTree<K, V>::SearchList> IntervalTree<K, V>::find(Interval key) {
+	std::unique_ptr<SearchList> results(new SearchList);
+	Node::find(this->root.get(), key, results.get());
+	return results;
+}
+
 template <typename K, typename V> std::unique_ptr<typename IntervalTree<K, V>::SearchList> IntervalTree<K, V>::all() {
 	std::unique_ptr<SearchList> results(new SearchList);
-	if (this->root != nullptr) {
-		Node::all(this->root.get(), results.get());
-	}
+	Node::all(this->root.get(), results.get());
 	return results;
 }
 
 template <typename K, typename V> void IntervalTree<K, V>::invariants() {
-	Node::invariants(this->root.get());
+	Node::_invariants(this->root.get());
 }
 
 #pragma mark - IntervalTree::Node
@@ -159,6 +163,20 @@ template <typename K, typename V> std::unique_ptr<typename IntervalTree<K, V>::N
 	return self;
 }
 
+template <typename K, typename V> void IntervalTree<K, V>::Node::find(Node* self, Interval key, SearchList* results) {
+	if (self == nullptr) {
+		return;
+	}
+	if (!self->overlaps_recursive(key)) {
+		return;
+	}
+	Node::find(self->left.get(), key, results);
+	if (self->overlaps(key)) {
+		results->push_back(SearchResult(self->key, self->value));
+	}
+	Node::find(self->right.get(), key, results);
+}
+
 template <typename K, typename V> void IntervalTree<K, V>::Node::all(Node* self, SearchList* results) {
 	if (self == nullptr) {
 		return;
@@ -210,28 +228,32 @@ template <typename K, typename V> bool IntervalTree<K, V>::Node::overlaps_recurs
 
 #pragma mark - IntervalTree::Node - debug
 
-template <typename K, typename V> void IntervalTree<K, V>::Node::invariants(Node* self) {
+template <typename K, typename V> void IntervalTree<K, V>::Node::_invariants(Node* self) {
 	if (self == nullptr) {
 		return;
 	}
-	Node::invariants(self->left.get());
-	Node::invariants(self->right.get());
-	Int x = self->balance_factor();
+	Node::_invariants(self->left.get());
+	Node::_invariants(self->right.get());
+	self->invariants();
+}
+
+template <typename K, typename V> void IntervalTree<K, V>::Node::invariants() {
+	Int x = this->balance_factor();
 	assert(x * x <= 1);
-	assert(self->height == std::max(Node::_height(self->left.get()), Node::_height(self->right.get())) + 1);
-	if (self->left == nullptr) {
-		assert(self->lower == self->key.first);
-		if (self->right == nullptr) {
-			assert(self->upper == self->key.second);
+	assert(this->height == std::max(Node::_height(this->left.get()), Node::_height(this->right.get())) + 1);
+	if (this->left == nullptr) {
+		assert(this->lower == this->key.first);
+		if (this->right == nullptr) {
+			assert(this->upper == this->key.second);
 		} else {
-			assert(self->upper == std::max(self->key.second, self->right->upper));
+			assert(this->upper == std::max(this->key.second, this->right->upper));
 		}
 	} else {
-		assert(self->lower == self->left->lower);
-		if (self->right == nullptr) {
-			assert(self->upper == std::max(self->key.second, self->left->upper));
+		assert(this->lower == this->left->lower);
+		if (this->right == nullptr) {
+			assert(this->upper == std::max(this->key.second, this->left->upper));
 		} else {
-			assert(self->upper == std::max({ self->key.second, self->left->upper, self->right->upper }));
+			assert(this->upper == std::max({ this->key.second, this->left->upper, this->right->upper }));
 		}
 	}
 }

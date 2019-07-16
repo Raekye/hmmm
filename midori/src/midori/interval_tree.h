@@ -15,6 +15,7 @@ public:
 
 	void insert(Interval, V);
 	std::unique_ptr<SearchList> pop(Interval);
+	std::unique_ptr<SearchList> find(Interval);
 	std::unique_ptr<SearchList> all();
 
 	void invariants();
@@ -38,6 +39,7 @@ private:
 		static std::unique_ptr<Node> insert(std::unique_ptr<Node>, Interval, V);
 		static std::unique_ptr<Node> pop_min(std::unique_ptr<Node>, std::unique_ptr<Node>*);
 		static std::unique_ptr<Node> pop(std::unique_ptr<Node>, Interval, std::unique_ptr<Node>*);
+		static void find(Node*, Interval, SearchList*);
 		static void all(Node*, SearchList*);
 
 		Int balance_factor();
@@ -47,7 +49,8 @@ private:
 		bool overlaps(Interval);
 		bool overlaps_recursive(Interval);
 
-		static void invariants(Node*);
+		static void _invariants(Node*);
+		void invariants();
 	};
 
 	std::unique_ptr<Node> root;
