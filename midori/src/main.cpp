@@ -2,12 +2,13 @@
 #include <fstream>
 #include "midori/helper.h"
 #include "midori/regex.h"
-#include "midori/lexer.h"
-#include "midori/parser.h"
-#include "midori/generator.h"
+//#include "midori/lexer.h"
+//#include "midori/parser.h"
+//#include "midori/generator.h"
 #include "midori/interval_tree.h"
 
 int test_parser() {
+	/*
 	std::unique_ptr<Parser> p = RegexParserGenerator::make();
 
 	for (int i = 0; i < 2; i++) {
@@ -20,6 +21,7 @@ int test_parser() {
 		RegexASTPrinter printer;
 		r->regex->accept(&printer);
 	}
+	*/
 	return 0;
 }
 

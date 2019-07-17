@@ -34,12 +34,20 @@ if (CMAKE_VERSION VERSION_LESS 2.8.11)
 	include_directories("${gtest_SOURCE_DIR}/include")
 endif()
 
+set(TESTS
+	interval_tree
+	regex
+	)
 
-# Now simply link against gtest or gtest_main as needed. Eg
-add_executable(hmmmtests driver.cpp)
-target_link_libraries(hmmmtests gtest_main)
+include_directories(${CMAKE_SOURCE_DIR}/src)
 
-include_directories(AFTER "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(hmmmtests midori)
+foreach(t ${TESTS})
+	# Now simply link against gtest or gtest_main as needed. Eg
+	add_executable(${t}_test ${CMAKE_CURRENT_SOURCE_DIR}/${t}.cpp)
+	target_link_libraries(${t}_test gtest_main)
 
-add_test(NAME hmmmtests COMMAND hmmmtests)
+	target_link_libraries(${t}_test midori)
+
+	add_test(NAME ${t}_test COMMAND ${t}_test)
+endforeach()
+

@@ -1,6 +1,11 @@
 #include "regex.h"
 #include <cctype>
 #include <iterator>
+#include <algorithm>
+
+#pragma mark - static
+
+UInt const RegexASTGroup::UNICODE_MAX = ~((UInt) 0);
 
 #pragma mark - RegexAST
 RegexAST::~RegexAST() {
@@ -23,16 +28,52 @@ RegexASTMultiplication::RegexASTMultiplication(std::unique_ptr<RegexAST> node, I
 	return;
 }
 
-RegexASTRange::RegexASTRange(UInt lower, UInt upper) : lower(lower), upper(upper) {
+RegexASTGroup::RegexASTGroup(bool negate, std::unique_ptr<RangeList> span) : negate(negate), span(std::move(span)) {
 	return;
 }
 
-RegexASTWildcard::RegexASTWildcard() {
-	return;
+void RegexASTGroup::flatten(std::vector<Range>* l) {
+	if (this->span == nullptr) {
+		return;
+	}
+	std::vector<Range> l2;
+	this->span->flatten(&l2);
+	std::sort(l2.begin(), l2.end());
+	if (this->negate) {
+		std::vector<Range> l3;
+		RegexASTGroup::merge(&l2, &l3);
+		RegexASTGroup::complement(&l3, l);
+	} else {
+		RegexASTGroup::merge(&l2, l);
+	}
 }
 
-RegexASTNot::RegexASTNot(std::unique_ptr<RegexAST> node) : node(std::move(node)) {
-	return;
+void RegexASTGroup::merge(std::vector<Range>* src, std::vector<Range>* dst) {
+	Range current = src->at(0);
+	for (size_t i = 1; i < src->size(); i++) {
+		Range r = src->at(i);
+		if (r.first <= current.second + 1) {
+			current.second = std::max(r.second, current.second);
+		} else {
+			dst->push_back(current);
+			current = r;
+		}
+	}
+	dst->push_back(current);
+}
+
+void RegexASTGroup::complement(std::vector<Range>* src, std::vector<Range>* dst) {
+	UInt lower = 0;
+	for (size_t i = 0; i < src->size(); i++) {
+		Range r = src->at(i);
+		if (r.first > 0) {
+			dst->push_back(Range(lower, r.first - 1));
+		}
+		lower = r.second + 1;
+	}
+	if (lower > 0) {
+		dst->push_back(Range(lower, RegexASTGroup::UNICODE_MAX));
+	}
 }
 
 #pragma mark - RegexAT - visitor pattern
@@ -52,15 +93,7 @@ void RegexASTMultiplication::accept(IRegexASTVisitor* visitor) {
 	visitor->visit(this);
 }
 
-void RegexASTRange::accept(IRegexASTVisitor* visitor) {
-	visitor->visit(this);
-}
-
-void RegexASTWildcard::accept(IRegexASTVisitor* visitor) {
-	visitor->visit(this);
-}
-
-void RegexASTNot::accept(IRegexASTVisitor* visitor) {
+void RegexASTGroup::accept(IRegexASTVisitor* visitor) {
 	visitor->visit(this);
 }
 
@@ -80,7 +113,6 @@ RegexNFAGenerator::RegexNFAGenerator() {
 void RegexNFAGenerator::reset() {
 	this->root = this->nfa.root;
 	this->target_state = nullptr;
-	this->inversion = false;
 }
 
 void RegexNFAGenerator::new_rule(std::string tag) {
@@ -94,12 +126,7 @@ RegexNFAState* RegexNFAGenerator::next_state() {
 }
 
 void RegexNFAGenerator::visit(RegexASTLiteral* node) {
-	this->transitions()->operator[](node->ch).push_back(this->target_state);
-}
-
-void RegexNFAGenerator::visit(RegexASTWildcard* node) {
-	(void) node;
-	this->transitions()->operator[](-1).push_back(this->target_state);
+	this->root->add(RegexNFAState::Interval(node->ch, node->ch), this->target_state);
 }
 
 void RegexNFAGenerator::visit(RegexASTChain* node) {
@@ -127,6 +154,7 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 	RegexNFAState* end_state = this->next_state();
 
 	if (node->min == 0) {
+		assert(this->root->epsilon == nullptr);
 		this->root->epsilon = end_state;
 	} else {
 		for (UInt i = 1; i < node->min; i++) {
@@ -172,17 +200,14 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 	this->target_state = saved_target_state;
 }
 
-void RegexNFAGenerator::visit(RegexASTRange* node) {
+void RegexNFAGenerator::visit(RegexASTGroup* node) {
 	// TODO: simplify?
+	/*
 	std::unique_ptr<RegexAST> r(new RegexASTLiteral(node->upper));
 	for (UInt i = node->upper - 1; i >= node->lower; i--) {
 		std::unique_ptr<RegexAST> r2(new RegexASTOr(std::unique_ptr<RegexAST>(new RegexASTLiteral(i)), std::move(r)));
 		r = std::move(r2);
 	}
 	r->accept(this);
-}
-
-void RegexNFAGenerator::visit(RegexASTNot* node) {
-	(void) node;
-	// TODO
+	*/
 }

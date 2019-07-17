@@ -1,19 +1,62 @@
 #include "finite_automata.h"
 #include <list>
+#include <algorithm>
 
 #include <iostream>
 #include <cstdio>
 
-#pragma mark - Finite automata templates
-template class DFAState<UInt, std::string>;
-template class NFAState<UInt, std::string>;
-template class DFA<UInt, std::string>;
-template class NFA<UInt, std::string>;
+UInt const RegexDFAState::OPTIMIZED_CHARS;
 
-template class DFAState<Long, std::string>;
-template class NFAState<Long, std::string>;
-template class DFA<Long, std::string>;
-template class NFA<Long, std::string>;
+RegexDFAState::RegexDFAState(UInt id) : id(id) {
+	return;
+}
+
+RegexNFAState::RegexNFAState(UInt id) : id(id) {
+	return;
+}
+
+void RegexNFAState::add(Interval i, RegexNFAState* s) {
+	UInt lower = i.first;
+	if (i.first < RegexDFAState::OPTIMIZED_CHARS) {
+		for (UInt j = 0; j < std::min(i.second, RegexDFAState::OPTIMIZED_CHARS); j++) {
+			this->_transitions[j].push_back(s);
+		}
+		if (i.second >= RegexDFAState::OPTIMIZED_CHARS) {
+			lower = RegexDFAState::OPTIMIZED_CHARS;
+		}
+	}
+	std::unique_ptr<UnicodeIntervalTree::SearchList> overlaps = this->transitions.pop(Interval(lower, i.second));
+	for (UnicodeIntervalTree::SearchList::iterator it = overlaps->begin(); it != overlaps->end(); it++) {
+		UInt a = (*it).first.first;
+		UInt b = (*it).first.second;
+		UInt c = std::max(a, lower);
+		UInt d = std::min(b, i.second);
+		StateList cd = (*it).second;
+		cd.push_back(s);
+		this->transitions.insert(Interval(c, d), cd);
+		if (a < lower) {
+			this->transitions.insert(Interval(a, lower - 1), (*it).second);
+		} else if (a > lower) {
+			this->transitions.insert(Interval(lower, a - 1), { s });
+		}
+		if (b < i.second) {
+			this->transitions.insert(Interval(b + 1, i.second), { s });
+		} else if (b > i.second) {
+			this->transitions.insert(Interval(i.second + 1, b), (*it).second);
+		}
+	}
+}
+
+RegexNFA::RegexNFA() {
+	this->root = this->new_state();
+}
+
+RegexNFAState* RegexNFA::new_state() {
+	std::unique_ptr<RegexNFAState> ptr(new RegexNFAState(this->states.size()));
+	RegexNFAState* state = ptr.get();
+	this->states.push_back(std::move(ptr));
+	return state;
+}
 
 #pragma mark - Local types
 template <typename K, typename T> using NFAGroupedState = std::set<NFAState<K, T>*>;

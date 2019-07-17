@@ -42,8 +42,3 @@ TEST_F(IntervalTreeTest, Pop) {
 	ASSERT_EQ(b.pop(IT::Interval(700, 716))->size(), 17);
 	ASSERT_EQ(b.all()->size(), 1000 - 17);
 }
-
-int main(int argc, char** argv) {
-	::testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
-}

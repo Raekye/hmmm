@@ -11,11 +11,6 @@
 #include "global.h"
 #include "finite_automata.h"
 
-typedef NFAState<Long, std::string> RegexNFAState;
-typedef NFA<Long, std::string> RegexNFA;
-typedef DFAState<Long, std::string> RegexDFAState;
-typedef DFA<Long, std::string> RegexDFA;
-
 class RegexAST;
 class IRegexASTVisitor;
 
@@ -64,27 +59,33 @@ public:
 	}
 };
 
-class RegexASTRange : public RegexAST {
+class RegexASTGroup : public RegexAST {
 public:
-	UInt lower;
-	UInt upper;
+	static UInt const UNICODE_MAX;
 
-	RegexASTRange(UInt, UInt);
+	typedef std::pair<UInt, UInt> Range;
+	class RangeList {
+	public:
+		Range range;
+		std::unique_ptr<RangeList> next;
+
+		void flatten(std::vector<Range>* l) {
+			l->push_back(this->range);
+			if (this->next != nullptr) {
+				this->next->flatten(l);
+			}
+		}
+	};
+
+	bool negate;
+	std::unique_ptr<RangeList> span;
+
+	RegexASTGroup(bool, std::unique_ptr<RangeList>);
 	void accept(IRegexASTVisitor*) override;
-};
+	void flatten(std::vector<Range>*);
 
-class RegexASTNot : public RegexAST {
-public:
-	std::unique_ptr<RegexAST> node;
-
-	RegexASTNot(std::unique_ptr<RegexAST>);
-	void accept(IRegexASTVisitor*) override;
-};
-
-class RegexASTWildcard : public RegexAST {
-public:
-	RegexASTWildcard();
-	void accept(IRegexASTVisitor*) override;
+	static void merge(std::vector<Range>*, std::vector<Range>*);
+	static void complement(std::vector<Range>*, std::vector<Range>*);
 };
 
 class IRegexASTVisitor {
@@ -93,20 +94,14 @@ public:
 	virtual void visit(RegexASTChain*) = 0;
 	virtual void visit(RegexASTOr*) = 0;
 	virtual void visit(RegexASTMultiplication*) = 0;
-	virtual void visit(RegexASTRange*) = 0;
-	virtual void visit(RegexASTNot*) = 0;
-	virtual void visit(RegexASTWildcard*) = 0;
+	virtual void visit(RegexASTGroup*) = 0;
 };
 
 class RegexNFAGenerator : public IRegexASTVisitor {
 	RegexNFAState* root;
 	RegexNFAState* target_state;
-	bool inversion;
 
 	RegexNFAState* next_state();
-	inline std::map<Long, std::vector<RegexNFAState*>>* transitions() {
-		return this->inversion ? &(this->root->not_states) : &(this->root->next_states);
-	}
 public:
 	RegexNFA nfa;
 
@@ -118,9 +113,7 @@ public:
 	void visit(RegexASTChain*) override;
 	void visit(RegexASTOr*) override;
 	void visit(RegexASTMultiplication*) override;
-	void visit(RegexASTRange*) override;
-	void visit(RegexASTNot*) override;
-	void visit(RegexASTWildcard*) override;
+	void visit(RegexASTGroup*) override;
 };
 
 // TODO: why no inline compiles?
@@ -162,23 +155,17 @@ public:
 		f();
 		std::cout << "endmultiply" << std::endl;
 	}
-	void visit(RegexASTRange* x) override {
+	void visit(RegexASTGroup* x) override {
 		f();
-		std::cout << "range: " << (char) x->lower << " to " << (char) x->upper << std::endl;
-	}
-	void visit(RegexASTNot* x) override {
-		f();
-		std::cout << "not:" << std::endl;
+		std::cout << "range " << x->negate << std::endl;
 		indents++;
-		x->node->accept(this);
+		for (RegexASTGroup::RangeList* r = x->span.get(); r != nullptr; r = r->next.get()) {
+			f();
+			std::cout << r->range.first << " to " << r->range.second << std::endl;
+		}
 		indents--;
 		f();
-		std::cout << "endnot" << std::endl;
-	}
-	void visit(RegexASTWildcard* x) override {
-		(void) x;
-		f();
-		std::cout << "wildcard" << std::endl;
+		std::cout << "endrange" << std::endl;
 	}
 };
 
