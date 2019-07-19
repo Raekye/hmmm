@@ -33,19 +33,31 @@ void Lexer::generate() {
 			std::cout << " terminal '" << state->data << "'";
 		}
 		std::cout << std::endl;
-		for (auto& kv : state->next_states) {
-			if (kv.first == -1) {
-				std::cout << "\t\tWildcard:";
-			} else {
-				std::cout << "\t\tChar " << (char) kv.first << ":";
+		for (UInt i = 0; i < RegexDFAState::OPTIMIZED_CHARS; i++) {
+			if (!state->_transitions[i].empty()) {
+				std::cout << "\t\tChar " << (char) i << " to";
+				for (RegexNFAState* const s : state->_transitions[i]) {
+					std::cout << " " << s->id;
+				}
+				std::cout << std::endl;
 			}
-			for (auto& next_state : kv.second) {
-				std::cout << " " << next_state->id << ",";
+		}
+		std::unique_ptr<RegexNFAState::UnicodeIntervalTree::SearchList> l = state->transitions.all();
+		if (!l->empty()) {
+			for (RegexNFAState::UnicodeIntervalTree::SearchList::iterator it = l->begin(); it != l->end(); it++) {
+				std::cout << "\t\tRange " << (*it).first.first << " - " << (*it).first.second << " to";
+				for (RegexNFAState* const s : (*it).second) {
+					std::cout << " " << s->id;
+				}
 			}
 			std::cout << std::endl;
 		}
-		if (state->epsilon != nullptr) {
-			std::cout << "\t\tEpsilon to " << state->epsilon->id << std::endl;
+		if (!state->epsilon.empty()) {
+			std::cout << "\t\tEpsilon to";
+			for (RegexNFAState* const s : state->epsilon) {
+				std::cout << " " << s->id;
+			}
+			std::cout << std::endl;
 		}
 	}
 	std::cout << "=== End nfa states" << std::endl;
@@ -55,17 +67,23 @@ void Lexer::generate() {
 	this->dfa = this->regex_nfa_generator.nfa.to_dfa();
 	for (auto& state : this->dfa->states) {
 		std::cout << "\tDFA state " << state->id;
-		if (state->terminal) {
-			std::cout << " terminal '" << state->data << "'";
-		}
-		std::cout << std::endl;
-		for (auto& kv : state->next_states) {
-			if (kv.first == -1) {
-				std::cout << "\t\tWildcard to " << kv.second->id << std::endl;
-			} else {
-				std::cout << "\t\tChar " << (char) kv.first << " to " << kv.second->id << std::endl;
+		if (!state->terminals.empty()) {
+			std::cout << " terminal";
+			for (std::string const& s : state->terminals) {
+				std::cout << " '" << s << "'";
 			}
 		}
+		std::cout << std::endl;
+		for (UInt i = 0; i < RegexDFAState::OPTIMIZED_CHARS; i++) {
+			if (state->_transitions[i] != nullptr) {
+				std::cout << "\t\tChar " << (char) i << " to " << state->_transitions[i]->id << std::endl;
+			}
+		}
+		std::unique_ptr<RegexDFAState::Tree::SearchList> l = state->transitions.all();
+		for (RegexDFAState::Tree::SearchList::iterator it = l->begin(); it != l->end(); it++) {
+			std::cout << "\t\tRange " << (*it).first.first << " - " << (*it).first.second << " to " << (*it).second->id << std::endl;
+		}
+		std::cout << std::endl;
 	}
 	std::cout << "=== End dfa states" << std::endl;
 	std::cout << std::endl;
@@ -81,14 +99,14 @@ void Lexer::prepare() {
 		this->generate();
 		this->regenerate = false;
 	}
-	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root;
+	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root();
 }
 
 void Lexer::reset() {
 	this->eof = false;
 	this->buffer = "";
 	this->buffer_pos = 0;
-	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root;
+	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root();
 }
 
 void Lexer::add_rule(Rule rule, std::unique_ptr<RegexAST> regex) {
@@ -109,19 +127,27 @@ std::unique_ptr<Token> Lexer::scan(std::istream* in) {
 	std::string found_buffer = "";
 	std::unique_ptr<Token> t;
 	while (true) {
-		if (this->current_state->terminal) {
+		if (!this->current_state->terminals.empty()) {
 			matched = true;
-			matched_tag = this->current_state->data;
+			matched_tag = this->current_state->terminals.at(0);
 			matched_str.append(found_buffer);
 			matched_buffer_pos = this->buffer_pos;
 			found_buffer = "";
 		}
-		UInt ch = this->read(in);
-		std::map<Long, RegexDFAState*>::iterator it = this->current_state->next_states.find(ch);
-		if (it == this->current_state->next_states.end()) {
-			it = this->current_state->next_states.find(-1);
+		Long ch = this->read(in);
+		RegexDFAState* next = nullptr;
+		if (ch >= 0) {
+			if (ch < RegexDFAState::OPTIMIZED_CHARS) {
+				next = this->current_state->_transitions[ch];
+			} else {
+				std::unique_ptr<RegexDFAState::Tree::SearchList> l = this->current_state->transitions.find(RegexDFAState::Tree::Interval(ch, ch));
+				assert(l->size() <= 1);
+				if (l->size() > 0) {
+					next = l->front().second;
+				}
+			}
 		}
-		if (ch == 0 || it == this->current_state->next_states.end()) {
+		if (next == nullptr) {
 			if (matched) {
 				t.reset(new Token(matched_tag, matched_str, LocationInfo(0, 0)));
 				break;
@@ -130,16 +156,16 @@ std::unique_ptr<Token> Lexer::scan(std::istream* in) {
 		}
 		found_buffer.append(1, (char) ch);
 		this->buffer_pos++;
-		this->current_state = it->second;
+		this->current_state = next;
 	}
 	this->buffer_pos = matched_buffer_pos;
 	return t;
 }
 
-UInt Lexer::read(std::istream* in) {
+Long Lexer::read(std::istream* in) {
 	if (this->buffer_pos >= this->buffer.length()) {
 		if (this->eof) {
-			return 0;
+			return -1;
 		}
 		UInt ch = in->get();
 		if (in->good()) {

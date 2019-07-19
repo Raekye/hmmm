@@ -37,6 +37,8 @@ endif()
 set(TESTS
 	interval_tree
 	regex
+	finite_automata
+	lexer
 	)
 
 include_directories(${CMAKE_SOURCE_DIR}/src)

@@ -50,15 +50,15 @@ private:
 	UInt buffer_pos;
 	bool eof;
 
-	UInt read(std::istream*);
+	Long read(std::istream*);
 	void clean();
-	void generate();
 	void prepare();
 public:
 	Lexer();
 
 	void add_rule(Rule, std::unique_ptr<RegexAST>);
 	std::unique_ptr<Token> scan(std::istream*);
+	void generate();
 	void reset();
 };
 

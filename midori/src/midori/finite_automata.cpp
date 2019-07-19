@@ -16,39 +16,135 @@ RegexNFAState::RegexNFAState(UInt id) : id(id) {
 }
 
 void RegexNFAState::add(Interval i, RegexNFAState* s) {
-	UInt lower = i.first;
+	UInt last = i.first;
 	if (i.first < RegexDFAState::OPTIMIZED_CHARS) {
-		for (UInt j = 0; j < std::min(i.second, RegexDFAState::OPTIMIZED_CHARS); j++) {
+		UInt bound = std::min(i.second, RegexDFAState::OPTIMIZED_CHARS - 1);
+		for (UInt j = i.first; j <= bound; j++) {
 			this->_transitions[j].push_back(s);
 		}
-		if (i.second >= RegexDFAState::OPTIMIZED_CHARS) {
-			lower = RegexDFAState::OPTIMIZED_CHARS;
-		}
+		last = bound + 1;
 	}
-	std::unique_ptr<UnicodeIntervalTree::SearchList> overlaps = this->transitions.pop(Interval(lower, i.second));
+	if (last > i.second) {
+		return;
+	}
+	std::unique_ptr<UnicodeIntervalTree::SearchList> overlaps = this->transitions.pop(Interval(last, i.second));
+	size_t j = 0;
 	for (UnicodeIntervalTree::SearchList::iterator it = overlaps->begin(); it != overlaps->end(); it++) {
+		j++;
 		UInt a = (*it).first.first;
 		UInt b = (*it).first.second;
-		UInt c = std::max(a, lower);
+		UInt c = std::max(a, last);
 		UInt d = std::min(b, i.second);
 		StateList cd = (*it).second;
 		cd.push_back(s);
 		this->transitions.insert(Interval(c, d), cd);
-		if (a < lower) {
-			this->transitions.insert(Interval(a, lower - 1), (*it).second);
-		} else if (a > lower) {
-			this->transitions.insert(Interval(lower, a - 1), { s });
+		if (a < last) {
+			this->transitions.insert(Interval(a, last - 1), (*it).second);
+		} else if (a > last) {
+			this->transitions.insert(Interval(last, a - 1), { s });
 		}
-		if (b < i.second) {
-			this->transitions.insert(Interval(b + 1, i.second), { s });
-		} else if (b > i.second) {
+		if (b > i.second) {
+			assert(j == overlaps->size());
 			this->transitions.insert(Interval(i.second + 1, b), (*it).second);
 		}
+		last = b + 1;
+	}
+	if (last != 0 && last <= i.second) {
+		this->transitions.insert(Interval(last, i.second), { s });
 	}
 }
 
+RegexDFAState* RegexDFA::root() {
+	return this->states.at(0).get();
+}
+
+RegexDFAState* RegexDFA::new_state() {
+	std::unique_ptr<RegexDFAState> ptr(new RegexDFAState(this->states.size()));
+	RegexDFAState* state = ptr.get();
+	this->states.push_back(std::move(ptr));
+	return state;
+}
+
 RegexNFA::RegexNFA() {
+	this->reset();
+}
+
+void RegexNFA::reset() {
+	this->states.clear();
 	this->root = this->new_state();
+}
+
+std::unique_ptr<RegexDFA> RegexNFA::to_dfa() {
+	std::unique_ptr<RegexDFA> dfa(new RegexDFA);
+
+	std::map<GroupedNFAState, RegexDFAState*> generated_states;
+	std::list<GroupedNFAState> unmarked_grouped_states;
+
+	auto register_state = [ &dfa, &generated_states, &unmarked_grouped_states ](GroupedNFAState const& group) -> RegexDFAState* {
+		RegexDFAState* dfa_state = dfa->new_state();
+		for (RegexNFAState* const s : group) {
+			if (s->terminal) {
+				dfa_state->terminals.push_back(s->data);
+			}
+		}
+		assert(generated_states.find(group) == generated_states.end());
+		generated_states[group] = dfa_state;
+		unmarked_grouped_states.push_back(group);
+		return dfa_state;
+	};
+
+	GroupedNFAState start;
+	this->generate_star(this->root, start);
+	register_state(start);
+
+	while (!unmarked_grouped_states.empty()) {
+		GroupedNFAState curr = unmarked_grouped_states.front();
+		unmarked_grouped_states.pop_front();
+		RegexDFAState* curr_dfa_state = generated_states.at(curr);
+
+		std::map<UInt, GroupedNFAState> _transitions;
+		std::map<RegexNFAState::UnicodeIntervalTree::Interval, GroupedNFAState> transitions;
+		for (RegexNFAState* const s : curr) {
+			for (UInt i = 0; i < RegexDFAState::OPTIMIZED_CHARS; i++ ){
+				for (RegexNFAState* s2 : s->_transitions[i]) {
+					GroupedNFAState& next = _transitions[i];
+					this->generate_star(s2, next);
+				}
+			}
+			std::unique_ptr<RegexNFAState::UnicodeIntervalTree::SearchList> l = s->transitions.all();
+			for (RegexNFAState::UnicodeIntervalTree::SearchList::iterator it = l->begin(); it != l->end(); it++) {
+				for (RegexNFAState* const s2 : (*it).second) {
+					GroupedNFAState& next = transitions[(*it).first];
+					this->generate_star(s2, next);
+				}
+			}
+		}
+
+		for (auto const& kv : _transitions) {
+			RegexDFAState* next_dfa_state = nullptr;
+			std::map<GroupedNFAState, RegexDFAState*>::iterator it = generated_states.find(kv.second);
+			if (it == generated_states.end()) {
+				next_dfa_state = register_state(kv.second);
+			} else {
+				next_dfa_state = it->second;
+			}
+			assert(curr_dfa_state->_transitions[kv.first] == nullptr);
+			curr_dfa_state->_transitions[kv.first] = next_dfa_state;
+		}
+		for (auto const& kv : transitions) {
+			RegexDFAState* next_dfa_state = nullptr;
+			std::map<GroupedNFAState, RegexDFAState*>::iterator it = generated_states.find(kv.second);
+			if (it == generated_states.end()) {
+				next_dfa_state = register_state(kv.second);
+			} else {
+				next_dfa_state = it->second;
+			}
+			assert(curr_dfa_state->transitions.find(kv.first)->empty());
+			curr_dfa_state->transitions.insert(kv.first, next_dfa_state);
+		}
+	}
+
+	return dfa;
 }
 
 RegexNFAState* RegexNFA::new_state() {
@@ -58,113 +154,16 @@ RegexNFAState* RegexNFA::new_state() {
 	return state;
 }
 
-#pragma mark - Local types
-template <typename K, typename T> using NFAGroupedState = std::set<NFAState<K, T>*>;
-
-#pragma mark - DFAState
-template <typename K, typename T> DFAState<K, T>::DFAState(UInt id) : id(id), terminal(false) {
-	return;
-}
-
-#pragma mark - NFAState
-template <typename K, typename T> NFAState<K, T>::NFAState(UInt id): id(id), terminal(false), epsilon(nullptr) {
-	return;
-}
-
-template <typename K, typename T> void NFAState<K, T>::generate_epsilon_star_into(std::set<NFAState<K, T>*>& states) {
-	NFAState<K, T>* curr = this;
-	while (curr->epsilon != nullptr && states.insert(curr->epsilon).second) {
-		curr = curr->epsilon;
-	}
-}
-
-#pragma mark - DFA
-template <typename K, typename T> DFA<K, T>::DFA() {
-	this->root = this->new_state();
-}
-
-template <typename K, typename T> DFAState<K, T>* DFA<K, T>::new_state() {
-	std::unique_ptr<DFAState<K, T>> ptr(new DFAState<K, T>(this->states.size()));
-	DFAState<K, T>* state = ptr.get();
-	this->states.push_back(std::move(ptr));
-	return state;
-}
-
-#pragma mark - NFA
-template <typename K, typename T> NFA<K, T>::NFA() {
-	this->root = this->new_state();
-}
-
-template <typename K, typename T> void NFA<K, T>::reset() {
-	typename std::vector<std::unique_ptr<NFAState<K, T>>>::iterator it = this->states.begin();
-	std::advance(it, 1);
-	this->states.erase(it, this->states.end());
-}
-
-template <typename K, typename T> NFAState<K, T>* NFA<K, T>::new_state() {
-	std::unique_ptr<NFAState<K, T>> ptr(new NFAState<K, T>(this->states.size()));
-	NFAState<K, T>* state = ptr.get();
-	this->states.push_back(std::move(ptr));
-	return state;
-}
-
-template <typename K, typename T> std::unique_ptr<DFA<K, T>> NFA<K, T>::to_dfa() {
-	std::unique_ptr<DFA<K, T>> dfa(new DFA<K, T>());
-
-	std::map<NFAGroupedState<K, T>, DFAState<K, T>*> generated_states;
-	std::list<NFAGroupedState<K, T>> unmarked_grouped_states;
-
-	auto register_state = [&generated_states, &unmarked_grouped_states](NFAGroupedState<K, T>& nfa_grouped_state, DFAState<K, T>* dfa_state) -> void {
-		for (auto& nfa_state : nfa_grouped_state) {
-			if (nfa_state->terminal) {
-				if (dfa_state->terminal && dfa_state->data != nfa_state->data) {
-					// TODO better handle this
-					fprintf(stderr, "[warn]: ambiguous NFA terminal at state %u conflicts with %u.\n", dfa_state->id, nfa_state->id);
-				} else {
-					dfa_state->terminal = true;
-					dfa_state->data = nfa_state->data;
-				}
+void RegexNFA::generate_star(RegexNFAState* state, GroupedNFAState& group) {
+	std::list<RegexNFAState*> l;
+	l.push_back(state);
+	while (l.size() > 0) {
+		RegexNFAState* s = l.front();
+		l.pop_front();
+		if (group.insert(s).second) {
+			for (RegexNFAState* const s2 : s->epsilon) {
+				l.push_back(s2);
 			}
-		}
-		generated_states[nfa_grouped_state] = dfa_state;
-		unmarked_grouped_states.push_back(nfa_grouped_state);
-	};
-
-	NFAGroupedState<K, T> start;
-	start.insert(this->root);
-	this->root->generate_epsilon_star_into(start);
-
-	register_state(start, dfa->root);
-
-	while (unmarked_grouped_states.size() > 0) {
-		NFAGroupedState<K, T> curr = unmarked_grouped_states.front();
-		DFAState<K, T>* curr_dfa_state = generated_states[curr];
-		unmarked_grouped_states.pop_front();
-
-		std::map<K, NFAGroupedState<K, T>> next_grouped_states;
-		for (auto& nfa_state : curr) {
-			for (auto& kv : nfa_state->next_states) {
-				for (auto& next_state : kv.second) {
-					next_grouped_states[kv.first].insert(next_state);
-					std::set<NFAState<K, T>*>& states = next_grouped_states[kv.first];
-					next_state->generate_epsilon_star_into(states);
-				}
-			}
-		}
-		for (auto& kv : next_grouped_states) {
-			DFAState<K, T>* next_dfa_state = nullptr;
-			// TODO: check unmarked_grouped_states?
-			typename std::map<NFAGroupedState<K, T>, DFAState<K, T>*>::iterator it = generated_states.find(kv.second);
-			if (it == generated_states.end()) {
-				next_dfa_state = dfa->new_state();
-				register_state(kv.second, next_dfa_state);
-			} else {
-				next_dfa_state = it->second;
-			}
-			assert(curr_dfa_state->next_states.find(kv.first) == curr_dfa_state->next_states.end());
-			curr_dfa_state->next_states[kv.first] = next_dfa_state;
 		}
 	}
-
-	return dfa;
 }

@@ -12,11 +12,12 @@ class RegexDFAState {
 public:
 	static UInt const OPTIMIZED_CHARS = 128;
 
+	typedef IntervalTree<UInt, RegexDFAState*> Tree;
+
 	UInt const id;
-	bool terminal;
-	std::string data;
+	std::vector<std::string> terminals;
 	RegexDFAState* _transitions[OPTIMIZED_CHARS];
-	IntervalTree<UInt, RegexDFAState*> transitions;
+	Tree transitions;
 
 	RegexDFAState(UInt);
 };
@@ -32,7 +33,7 @@ public:
 	std::string data;
 	StateList _transitions[RegexDFAState::OPTIMIZED_CHARS];
 	UnicodeIntervalTree transitions;
-	RegexNFAState* epsilon;
+	std::vector<RegexNFAState*> epsilon;
 
 	RegexNFAState(UInt);
 	void add(Interval, RegexNFAState*);
@@ -41,9 +42,8 @@ public:
 class RegexDFA {
 public:
 	std::vector<std::unique_ptr<RegexDFAState>> states;
-	RegexDFAState* root;
 
-	RegexDFA();
+	RegexDFAState* root();
 	RegexDFAState* new_state();
 };
 
@@ -56,50 +56,12 @@ public:
 	void reset();
 	RegexNFAState* new_state();
 	std::unique_ptr<RegexDFA> to_dfa();
-};
 
-template <typename K, typename T> class DFAState {
-public:
-	UInt id;
-	bool terminal;
-	std::map<K, DFAState<K, T>*> next_states;
-	std::map<K, DFAState<K, T>*> not_states;
-	T data;
+private:
+	typedef std::set<RegexNFAState*> GroupedNFAState;
 
-	DFAState(UInt);
-};
-
-template <typename K, typename T> class NFAState {
-public:
-	UInt id;
-	bool terminal;
-	std::map<K, std::vector<NFAState<K, T>*>> next_states;
-	std::map<K, std::vector<NFAState<K, T>*>> not_states;
-	NFAState<K, T>* epsilon;
-	T data;
-
-	NFAState(UInt);
-	void generate_epsilon_star_into(std::set<NFAState<K, T>*>&);
-};
-
-template <typename K, typename T> class DFA {
-public:
-	DFAState<K, T>* root;
-	std::vector<std::unique_ptr<DFAState<K, T>>> states;
-
-	DFA();
-	DFAState<K, T>* new_state();
-};
-
-template <typename K, typename T> class NFA {
-public:
-	NFAState<K, T>* root;
-	std::vector<std::unique_ptr<NFAState<K, T>>> states;
-
-	NFA();
-	void reset();
-	NFAState<K, T>* new_state();
-	std::unique_ptr<DFA<K, T>> to_dfa();
+	void generate_star(RegexNFAState*, GroupedNFAState&);
+	void register_state(GroupedNFAState*);
 };
 
 #endif /* MIDORI_FINITE_AUTOMATA_H_INCLUDED */

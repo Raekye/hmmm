@@ -54,7 +54,7 @@ public:
 	RegexASTMultiplication(std::unique_ptr<RegexAST>, Int, Int);
 	void accept(IRegexASTVisitor*) override;
 
-	inline bool is_infinite() {
+	bool is_infinite() {
 		return this->max == 0;
 	}
 };
@@ -82,6 +82,7 @@ public:
 
 	RegexASTGroup(bool, std::unique_ptr<RangeList>);
 	void accept(IRegexASTVisitor*) override;
+	void add_range(UInt, UInt);
 	void flatten(std::vector<Range>*);
 
 	static void merge(std::vector<Range>*, std::vector<Range>*);
@@ -116,7 +117,6 @@ public:
 	void visit(RegexASTGroup*) override;
 };
 
-// TODO: why no inline compiles?
 class RegexASTPrinter : public IRegexASTVisitor {
 public:
 	Int indents = 0;

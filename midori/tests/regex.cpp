@@ -113,6 +113,7 @@ TEST_F(RegexTest, GroupNegate) {
 
 	std::unique_ptr<RegexASTGroup> g3(new RegexASTGroup(true, std::move(r3)));
 	std::vector<RegexASTGroup::Range> l3;
+	g3->flatten(&l3);
 	ASSERT_EQ(l3.size(), 2);
 	ASSERT_EQ(l3.at(0).first, 17);
 	ASSERT_EQ(l3.at(0).second, 99);

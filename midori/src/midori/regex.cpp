@@ -32,6 +32,14 @@ RegexASTGroup::RegexASTGroup(bool negate, std::unique_ptr<RangeList> span) : neg
 	return;
 }
 
+void RegexASTGroup::add_range(UInt a, UInt b) {
+	std::unique_ptr<RangeList> rl(new RangeList);
+	rl->range.first = a;
+	rl->range.second = b;
+	rl->next = std::move(this->span);
+	this->span = std::move(rl);
+}
+
 void RegexASTGroup::flatten(std::vector<Range>* l) {
 	if (this->span == nullptr) {
 		return;
@@ -154,8 +162,7 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 	RegexNFAState* end_state = this->next_state();
 
 	if (node->min == 0) {
-		assert(this->root->epsilon == nullptr);
-		this->root->epsilon = end_state;
+		this->root->epsilon.push_back(end_state);
 	} else {
 		for (UInt i = 1; i < node->min; i++) {
 			this->target_state = this->nfa.new_state();
@@ -201,13 +208,9 @@ void RegexNFAGenerator::visit(RegexASTMultiplication* node) {
 }
 
 void RegexNFAGenerator::visit(RegexASTGroup* node) {
-	// TODO: simplify?
-	/*
-	std::unique_ptr<RegexAST> r(new RegexASTLiteral(node->upper));
-	for (UInt i = node->upper - 1; i >= node->lower; i--) {
-		std::unique_ptr<RegexAST> r2(new RegexASTOr(std::unique_ptr<RegexAST>(new RegexASTLiteral(i)), std::move(r)));
-		r = std::move(r2);
+	std::vector<RegexASTGroup::Range> l;
+	node->flatten(&l);
+	for (RegexASTGroup::Range const& r : l) {
+		this->root->add(RegexNFAState::Interval(r.first, r.second), this->target_state);
 	}
-	r->accept(this);
-	*/
 }
