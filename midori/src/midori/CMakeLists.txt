@@ -5,7 +5,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/finite_automata.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/lexer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/parser.cpp
-	#${CMAKE_CURRENT_SOURCE_DIR}/generator.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/generator.cpp
 	)
 
 add_library(midori SHARED ${SOURCES})

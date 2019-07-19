@@ -20,10 +20,10 @@ struct LocationInfo {
 };
 
 struct Token {
-	std::string tag;
+	std::vector<std::string> tags;
 	std::string lexeme;
 	LocationInfo loc;
-	Token(std::string tag, std::string lexeme, LocationInfo loc) : tag(tag), lexeme(lexeme), loc(loc) {
+	Token(std::vector<std::string> tags, std::string lexeme, LocationInfo loc) : tags(tags), lexeme(lexeme), loc(loc) {
 		return;
 	}
 };

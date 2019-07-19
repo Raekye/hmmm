@@ -135,7 +135,7 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 		return nullptr;
 	}
 	bool matched = false;
-	std::string matched_tag = "";
+	std::vector<std::string> matched_tags;
 	std::string matched_str = "";
 	UInt matched_buffer_pos = this->buffer_pos;
 	std::string found_buffer = "";
@@ -143,7 +143,7 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 	while (true) {
 		if (!this->current_state->terminals.empty()) {
 			matched = true;
-			matched_tag = this->current_state->terminals.at(0);
+			matched_tags = this->current_state->terminals;
 			matched_str.append(found_buffer);
 			matched_buffer_pos = this->buffer_pos;
 			found_buffer = "";
@@ -163,7 +163,7 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 		}
 		if (next == nullptr) {
 			if (matched) {
-				t.reset(new Token(matched_tag, matched_str, LocationInfo(0, 0)));
+				t.reset(new Token(matched_tags, matched_str, LocationInfo(0, 0)));
 				break;
 			}
 			break;

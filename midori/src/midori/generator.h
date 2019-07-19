@@ -29,6 +29,7 @@ public:
 
 private:
 	static void add_literal(Parser*, std::string, std::string, UInt);
+	static std::unique_ptr<RegexASTGroup::RangeList> group_range(RegexAST*);
 };
 
 #endif /* MIDORI_GENERATOR_H_INCLUDED */

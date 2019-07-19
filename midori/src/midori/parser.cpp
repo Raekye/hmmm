@@ -109,58 +109,68 @@ std::unique_ptr<Match> Parser::parse(IInputStream* in) {
 			std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
 			if (reduction_row.find(Parser::END) != reduction_row.end()) {
 				std::cout << "Reducing via end" << std::endl;
-				t.reset(new Token(Parser::END, "", LocationInfo(0, 0)));
+				t.reset(new Token({ Parser::END }, "", LocationInfo(0, 0)));
 			} else {
 				if (current_state->next.find(Parser::EPSILON) != current_state->next.end()) {
 					mdk::printf("[debug] Reducing via epsilon\n");
-					t.reset(new Token(Parser::EPSILON, "", LocationInfo(0, 0)));
+					t.reset(new Token({ Parser::EPSILON }, "", LocationInfo(0, 0)));
 				} else {
 					std::cout << "Breaking." << std::endl;
 					break;
 				}
 			}
 		}
-		std::cout << "Got token " << t->tag << ": " << t->lexeme << std::endl;
-		std::map<std::string, ItemSet*>::iterator it = current_state->next.find(t->tag);
-		if (it != current_state->next.end()) {
-			std::cout << "shift " << it->second->index << std::endl;
-			this->parse_stack.push(it->second->index);
-			this->parse_stack_matches.push(std::unique_ptr<Match>(new MatchedTerminal(std::move(t))));
-			continue;
+		std::cout << "Got token";
+		for (std::string const& tag : t->tags) {
+			std::cout << " " << tag;
 		}
+		std::cout << ": " << t->lexeme << std::endl;
 		std::map<Symbol, Production*> reduction_row = this->reductions.at(current_state->index);
-		mdk::printf("[debug] getting reductions at %d, tag is %s\n", current_state->index, t->tag.c_str());
-		std::map<Symbol, Production*>::iterator it2 = reduction_row.find(t->tag);
-		if (it2 != reduction_row.end()) {
-			std::cout << "reducing via rule ";
-			Parser::debug_production(it2->second);
-			std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(it2->second));
-			for (size_t i = 0; i < it2->second->symbols.size(); i++) {
-				this->parse_stack.pop();
-				std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
-				this->parse_stack_matches.pop();
-				//std::cout << "Removing entry ";
-				//Parser::debug_match(m.get(), 0);
-				mnt->terms[it2->second->symbols.size() - i - 1] = std::move(m);
+		bool found = false;
+		for (std::string const& tag : t->tags) {
+			std::map<std::string, ItemSet*>::iterator it = current_state->next.find(tag);
+			if (it != current_state->next.end()) {
+				std::cout << "shift " << it->second->index << std::endl;
+				this->parse_stack.push(it->second->index);
+				this->parse_stack_matches.push(std::unique_ptr<Match>(new MatchedTerminal(std::move(t))));
+				found = true;
+				break;
 			}
-			mnt->value = it2->second->handler(mnt.get());
-			this->parse_stack_matches.push(std::move(mnt));
-			last_reduction = it2->second->target;
-			if (t->tag != Parser::EPSILON) {
-				mdk::printf("[debug] pushing token %s\n", t->tag.c_str());
-				this->push_token(std::move(t));
+			mdk::printf("[debug] getting reductions at %d, tag is %s\n", current_state->index, tag.c_str());
+			std::map<Symbol, Production*>::iterator it2 = reduction_row.find(tag);
+			if (it2 != reduction_row.end()) {
+				std::cout << "reducing via rule ";
+				Parser::debug_production(it2->second);
+				std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(it2->second));
+				for (size_t i = 0; i < it2->second->symbols.size(); i++) {
+					this->parse_stack.pop();
+					std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
+					this->parse_stack_matches.pop();
+					//std::cout << "Removing entry ";
+					//Parser::debug_match(m.get(), 0);
+					mnt->terms[it2->second->symbols.size() - i - 1] = std::move(m);
+				}
+				mnt->value = it2->second->handler(mnt.get());
+				this->parse_stack_matches.push(std::move(mnt));
+				last_reduction = it2->second->target;
+				if (tag != Parser::EPSILON) {
+					mdk::printf("[debug] pushing token %s\n", tag.c_str());
+					this->push_token(std::move(t));
+				}
+				found = true;
+				break;
 			}
-			continue;
-		} else {
+		}
+		if (!found) {
 			// TODO: what is this?
 			if (current_state->next.find(Parser::EPSILON) != current_state->next.end()) {
 				mdk::printf("[debug] shift has epsilon\n");
 				this->push_token(std::move(t));
-				this->push_token(std::unique_ptr<Token>(new Token(Parser::EPSILON, "", LocationInfo(0, 0))));
+				this->push_token(std::unique_ptr<Token>(new Token({ Parser::EPSILON }, "", LocationInfo(0, 0))));
 			} else if (reduction_row.find(Parser::EPSILON) != reduction_row.end()) {
 				mdk::printf("[debug] reduction has epsilon\n");
 				this->push_token(std::move(t));
-				this->push_token(std::unique_ptr<Token>(new Token(Parser::EPSILON, "", LocationInfo(0, 0))));
+				this->push_token(std::unique_ptr<Token>(new Token({ Parser::EPSILON }, "", LocationInfo(0, 0))));
 			} else {
 				std::cout << "No reduction" << std::endl;
 			}
@@ -519,7 +529,11 @@ void Parser::debug_match(Match* m, Int levels) {
 	std::string indent(levels, '\t');
 	std::cout << indent;
 	if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
-		std::cout << "{ matched terminal " + mt->token->tag << ": " << mt->token->lexeme << " }" << std::endl;
+		std::cout << "{ matched terminal";
+		for (std::string const& tag : mt->token->tags) {
+			std::cout << "  " << tag;
+		}
+		std::cout << ": " << mt->token->lexeme << " }" << std::endl;
 	} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {
 		std::cout << "{ matched nonterminal ";
 		Parser::debug_production(mnt->production);

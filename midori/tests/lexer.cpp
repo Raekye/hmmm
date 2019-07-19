@@ -39,16 +39,16 @@ TEST_F(LexerTest, Ascii) {
 	ss << "abcdnopqabcdnopq";
 	FileInputStream fis(&ss);
 	std::unique_ptr<Token> t = l.scan(&fis);
-	ASSERT_EQ(t->tag, "hello");
+	ASSERT_EQ(t->tags.at(0), "hello");
 	ASSERT_EQ(t->lexeme, "abcd");
 	t = l.scan(&fis);
-	ASSERT_EQ(t->tag, "world");
+	ASSERT_EQ(t->tags.at(0), "world");
 	ASSERT_EQ(t->lexeme, "nopq");
 	t = l.scan(&fis);
-	ASSERT_EQ(t->tag, "hello");
+	ASSERT_EQ(t->tags.at(0), "hello");
 	ASSERT_EQ(t->lexeme, "abcd");
 	t = l.scan(&fis);
-	ASSERT_EQ(t->tag, "world");
+	ASSERT_EQ(t->tags.at(0), "world");
 	ASSERT_EQ(t->lexeme, "nopq");
 }
 
@@ -65,9 +65,9 @@ TEST_F(LexerTest, Ranges) {
 	l.generate();
 	VectorInputStream vis({ 200, 201, 202, 300, 301, 303 });
 	std::unique_ptr<Token> t = l.scan(&vis);
-	ASSERT_EQ(t->tag, "hello");
+	ASSERT_EQ(t->tags.at(0), "hello");
 	ASSERT_EQ(t->lexeme.length(), 6);
 	t = l.scan(&vis);
-	ASSERT_EQ(t->tag, "world");
+	ASSERT_EQ(t->tags.at(0), "world");
 	ASSERT_EQ(t->lexeme.length(), 6);
 }

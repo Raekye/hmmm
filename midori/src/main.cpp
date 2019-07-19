@@ -4,8 +4,21 @@
 #include "midori/regex.h"
 //#include "midori/lexer.h"
 //#include "midori/parser.h"
-//#include "midori/generator.h"
+#include "midori/generator.h"
 #include "midori/interval_tree.h"
+
+int test_regex_engine() {
+	std::unique_ptr<Parser> p = RegexParserGenerator::make();
+	std::stringstream ss;
+	ss << "(abc){0,3}[^a-zA-Z]|def.\\.";
+	FileInputStream fis(&ss);
+	std::unique_ptr<Match> m = p->parse(&fis);
+	MatchedNonterminal* n = dynamic_cast<MatchedNonterminal*>(m.get());
+	ParserRegexAST* r = dynamic_cast<ParserRegexAST*>(n->value.get());
+	RegexASTPrinter printer;
+	r->regex->accept(&printer);
+	return 0;
+}
 
 int test_parser() {
 	/*
@@ -105,6 +118,7 @@ int main() {
 	ULong x = ~0;
 	std::cout << "-1 is " << x << std::endl;
 	test_interval_tree();
+	test_regex_engine();
 	//test_parser();
 	//test_generator();
 	return 0;
