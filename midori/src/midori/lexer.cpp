@@ -1,27 +1,42 @@
 #include "lexer.h"
 #include <iostream>
+#include "utf8.h"
 
-Lexer::Lexer() : regenerate(false), current_state(nullptr), buffer_pos(0), eof(false) {
+IInputStream::~IInputStream() {
+	return;
+}
+
+FileInputStream::FileInputStream(std::istream* file) : file(file) {
+	return;
+}
+
+Long FileInputStream::get() {
+	UInt ch = this->file->get();
+	if (!this->file->good()) {
+		return -1;
+	}
+	return ch;
+}
+
+Lexer::Lexer() : regenerate(false), current_state(nullptr), buffer_pos(0) {
 	return;
 }
 
 void Lexer::generate() {
 	std::cout << "=== Rules" << std::endl;
 	for (size_t i = 0; i < this->rules.size(); i++) {
-		std::cout << "Rule " << i << " - " << this->rules[i].tag << " - " << this->rules[i].pattern << std::endl;
+		std::cout << "Rule " << i << " - " << this->rules[i] << std::endl;
 
 		RegexASTPrinter rp;
 		rp.indents = 2;
 		std::cout << "\tRegex AST" << std::endl;
 		this->rules_regex[i]->accept(&rp);
 		std::cout << "\tEnd regex ast" << std::endl;
-		std::cout << std::endl;
 
-		this->regex_nfa_generator.new_rule(this->rules[i].tag);
+		this->regex_nfa_generator.new_rule(this->rules[i]);
 		this->rules_regex[i]->accept(&(this->regex_nfa_generator));
 
-		std::cout << "End rule " << this->rules[i].tag << std::endl;
-		std::cout << std::endl;
+		std::cout << "End rule " << this->rules[i] << std::endl;
 	}
 	std::cout << "=== End rules" << std::endl;
 	std::cout << std::endl;
@@ -103,19 +118,18 @@ void Lexer::prepare() {
 }
 
 void Lexer::reset() {
-	this->eof = false;
-	this->buffer = "";
+	this->buffer.clear();
 	this->buffer_pos = 0;
 	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root();
 }
 
-void Lexer::add_rule(Rule rule, std::unique_ptr<RegexAST> regex) {
-	this->rules_regex.push_back(std::move(regex));
+void Lexer::add_rule(std::string rule, std::unique_ptr<RegexAST> regex) {
 	this->rules.push_back(rule);
+	this->rules_regex.push_back(std::move(regex));
 	this->regenerate = true;
 }
 
-std::unique_ptr<Token> Lexer::scan(std::istream* in) {
+std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 	this->prepare();
 	if (this->current_state == nullptr) {
 		return nullptr;
@@ -154,7 +168,7 @@ std::unique_ptr<Token> Lexer::scan(std::istream* in) {
 			}
 			break;
 		}
-		found_buffer.append(1, (char) ch);
+		found_buffer.append(utf8::from_codepoint(ch));
 		this->buffer_pos++;
 		this->current_state = next;
 	}
@@ -162,18 +176,14 @@ std::unique_ptr<Token> Lexer::scan(std::istream* in) {
 	return t;
 }
 
-Long Lexer::read(std::istream* in) {
-	if (this->buffer_pos >= this->buffer.length()) {
-		if (this->eof) {
-			return -1;
-		}
-		UInt ch = in->get();
-		if (in->good()) {
-			this->buffer.push_back(ch);
+Long Lexer::read(IInputStream* in) {
+	if (this->buffer_pos >= this->buffer.size()) {
+		Long ch = in->get();
+		if (ch < 0) {
+			return ch;
 		} else {
-			this->eof = true;
-			return 0;
+			this->buffer.push_back(ch);
 		}
 	}
-	return this->buffer[this->buffer_pos];
+	return this->buffer.at(this->buffer_pos);
 }

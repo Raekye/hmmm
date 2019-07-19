@@ -40,6 +40,18 @@ void RegexASTGroup::add_range(UInt a, UInt b) {
 	this->span = std::move(rl);
 }
 
+std::unique_ptr<RegexASTGroup> RegexASTGroup::make(bool negate, std::vector<UInt> coords) {
+	std::unique_ptr<RegexASTGroup::RangeList> head = nullptr;
+	for (size_t i = 0; i < coords.size() / 2; i++) {
+		std::unique_ptr<RegexASTGroup::RangeList> rl(new RegexASTGroup::RangeList);
+		rl->range.first = coords.at(i * 2);
+		rl->range.second = coords.at((i * 2) + 1);
+		rl->next = std::move(head);
+		head = std::move(rl);
+	}
+	return std::unique_ptr<RegexASTGroup>(new RegexASTGroup(negate, std::move(head)));
+}
+
 void RegexASTGroup::flatten(std::vector<Range>* l) {
 	if (this->span == nullptr) {
 		return;

@@ -5,40 +5,42 @@
 ParserRegexAST::ParserRegexAST(std::unique_ptr<RegexAST> r) : regex(std::move(r)) {
 	return;
 }
+
 ParserStringAST::ParserStringAST(std::string s) : str(s) {
 	return;
 }
+
 ParserRangeAST::ParserRangeAST(Long a, Long b) : min(a), max(b) {
 	return;
 }
 
 std::unique_ptr<Parser> RegexParserGenerator::make() {
 	std::unique_ptr<Parser> p(new Parser);
-	p->add_token("STAR", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('*')));
-	p->add_token("PLUS", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('+')));
-	p->add_token("QUESTION", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('?')));
-	p->add_token("OR", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('|')));
-	p->add_token("ESCAPE", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('\\')));
-	p->add_token("DOT", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('.')));
+	p->add_token("STAR", std::unique_ptr<RegexAST>(new RegexASTLiteral('*')));
+	p->add_token("PLUS", std::unique_ptr<RegexAST>(new RegexASTLiteral('+')));
+	p->add_token("QUESTION", std::unique_ptr<RegexAST>(new RegexASTLiteral('?')));
+	p->add_token("OR", std::unique_ptr<RegexAST>(new RegexASTLiteral('|')));
+	p->add_token("ESCAPE", std::unique_ptr<RegexAST>(new RegexASTLiteral('\\')));
+	p->add_token("DOT", std::unique_ptr<RegexAST>(new RegexASTLiteral('.')));
 
-	p->add_token("LPAREN", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('(')));
-	p->add_token("RPAREN", "", std::unique_ptr<RegexAST>(new RegexASTLiteral(')')));
-	p->add_token("LBRACE", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('{')));
-	p->add_token("RBRACE", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('}')));
-	p->add_token("LBRACKET", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('[')));
-	p->add_token("RBRACKET", "", std::unique_ptr<RegexAST>(new RegexASTLiteral(']')));
+	p->add_token("LPAREN", std::unique_ptr<RegexAST>(new RegexASTLiteral('(')));
+	p->add_token("RPAREN", std::unique_ptr<RegexAST>(new RegexASTLiteral(')')));
+	p->add_token("LBRACE", std::unique_ptr<RegexAST>(new RegexASTLiteral('{')));
+	p->add_token("RBRACE", std::unique_ptr<RegexAST>(new RegexASTLiteral('}')));
+	p->add_token("LBRACKET", std::unique_ptr<RegexAST>(new RegexASTLiteral('[')));
+	p->add_token("RBRACKET", std::unique_ptr<RegexAST>(new RegexASTLiteral(']')));
 
-	p->add_token("DASH", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('-')));
-	p->add_token("COMMA", "", std::unique_ptr<RegexAST>(new RegexASTLiteral(',')));
+	p->add_token("DASH", std::unique_ptr<RegexAST>(new RegexASTLiteral('-')));
+	p->add_token("COMMA", std::unique_ptr<RegexAST>(new RegexASTLiteral(',')));
 
-	p->add_token("X", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('x')));
-	p->add_token("T", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('t')));
-	p->add_token("N", "", std::unique_ptr<RegexAST>(new RegexASTLiteral('n')));
+	p->add_token("X", std::unique_ptr<RegexAST>(new RegexASTLiteral('x')));
+	p->add_token("T", std::unique_ptr<RegexAST>(new RegexASTLiteral('t')));
+	p->add_token("N", std::unique_ptr<RegexAST>(new RegexASTLiteral('n')));
 
-	p->add_token("DEC", "", std::unique_ptr<RegexAST>(new RegexASTRange('0', '9')));
-	p->add_token("HEX", "", std::unique_ptr<RegexAST>(new RegexASTRange('a', 'f')));
+	p->add_token("DEC", std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { '0', '9' })));
+	p->add_token("HEX", std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { 'a', 'f' })));
 
-	p->add_token("ANY", "", std::unique_ptr<RegexAST>(new RegexASTWildcard));
+	p->add_token("ANY", std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { 0, RegexASTGroup::UNICODE_MAX })));
 
 	p->add_production("regex", { "lr_or" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
@@ -146,7 +148,7 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 	RegexParserGenerator::add_literal(p.get(), "literal", "COMMA", ',');
 	p->add_production("literal", { "DOT" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTWildcard)));
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { 0, RegexASTGroup::UNICODE_MAX }))));
 	});
 	p->add_production("literal", { "ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedTerminal* n = m->terminal(0);

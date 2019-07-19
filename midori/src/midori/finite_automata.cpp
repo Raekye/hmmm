@@ -1,6 +1,7 @@
 #include "finite_automata.h"
 #include <list>
 #include <algorithm>
+#include <cstring>
 
 #include <iostream>
 #include <cstdio>
@@ -8,10 +9,10 @@
 UInt const RegexDFAState::OPTIMIZED_CHARS;
 
 RegexDFAState::RegexDFAState(UInt id) : id(id) {
-	return;
+	std::memset(this->_transitions, 0, RegexDFAState::OPTIMIZED_CHARS * sizeof(RegexDFAState*));
 }
 
-RegexNFAState::RegexNFAState(UInt id) : id(id) {
+RegexNFAState::RegexNFAState(UInt id) : id(id), terminal(false) {
 	return;
 }
 

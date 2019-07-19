@@ -85,6 +85,9 @@ public:
 	void add_range(UInt, UInt);
 	void flatten(std::vector<Range>*);
 
+	static std::unique_ptr<RegexASTGroup> make(bool, std::vector<UInt>);
+
+private:
 	static void merge(std::vector<Range>*, std::vector<Range>*);
 	static void complement(std::vector<Range>*, std::vector<Range>*);
 };

@@ -28,17 +28,24 @@ struct Token {
 	}
 };
 
-struct Rule {
-	std::string tag;
-	std::string pattern;
-	Rule(std::string tag, std::string pattern) : tag(tag), pattern(pattern) {
-		return;
-	}
+class IInputStream {
+public:
+	virtual ~IInputStream();
+	virtual Long get() = 0;
+};
+
+class FileInputStream : public IInputStream {
+public:
+	FileInputStream(std::istream*);
+	virtual Long get() override;
+
+private:
+	std::istream* file;
 };
 
 class Lexer {
 private:
-	std::vector<Rule> rules;
+	std::vector<std::string> rules;
 	std::vector<std::unique_ptr<RegexAST>> rules_regex;
 	bool regenerate;
 
@@ -46,18 +53,17 @@ private:
 	std::unique_ptr<RegexDFA> dfa;
 	RegexDFAState* current_state;
 
-	std::string buffer;
+	std::vector<UInt> buffer;
 	UInt buffer_pos;
-	bool eof;
 
-	Long read(std::istream*);
+	Long read(IInputStream*);
 	void clean();
 	void prepare();
 public:
 	Lexer();
 
-	void add_rule(Rule, std::unique_ptr<RegexAST>);
-	std::unique_ptr<Token> scan(std::istream*);
+	void add_rule(std::string, std::unique_ptr<RegexAST>);
+	std::unique_ptr<Token> scan(IInputStream*);
 	void generate();
 	void reset();
 };

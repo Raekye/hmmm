@@ -33,7 +33,7 @@ public:
 	std::string data;
 	StateList _transitions[RegexDFAState::OPTIMIZED_CHARS];
 	UnicodeIntervalTree transitions;
-	std::vector<RegexNFAState*> epsilon;
+	StateList epsilon;
 
 	RegexNFAState(UInt);
 	void add(Interval, RegexNFAState*);

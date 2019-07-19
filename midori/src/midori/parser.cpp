@@ -23,8 +23,8 @@ MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms(p->
 	return;
 }
 
-void Parser::add_token(std::string tag, std::string pattern, std::unique_ptr<RegexAST> regex) {
-	this->lexer.add_rule(Rule(tag, pattern), std::move(regex));
+void Parser::add_token(std::string tag, std::unique_ptr<RegexAST> regex) {
+	this->lexer.add_rule(tag, std::move(regex));
 	this->terminals.insert(tag);
 }
 
@@ -64,7 +64,7 @@ void Parser::generate(std::string symbol) {
 }
 
 // TODO better return type possible?
-std::unique_ptr<Match> Parser::parse(std::istream* in) {
+std::unique_ptr<Match> Parser::parse(IInputStream* in) {
 	this->reset();
 	std::cout << std::endl << "===== Parsing" << std::endl;
 	this->parse_stack.push(0);
@@ -444,7 +444,7 @@ void Parser::push_token(std::unique_ptr<Token> t) {
 	this->token_buffer.push(std::move(t));
 }
 
-std::unique_ptr<Token> Parser::next_token(std::istream* in) {
+std::unique_ptr<Token> Parser::next_token(IInputStream* in) {
 	if (this->token_buffer.empty()) {
 		return this->lexer.scan(in);
 	}
