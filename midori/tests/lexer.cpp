@@ -2,24 +2,7 @@
 #include "midori/lexer.h"
 #include <sstream>
 #include <vector>
-
-class VectorInputStream : public IInputStream {
-public:
-	VectorInputStream(std::vector<UInt> v) : v(v), pos(0) {
-		return;
-	}
-
-	Long get() override {
-		if (this->pos >= this->v.size()) {
-			return -1;
-		}
-		return this->v.at(this->pos++);
-	}
-
-private:
-	std::vector<UInt> v;
-	size_t pos;
-};
+#include "midori/regex_engine.h"
 
 class LexerTest : public ::testing::Test {
 };
@@ -70,4 +53,34 @@ TEST_F(LexerTest, Ranges) {
 	t = l.scan(&vis);
 	ASSERT_EQ(t->tags.at(0), "world");
 	ASSERT_EQ(t->lexeme.length(), 6);
+}
+
+TEST_F(LexerTest, Multiplication) {
+	RegexEngine re;
+	Lexer l;
+	l.add_rule("a", re.compile("(abc)?(def|ghi)*"));
+	l.add_rule("b", re.compile("(abc)+xyz"));
+	l.generate();
+	std::stringstream ss;
+	ss << "ghi";
+	ss << "abc";
+	ss << "abcdefghidef";
+	ss << "abcxyz";
+	FileInputStream fis(&ss);
+
+	std::unique_ptr<Token> t = l.scan(&fis);
+	ASSERT_EQ(t->tags.at(0), "a");
+	ASSERT_EQ(t->lexeme, "ghi");
+
+	t = l.scan(&fis);
+	ASSERT_EQ(t->tags.at(0), "a");
+	ASSERT_EQ(t->lexeme, "abc");
+
+	t = l.scan(&fis);
+	ASSERT_EQ(t->tags.at(0), "a");
+	ASSERT_EQ(t->lexeme, "abcdefghidef");
+
+	t = l.scan(&fis);
+	ASSERT_EQ(t->tags.at(0), "b");
+	ASSERT_EQ(t->lexeme, "abcxyz");
 }

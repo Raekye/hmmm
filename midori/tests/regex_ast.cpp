@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "midori/regex.h"
+#include "midori/regex_ast.h"
 
 class RegexTest : public ::testing::Test {
 };

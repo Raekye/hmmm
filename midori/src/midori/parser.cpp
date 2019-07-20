@@ -60,6 +60,8 @@ void Parser::generate(std::string symbol) {
 
 	this->generate_reductions();
 
+	this->lexer.generate();
+
 	Parser::debug(this);
 }
 

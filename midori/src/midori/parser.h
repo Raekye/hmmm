@@ -76,6 +76,14 @@ public:
 };
 
 class Parser {
+public:
+	void set_start(std::string);
+	void add_token(std::string, std::unique_ptr<RegexAST>);
+	void add_production(std::string, std::vector<std::string>, ProductionHandler);
+	void generate(std::string);
+	std::unique_ptr<Match> parse(IInputStream*);
+
+private:
 	static const std::string END;
 	static const std::string EPSILON;
 
@@ -117,13 +125,6 @@ class Parser {
 	void generate_extended_follow_sets();
 
 	void generate_reductions();
-
-public:
-	void set_start(std::string);
-	void add_token(std::string, std::unique_ptr<RegexAST>);
-	void add_production(std::string, std::vector<std::string>, ProductionHandler);
-	void generate(std::string);
-	std::unique_ptr<Match> parse(IInputStream*);
 
 	static void debug(Parser*);
 	static void debug_production(Production*, Int = -1);

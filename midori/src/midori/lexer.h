@@ -9,7 +9,7 @@
 #include <functional>
 #include <stack>
 #include "global.h"
-#include "regex.h"
+#include "regex_ast.h"
 
 struct LocationInfo {
 	UInt line;
@@ -43,13 +43,21 @@ private:
 	std::istream* file;
 };
 
+class VectorInputStream : public IInputStream {
+public:
+	VectorInputStream(std::vector<UInt>);
+	Long get() override;
+
+private:
+	std::vector<UInt> v;
+	size_t pos;
+};
+
 class Lexer {
 private:
 	std::vector<std::string> rules;
 	std::vector<std::unique_ptr<RegexAST>> rules_regex;
-	bool regenerate;
 
-	RegexNFAGenerator regex_nfa_generator;
 	std::unique_ptr<RegexDFA> dfa;
 	RegexDFAState* current_state;
 
@@ -57,8 +65,6 @@ private:
 	UInt buffer_pos;
 
 	Long read(IInputStream*);
-	void clean();
-	void prepare();
 public:
 	Lexer();
 

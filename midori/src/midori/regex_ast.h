@@ -1,5 +1,5 @@
-#ifndef MIDORI_REGEX_H_INCLUDED
-#define MIDORI_REGEX_H_INCLUDED
+#ifndef MIDORI_REGEX_AST_H_INCLUDED
+#define MIDORI_REGEX_AST_H_INCLUDED
 
 #include <string>
 #include <vector>
@@ -178,4 +178,4 @@ public:
 	}
 };
 
-#endif /* MIDORI_REGEX_H_INCLUDED */
+#endif /* MIDORI_REGEX_AST_H_INCLUDED */

@@ -36,8 +36,9 @@ endif()
 
 set(TESTS
 	interval_tree
-	regex
+	regex_ast
 	finite_automata
+	utf8
 	lexer
 	)
 

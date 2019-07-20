@@ -1,7 +1,7 @@
-#ifndef MIDORI_GENERATOR_H_INCLUDED
-#define MIDORI_GENERATOR_H_INCLUDED
+#ifndef MIDORI_REGEX_ENGINE_H_INCLUDED
+#define MIDORI_REGEX_ENGINE_H_INCLUDED
 
-#include "regex.h"
+#include "regex_ast.h"
 #include "parser.h"
 
 class ParserRegexAST : public ParserAST {
@@ -23,12 +23,16 @@ public:
 	ParserRangeAST(Long, Long);
 };
 
-class RegexParserGenerator {
+class RegexEngine {
 public:
-	static std::unique_ptr<Parser> make();
+	RegexEngine();
+	std::unique_ptr<RegexAST> compile(std::string);
 
 private:
+	std::unique_ptr<Parser> parser;
+
+	static std::unique_ptr<Parser> make();
 	static void add_literal(Parser*, std::string, std::string, UInt);
 };
 
-#endif /* MIDORI_GENERATOR_H_INCLUDED */
+#endif /* MIDORI_REGEX_ENGINE_H_INCLUDED */

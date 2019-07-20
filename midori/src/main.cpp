@@ -1,22 +1,18 @@
 #include <sstream>
 #include <fstream>
 #include "midori/helper.h"
-#include "midori/regex.h"
+#include "midori/regex_ast.h"
 //#include "midori/lexer.h"
 //#include "midori/parser.h"
-#include "midori/generator.h"
+#include "midori/regex_engine.h"
 #include "midori/interval_tree.h"
 
 int test_regex_engine() {
-	std::unique_ptr<Parser> p = RegexParserGenerator::make();
-	std::stringstream ss;
-	ss << "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678^-]";
-	FileInputStream fis(&ss);
-	std::unique_ptr<Match> m = p->parse(&fis);
-	MatchedNonterminal* n = dynamic_cast<MatchedNonterminal*>(m.get());
-	ParserRegexAST* r = dynamic_cast<ParserRegexAST*>(n->value.get());
+	RegexEngine re;
+	std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678-^]";
+	std::unique_ptr<RegexAST> r = re.compile(pattern);
 	RegexASTPrinter printer;
-	r->regex->accept(&printer);
+	r->accept(&printer);
 	return 0;
 }
 

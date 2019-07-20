@@ -18,11 +18,23 @@ Long FileInputStream::get() {
 	return ch;
 }
 
-Lexer::Lexer() : regenerate(false), current_state(nullptr), buffer_pos(0) {
+VectorInputStream::VectorInputStream(std::vector<UInt> v) : v(v), pos(0) {
+	return;
+}
+
+Long VectorInputStream::get() {
+	if (this->pos >= this->v.size()) {
+		return -1;
+	}
+	return this->v.at(this->pos++);
+}
+
+Lexer::Lexer() : current_state(nullptr), buffer_pos(0) {
 	return;
 }
 
 void Lexer::generate() {
+	RegexNFAGenerator regex_nfa_generator;
 	std::cout << "=== Rules" << std::endl;
 	for (size_t i = 0; i < this->rules.size(); i++) {
 		std::cout << "Rule " << i << " - " << this->rules[i] << std::endl;
@@ -33,8 +45,8 @@ void Lexer::generate() {
 		this->rules_regex[i]->accept(&rp);
 		std::cout << "\tEnd regex ast" << std::endl;
 
-		this->regex_nfa_generator.new_rule(this->rules[i]);
-		this->rules_regex[i]->accept(&(this->regex_nfa_generator));
+		regex_nfa_generator.new_rule(this->rules[i]);
+		this->rules_regex[i]->accept(&regex_nfa_generator);
 
 		std::cout << "End rule " << this->rules[i] << std::endl;
 	}
@@ -42,7 +54,7 @@ void Lexer::generate() {
 	std::cout << std::endl;
 
 	std::cout << "=== NFA states" << std::endl;
-	for (auto& state : this->regex_nfa_generator.nfa.states) {
+	for (auto& state : regex_nfa_generator.nfa.states) {
 		std::cout << "\tNFA state " << state->id;
 		if (state->terminal) {
 			std::cout << " terminal '" << state->data << "'";
@@ -85,7 +97,7 @@ void Lexer::generate() {
 	std::cout << std::endl;
 
 	std::cout << "=== DFA states" << std::endl;
-	this->dfa = this->regex_nfa_generator.nfa.to_dfa();
+	this->dfa = regex_nfa_generator.nfa.to_dfa();
 	for (auto& state : this->dfa->states) {
 		std::cout << "\tDFA state " << state->id;
 		if (!state->terminals.empty()) {
@@ -116,36 +128,18 @@ void Lexer::generate() {
 	std::cout << std::endl;
 }
 
-void Lexer::clean() {
-	this->regex_nfa_generator.reset();
-}
-
-void Lexer::prepare() {
-	if (this->regenerate) {
-		this->clean();
-		this->generate();
-		this->regenerate = false;
-	}
-	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root();
-}
-
 void Lexer::reset() {
 	this->buffer.clear();
 	this->buffer_pos = 0;
-	this->current_state = this->dfa == nullptr ? nullptr : this->dfa->root();
 }
 
 void Lexer::add_rule(std::string rule, std::unique_ptr<RegexAST> regex) {
 	this->rules.push_back(rule);
 	this->rules_regex.push_back(std::move(regex));
-	this->regenerate = true;
 }
 
 std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
-	this->prepare();
-	if (this->current_state == nullptr) {
-		return nullptr;
-	}
+	this->current_state = this->dfa->root();
 	bool matched = false;
 	std::vector<std::string> matched_tags;
 	std::string matched_str = "";
@@ -176,11 +170,10 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 		if (next == nullptr) {
 			if (matched) {
 				t.reset(new Token(matched_tags, matched_str, LocationInfo(0, 0)));
-				break;
 			}
 			break;
 		}
-		found_buffer.append(utf8::from_codepoint(ch));
+		found_buffer.append(utf8::string_from_codepoint(ch));
 		this->buffer_pos++;
 		this->current_state = next;
 	}

@@ -1,6 +1,8 @@
-#include "generator.h"
+#include "regex_engine.h"
 
+#include <sstream>
 #include "helper.h"
+#include "utf8.h"
 
 ParserRegexAST::ParserRegexAST(std::unique_ptr<RegexAST> r) : regex(std::move(r)) {
 	return;
@@ -14,7 +16,21 @@ ParserRangeAST::ParserRangeAST(Long a, Long b) : min(a), max(b) {
 	return;
 }
 
-std::unique_ptr<Parser> RegexParserGenerator::make() {
+RegexEngine::RegexEngine() {
+	this->parser = RegexEngine::make();
+}
+
+std::unique_ptr<RegexAST> RegexEngine::compile(std::string pattern) {
+	std::stringstream ss;
+	ss << pattern;
+	FileInputStream fis(&ss);
+	std::unique_ptr<Match> m = this->parser->parse(&fis);
+	MatchedNonterminal* n = dynamic_cast<MatchedNonterminal*>(m.get());
+	ParserRegexAST* r = dynamic_cast<ParserRegexAST*>(n->value.get());
+	return std::move(r->regex);
+}
+
+std::unique_ptr<Parser> RegexEngine::make() {
 	std::unique_ptr<Parser> p(new Parser);
 	p->add_token("STAR", std::unique_ptr<RegexAST>(new RegexASTLiteral('*')));
 	p->add_token("PLUS", std::unique_ptr<RegexAST>(new RegexASTLiteral('+')));
@@ -149,15 +165,17 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		MatchedTerminal* n = m->terminal(0);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(n->token->lexeme.at(0)))));
 	});
-	RegexParserGenerator::add_literal(p.get(), "literal", "N", 'n');
-	RegexParserGenerator::add_literal(p.get(), "literal", "T", 't');
-	RegexParserGenerator::add_literal(p.get(), "literal", "X", 'x');
-	RegexParserGenerator::add_literal(p.get(), "literal", "DASH", '-');
-	RegexParserGenerator::add_literal(p.get(), "literal", "COMMA", ',');
+	RegexEngine::add_literal(p.get(), "literal", "N", 'n');
+	RegexEngine::add_literal(p.get(), "literal", "T", 't');
+	RegexEngine::add_literal(p.get(), "literal", "X", 'x');
+	RegexEngine::add_literal(p.get(), "literal", "DASH", '-');
+	RegexEngine::add_literal(p.get(), "literal", "COMMA", ',');
 	*/
 	p->add_production("literal", { "ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedTerminal* n = m->terminal(0);
-		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(n->token->lexeme.at(0)))));
+		Long ch = utf8::codepoint_from_string(n->token->lexeme, 0, nullptr);
+		assert(ch >= 0);
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(ch))));
 	});
 
 	p->add_production("group", { "LBRACKET", "group_contents", "RBRACKET" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
@@ -234,23 +252,24 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		MatchedTerminal* n = m->terminal(0);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(n->token->lexeme.at(0)))));
 	});
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "N", 'n');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "T", 't');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "X", 'x');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "COMMA", ',');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "DOT", '.');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "LPAREN", '(');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "RPAREN", ')');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "LBRACE", '{');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "RBRACE", '}');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "STAR", '*');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "PLUS", '+');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "QUESTION", '?');
-	RegexParserGenerator::add_literal(p.get(), "group_literal", "OR", '|');
+	RegexEngine::add_literal(p.get(), "group_literal", "N", 'n');
+	RegexEngine::add_literal(p.get(), "group_literal", "T", 't');
+	RegexEngine::add_literal(p.get(), "group_literal", "X", 'x');
+	RegexEngine::add_literal(p.get(), "group_literal", "COMMA", ',');
+	RegexEngine::add_literal(p.get(), "group_literal", "DOT", '.');
+	RegexEngine::add_literal(p.get(), "group_literal", "LPAREN", '(');
+	RegexEngine::add_literal(p.get(), "group_literal", "RPAREN", ')');
+	RegexEngine::add_literal(p.get(), "group_literal", "LBRACE", '{');
+	RegexEngine::add_literal(p.get(), "group_literal", "RBRACE", '}');
+	RegexEngine::add_literal(p.get(), "group_literal", "STAR", '*');
+	RegexEngine::add_literal(p.get(), "group_literal", "PLUS", '+');
+	RegexEngine::add_literal(p.get(), "group_literal", "QUESTION", '?');
+	RegexEngine::add_literal(p.get(), "group_literal", "OR", '|');
 	*/
 	p->add_production("group_literal", { "GROUP_ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedTerminal* n = m->terminal(0);
-		UInt ch = n->token->lexeme.at(0);
+		Long ch = utf8::codepoint_from_string(n->token->lexeme, 0, nullptr);
+		assert(ch >= 0);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(ch))));
 	});
 
@@ -266,12 +285,12 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
-	RegexParserGenerator::add_literal(p.get(), "group_escape_special", "N", '\n');
-	RegexParserGenerator::add_literal(p.get(), "group_escape_special", "T", '\t');
-	RegexParserGenerator::add_literal(p.get(), "group_escape_special", "ESCAPE", '\\');
-	RegexParserGenerator::add_literal(p.get(), "group_escape_special", "DASH", '-');
-	RegexParserGenerator::add_literal(p.get(), "group_escape_special", "LBRACKET", '[');
-	RegexParserGenerator::add_literal(p.get(), "group_escape_special", "RBRACKET", ']');
+	RegexEngine::add_literal(p.get(), "group_escape_special", "N", '\n');
+	RegexEngine::add_literal(p.get(), "group_escape_special", "T", '\t');
+	RegexEngine::add_literal(p.get(), "group_escape_special", "ESCAPE", '\\');
+	RegexEngine::add_literal(p.get(), "group_escape_special", "DASH", '-');
+	RegexEngine::add_literal(p.get(), "group_escape_special", "LBRACKET", '[');
+	RegexEngine::add_literal(p.get(), "group_escape_special", "RBRACKET", ']');
 
 	p->add_production("escaped_literal", { "ESCAPE", "escape_code" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(1);
@@ -281,20 +300,20 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "N", '\n');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "T", '\t');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "ESCAPE", '\\');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "LPAREN", '(');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "RPAREN", ')');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "LBRACE", '{');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "RBRACE", '}');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "LBRACKET", '[');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "RBRACKET", ']');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "STAR", '*');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "PLUS", '+');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "QUESTION", '?');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "OR", '|');
-	RegexParserGenerator::add_literal(p.get(), "escape_special", "DOT", '.');
+	RegexEngine::add_literal(p.get(), "escape_special", "N", '\n');
+	RegexEngine::add_literal(p.get(), "escape_special", "T", '\t');
+	RegexEngine::add_literal(p.get(), "escape_special", "ESCAPE", '\\');
+	RegexEngine::add_literal(p.get(), "escape_special", "LPAREN", '(');
+	RegexEngine::add_literal(p.get(), "escape_special", "RPAREN", ')');
+	RegexEngine::add_literal(p.get(), "escape_special", "LBRACE", '{');
+	RegexEngine::add_literal(p.get(), "escape_special", "RBRACE", '}');
+	RegexEngine::add_literal(p.get(), "escape_special", "LBRACKET", '[');
+	RegexEngine::add_literal(p.get(), "escape_special", "RBRACKET", ']');
+	RegexEngine::add_literal(p.get(), "escape_special", "STAR", '*');
+	RegexEngine::add_literal(p.get(), "escape_special", "PLUS", '+');
+	RegexEngine::add_literal(p.get(), "escape_special", "QUESTION", '?');
+	RegexEngine::add_literal(p.get(), "escape_special", "OR", '|');
+	RegexEngine::add_literal(p.get(), "escape_special", "DOT", '.');
 	p->add_production("escape_code", { "escape_absolute" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
@@ -359,7 +378,7 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 	return p;
 }
 
-void RegexParserGenerator::add_literal(Parser* p, std::string nonterminal, std::string token, UInt ch) {
+void RegexEngine::add_literal(Parser* p, std::string nonterminal, std::string token, UInt ch) {
 	p->add_production(nonterminal, { token }, [ch](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(ch))));
