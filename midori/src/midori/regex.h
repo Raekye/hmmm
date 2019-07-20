@@ -130,7 +130,13 @@ public:
 	}
 	void visit(RegexASTLiteral* x) override {
 		f();
-		std::cout << "literal: " << (char) x->ch << std::endl;
+		std::cout << "literal: ";
+		if ((32 <= x->ch) && (x->ch < 127)) {
+			std::cout << (char) x->ch;
+		} else {
+			std::cout << "\\" << x->ch;
+		}
+		std::cout << std::endl;
 	}
 	void visit(RegexASTChain* x) override {
 		for (size_t i = 0; i < x->sequence.size(); i++) {

@@ -50,7 +50,13 @@ void Lexer::generate() {
 		std::cout << std::endl;
 		for (UInt i = 0; i < RegexDFAState::OPTIMIZED_CHARS; i++) {
 			if (!state->_transitions[i].empty()) {
-				std::cout << "\t\tChar " << (char) i << " to";
+				std::cout << "\t\tChar ";
+				if ((32 <= i) && (i < 127)) {
+					std::cout << (char) i;
+				} else {
+					std::cout << "\\" << i;
+				}
+				std::cout << " to";
 				for (RegexNFAState* const s : state->_transitions[i]) {
 					std::cout << " " << s->id;
 				}
@@ -91,7 +97,13 @@ void Lexer::generate() {
 		std::cout << std::endl;
 		for (UInt i = 0; i < RegexDFAState::OPTIMIZED_CHARS; i++) {
 			if (state->_transitions[i] != nullptr) {
-				std::cout << "\t\tChar " << (char) i << " to " << state->_transitions[i]->id << std::endl;
+				std::cout << "\t\tChar ";
+				if ((32 <= i) && (i < 127)) {
+					std::cout << (char) i;
+				} else {
+					std::cout << "\\" << i;
+				}
+				std::cout << " to " << state->_transitions[i]->id << std::endl;
 			}
 		}
 		std::unique_ptr<RegexDFAState::Tree::SearchList> l = state->transitions.all();

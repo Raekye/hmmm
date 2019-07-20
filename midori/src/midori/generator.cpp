@@ -35,12 +35,14 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 	p->add_token("COMMA", std::unique_ptr<RegexAST>(new RegexASTLiteral(',')));
 
 	p->add_token("X", std::unique_ptr<RegexAST>(new RegexASTLiteral('x')));
+	p->add_token("U", std::unique_ptr<RegexAST>(new RegexASTLiteral('u')));
 	p->add_token("T", std::unique_ptr<RegexAST>(new RegexASTLiteral('t')));
 	p->add_token("N", std::unique_ptr<RegexAST>(new RegexASTLiteral('n')));
 
 	p->add_token("DEC", std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { '0', '9' })));
-	p->add_token("HEX", std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { 'a', 'f' })));
+	p->add_token("HEX", std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { '0', '9', 'a', 'f' })));
 
+	p->add_token("GROUP_ANY", std::unique_ptr<RegexAST>(RegexASTGroup::make(true, { '[', '[', ']', ']' })));
 	p->add_token("ANY", std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { 0, RegexASTGroup::UNICODE_MAX })));
 
 	p->add_production("regex", { "lr_or" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
@@ -124,6 +126,10 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
+	p->add_production("not_lr", { "DOT" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { 0, RegexASTGroup::UNICODE_MAX }))));
+	});
 
 	p->add_production("parentheses", { "LPAREN", "lr_or", "RPAREN" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(1);
@@ -149,10 +155,6 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 	RegexParserGenerator::add_literal(p.get(), "literal", "DASH", '-');
 	RegexParserGenerator::add_literal(p.get(), "literal", "COMMA", ',');
 	*/
-	p->add_production("literal", { "DOT" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { 0, RegexASTGroup::UNICODE_MAX }))));
-	});
 	p->add_production("literal", { "ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedTerminal* n = m->terminal(0);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(n->token->lexeme.at(0)))));
@@ -174,18 +176,26 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		MatchedNonterminal* n2 = m->nonterminal(1);
 		ParserRegexAST* r1 = dynamic_cast<ParserRegexAST*>(n1->value.get());
 		ParserRegexAST* r2 = dynamic_cast<ParserRegexAST*>(n2->value.get());
-		std::unique_ptr<RegexASTGroup::RangeList> r(new RegexASTGroup::RangeList);
+		std::unique_ptr<RegexASTGroup::RangeList> car(new RegexASTGroup::RangeList);
 		if (RegexASTLiteral* l = dynamic_cast<RegexASTLiteral*>(r1->regex.get())) {
-			r->range.first = l->ch;
-			r->range.second = l->ch;
+			car->range.first = l->ch;
+			car->range.second = l->ch;
 		} else if (RegexASTGroup* g = dynamic_cast<RegexASTGroup*>(r1->regex.get())) {
 			assert(g->span->next == nullptr);
-			r->range.first = g->span->range.first;
-			r->range.second = g->span->range.second;
+			car->range.first = g->span->range.first;
+			car->range.second = g->span->range.second;
 		}
-		RegexASTGroup* g2 = dynamic_cast<RegexASTGroup*>(r2->regex.get());
-		r->next = std::move(g2->span);
-		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTGroup(false, std::move(r)))));
+		std::unique_ptr<RegexASTGroup::RangeList> cdr = nullptr;
+		if (RegexASTLiteral* l2 = dynamic_cast<RegexASTLiteral*>(r2->regex.get())) {
+			cdr.reset(new RegexASTGroup::RangeList);
+			cdr->range.first = l2->ch;
+			cdr->range.second = l2->ch;
+			cdr->next = nullptr;
+		} else if (RegexASTGroup* g2 = dynamic_cast<RegexASTGroup*>(r2->regex.get())) {
+			cdr = std::move(g2->span);
+		}
+		car->next = std::move(cdr);
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTGroup(false, std::move(car)))));
 	});
 	p->add_production("group_contents", { "group_element" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
@@ -238,7 +248,7 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 	RegexParserGenerator::add_literal(p.get(), "group_literal", "QUESTION", '?');
 	RegexParserGenerator::add_literal(p.get(), "group_literal", "OR", '|');
 	*/
-	p->add_production("group_literal", { "ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("group_literal", { "GROUP_ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedTerminal* n = m->terminal(0);
 		UInt ch = n->token->lexeme.at(0);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(ch))));
@@ -289,20 +299,24 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
-	p->add_production("escape_absolute", { "X", "hex_int" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("escape_absolute", { "X", "hex_int_short" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		std::string str = dynamic_cast<ParserStringAST*>(m->nonterminal(1)->value.get())->str;
 		Long l = std::stol(str, nullptr, 16);
 		assert(l >= 0);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral((UInt) l))));
 	});
-	/*
-	p->add_production("hex_int", { "hex_digit", "hex_digit" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("hex_int_short", { "hex_digit", "hex_digit" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		std::string str1 = dynamic_cast<ParserStringAST*>(m->nonterminal(0)->value.get())->str;
 		std::string str2 = dynamic_cast<ParserStringAST*>(m->nonterminal(1)->value.get())->str;
 		return std::unique_ptr<ParserAST>(new ParserStringAST(str1 + str2));
 	});
-	*/
-	p->add_production("hex_int", {
+	p->add_production("escape_absolute", { "U", "hex_int_long" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::string str = dynamic_cast<ParserStringAST*>(m->nonterminal(1)->value.get())->str;
+		Long l = std::stol(str, nullptr, 16);
+		assert(l >= 0);
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral((UInt) l))));
+	});
+	p->add_production("hex_int_long", {
 		"hex_digit", "hex_digit", "hex_digit", "hex_digit",
 		"hex_digit", "hex_digit", "hex_digit", "hex_digit",
 	}, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
@@ -314,9 +328,11 @@ std::unique_ptr<Parser> RegexParserGenerator::make() {
 		std::string str2 = dynamic_cast<ParserStringAST*>(m->nonterminal(1)->value.get())->str;
 		return std::unique_ptr<ParserAST>(new ParserStringAST(str));
 	});
+	/*
 	p->add_production("hex_digit", { "DEC" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::unique_ptr<ParserAST>(new ParserStringAST(m->terminal(0)->token->lexeme));
 	});
+	*/
 	p->add_production("hex_digit", { "HEX" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::unique_ptr<ParserAST>(new ParserStringAST(m->terminal(0)->token->lexeme));
 	});
@@ -348,8 +364,4 @@ void RegexParserGenerator::add_literal(Parser* p, std::string nonterminal, std::
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(ch))));
 	});
-}
-
-std::unique_ptr<RegexASTGroup::RangeList> RegexParserGenerator::group_range(RegexAST* r) {
-	return nullptr;
 }

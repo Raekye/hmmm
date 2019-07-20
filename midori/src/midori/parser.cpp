@@ -531,7 +531,7 @@ void Parser::debug_match(Match* m, Int levels) {
 	if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
 		std::cout << "{ matched terminal";
 		for (std::string const& tag : mt->token->tags) {
-			std::cout << "  " << tag;
+			std::cout << " " << tag;
 		}
 		std::cout << ": " << mt->token->lexeme << " }" << std::endl;
 	} else if (MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m)) {

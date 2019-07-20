@@ -83,7 +83,11 @@ std::unique_ptr<RegexDFA> RegexNFA::to_dfa() {
 
 	auto register_state = [ &dfa, &generated_states, &unmarked_grouped_states ](GroupedNFAState const& group) -> RegexDFAState* {
 		RegexDFAState* dfa_state = dfa->new_state();
-		for (RegexNFAState* const s : group) {
+		std::vector<RegexNFAState*> sorted(group.begin(), group.end());
+		std::sort(sorted.begin(), sorted.end(), [](RegexNFAState* const lhs, RegexNFAState* const rhs) {
+			return lhs->id < rhs->id;
+		});
+		for (RegexNFAState* const s : sorted) {
 			if (s->terminal) {
 				dfa_state->terminals.push_back(s->data);
 			}
