@@ -88,11 +88,10 @@ public:
 
 private:
 	static std::string const ROOT;
-	static std::string const END;
-	static std::string const EPSILON;
+	//static std::string const EPSILON;
 
 	static bool symbol_is_token(std::string);
-	static bool symbol_is_epsilon(std::string);
+	//static bool symbol_is_epsilon(std::string);
 	static bool production_is_epsilon(Production*);
 	static bool item_is_done(Item);
 
@@ -102,7 +101,6 @@ private:
 	std::set<std::string> terminals;
 	std::map<std::string, std::vector<Production*>> nonterminals;
 	std::vector<std::unique_ptr<Production>> productions;
-	std::string start;
 
 	std::vector<std::unique_ptr<ItemSet>> states;
 	std::map<std::set<Item>, ItemSet*> itemsets;
@@ -111,12 +109,6 @@ private:
 	std::map<std::string, std::set<std::string>> firsts;
 	std::map<std::string, std::set<std::string>> follows;
 
-	std::vector<std::unique_ptr<ExtendedProduction>> extended_grammar;
-	std::map<ExtendedSymbol, std::vector<ExtendedProduction*>> extended_nonterminals;
-	std::map<ExtendedSymbol, std::set<Symbol>> extended_firsts;
-	std::map<ExtendedSymbol, std::set<Symbol>> extended_follows;
-
-	std::vector<std::map<Symbol, Production*>> reductions;
 	std::stack<Int> parse_stack;
 	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
@@ -129,25 +121,17 @@ private:
 
 	bool parse_advance(std::unique_ptr<Token>);
 
+	void generate_first_sets();
+	void generate_follow_sets();
+
 	ItemSet* generate_itemset(std::set<Item>);
 	void expand_symbol_into_itemset(ItemSet*, std::string, std::set<std::string>*);
 	void generate_itemsets();
 	void generate_closure(std::set<Item>*, std::set<Item>*);
 
-	void generate_first_sets();
-	void generate_follow_sets();
-
-	void generate_extended_grammar();
-	void generate_extended_first_sets();
-	void generate_extended_follow_sets();
-
-	void generate_reductions();
-
 	static void debug(Parser*);
 	static void debug_production(Production*, Int = -1);
 	static void debug_item(Item);
-	static void debug_extended_symbol(ExtendedSymbol);
-	static void debug_extended_production(ExtendedProduction*);
 	static void debug_set(std::set<std::string>);
 	static void debug_match(Match*, Int);
 };

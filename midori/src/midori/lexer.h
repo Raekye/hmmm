@@ -54,6 +54,19 @@ private:
 };
 
 class Lexer {
+public:
+	static std::string const TOKEN_END;
+	static std::string const TOKEN_BAD;
+	static const Long CHAR_EOF = -1;
+	static const Long CHAR_BAD = -2;
+
+	Lexer();
+
+	void add_rule(std::string, std::unique_ptr<RegexAST>);
+	std::unique_ptr<Token> scan(IInputStream*);
+	void generate();
+	void reset();
+
 private:
 	std::vector<std::string> rules;
 	std::vector<std::unique_ptr<RegexAST>> rules_regex;
@@ -64,14 +77,9 @@ private:
 	std::vector<UInt> buffer;
 	UInt buffer_pos;
 
-	Long read(IInputStream*);
-public:
-	Lexer();
+	LocationInfo location;
 
-	void add_rule(std::string, std::unique_ptr<RegexAST>);
-	std::unique_ptr<Token> scan(IInputStream*);
-	void generate();
-	void reset();
+	Long read(IInputStream*);
 };
 
 #endif /* MIDORI_LEXER_H_INCLUDED */

@@ -2,6 +2,9 @@
 #include <iostream>
 #include "utf8.h"
 
+std::string const Lexer::TOKEN_END = "$END";
+std::string const Lexer::TOKEN_BAD = "$BAD";
+
 IInputStream::~IInputStream() {
 	return;
 }
@@ -13,7 +16,10 @@ FileInputStream::FileInputStream(std::istream* file) : file(file) {
 Long FileInputStream::get() {
 	UInt ch = this->file->get();
 	if (!this->file->good()) {
-		return -1;
+		if (this->file->eof()) {
+			return Lexer::CHAR_EOF;
+		}
+		return Lexer::CHAR_BAD;
 	}
 	return ch;
 }
@@ -24,12 +30,12 @@ VectorInputStream::VectorInputStream(std::vector<UInt> v) : v(v), pos(0) {
 
 Long VectorInputStream::get() {
 	if (this->pos >= this->v.size()) {
-		return -1;
+		return Lexer::CHAR_EOF;
 	}
 	return this->v.at(this->pos++);
 }
 
-Lexer::Lexer() : current_state(nullptr), buffer_pos(0) {
+Lexer::Lexer() : current_state(nullptr), buffer_pos(0), location(0, 0) {
 	return;
 }
 
@@ -131,6 +137,8 @@ void Lexer::generate() {
 void Lexer::reset() {
 	this->buffer.clear();
 	this->buffer_pos = 0;
+	this->location.line = 0;
+	this->location.column = 0;
 }
 
 void Lexer::add_rule(std::string rule, std::unique_ptr<RegexAST> regex) {
@@ -144,6 +152,7 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 	std::vector<std::string> matched_tags;
 	std::string matched_str = "";
 	UInt matched_buffer_pos = this->buffer_pos;
+	LocationInfo matched_location = this->location;
 	std::string found_buffer = "";
 	std::unique_ptr<Token> t;
 	while (true) {
@@ -152,24 +161,34 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 			matched_tags = this->current_state->terminals;
 			matched_str.append(found_buffer);
 			matched_buffer_pos = this->buffer_pos;
+			matched_location = this->location;
 			found_buffer = "";
 		}
 		Long ch = this->read(in);
-		RegexDFAState* next = nullptr;
-		if (ch >= 0) {
-			if (ch < RegexDFAState::OPTIMIZED_CHARS) {
-				next = this->current_state->_transitions[ch];
-			} else {
-				std::unique_ptr<RegexDFAState::Tree::SearchList> l = this->current_state->transitions.find(RegexDFAState::Tree::Interval(ch, ch));
-				assert(l->size() <= 1);
-				if (l->size() > 0) {
-					next = l->front().second;
+		if (ch == '\n') {
+			this->location.line++;
+			this->location.column = 0;
+		} else {
+			this->location.column++;
+		}
+		if (ch < 0) {
+			if (matched) {
+				t.reset(new Token(matched_tags, matched_str, matched_location));
+				break;
+			}
+			if (ch == Lexer::CHAR_EOF) {
+				if (this->buffer_pos == matched_buffer_pos) {
+					t.reset(new Token({ Lexer::TOKEN_END }, "", this->location));
+					break;
 				}
 			}
+			t.reset(new Token({ Lexer::TOKEN_BAD }, found_buffer, matched_location));
+			break;
 		}
+		RegexDFAState* next = this->current_state->next(ch);
 		if (next == nullptr) {
 			if (matched) {
-				t.reset(new Token(matched_tags, matched_str, LocationInfo(0, 0)));
+				t.reset(new Token(matched_tags, matched_str, matched_location));
 			}
 			break;
 		}
@@ -178,6 +197,7 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 		this->current_state = next;
 	}
 	this->buffer_pos = matched_buffer_pos;
+	this->location = matched_location;
 	return t;
 }
 

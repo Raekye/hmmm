@@ -20,6 +20,7 @@ public:
 	Tree transitions;
 
 	RegexDFAState(UInt);
+	RegexDFAState* next(UInt);
 };
 
 class RegexNFAState {

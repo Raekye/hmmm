@@ -12,6 +12,18 @@ RegexDFAState::RegexDFAState(UInt id) : id(id) {
 	std::memset(this->_transitions, 0, RegexDFAState::OPTIMIZED_CHARS * sizeof(RegexDFAState*));
 }
 
+RegexDFAState* RegexDFAState::next(UInt ch) {
+	if (ch < RegexDFAState::OPTIMIZED_CHARS) {
+		return this->_transitions[ch];
+	}
+	std::unique_ptr<Tree::SearchList> l = this->transitions.find(Tree::Interval(ch, ch));
+	assert(l->size() <= 1);
+	if (l->size() > 0) {
+		return l->front().second;
+	}
+	return nullptr;
+}
+
 RegexNFAState::RegexNFAState(UInt id) : id(id), terminal(false) {
 	return;
 }
