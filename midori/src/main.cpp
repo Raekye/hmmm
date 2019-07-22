@@ -3,20 +3,69 @@
 #include "midori/helper.h"
 #include "midori/regex_ast.h"
 //#include "midori/lexer.h"
-//#include "midori/parser.h"
+#include "midori/parser.h"
 #include "midori/regex_engine.h"
 #include "midori/interval_tree.h"
 
 int test_regex_engine() {
 	RegexEngine re;
-	std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678-^]";
-	std::unique_ptr<RegexAST> r = re.compile(pattern);
+	std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678]";
+	//std::string pattern = "[a-]";
+	std::unique_ptr<RegexAST> r = re.parse(pattern);
 	RegexASTPrinter printer;
 	r->accept(&printer);
 	return 0;
 }
 
 int test_parser() {
+	Parser p;
+	/*
+	p.add_token("A", std::unique_ptr<RegexAST>(new RegexASTLiteral('a')));
+	p.add_production("n", { "n", "n" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	p.add_production("n", { "A" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	*/
+	p.add_token("EQUALS", std::unique_ptr<RegexAST>(new RegexASTLiteral('=')));
+	p.add_token("X", std::unique_ptr<RegexAST>(new RegexASTLiteral('x')));
+	p.add_token("STAR", std::unique_ptr<RegexAST>(new RegexASTLiteral('*')));
+	p.add_production("s", { "n" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	p.add_production("n", { "v", "EQUALS", "e" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	p.add_production("n", { "e" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	p.add_production("e", { "v" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	p.add_production("v", { "X" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	p.add_production("v", { "STAR", "e" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	});
+	p.generate("s");
+	std::stringstream ss;
+	ss << "*x=x";
+	FileInputStream fis(&ss);
+	p.parse(&fis);
+	return 0;
+}
+
+int test_regex_parser() {
 	/*
 	std::unique_ptr<Parser> p = RegexParserGenerator::make();
 
@@ -114,8 +163,8 @@ int main() {
 	ULong x = ~0;
 	std::cout << "-1 is " << x << std::endl;
 	test_interval_tree();
+	test_parser();
 	test_regex_engine();
-	//test_parser();
 	//test_generator();
 	return 0;
 }

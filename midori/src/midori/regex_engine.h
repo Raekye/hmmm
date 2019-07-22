@@ -26,7 +26,7 @@ public:
 class RegexEngine {
 public:
 	RegexEngine();
-	std::unique_ptr<RegexAST> compile(std::string);
+	std::unique_ptr<RegexAST> parse(std::string);
 
 private:
 	std::unique_ptr<Parser> parser;

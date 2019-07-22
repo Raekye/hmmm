@@ -58,8 +58,8 @@ TEST_F(LexerTest, Ranges) {
 TEST_F(LexerTest, Multiplication) {
 	RegexEngine re;
 	Lexer l;
-	l.add_rule("a", re.compile("(abc)?(def|ghi)*"));
-	l.add_rule("b", re.compile("(abc)+xyz"));
+	l.add_rule("a", re.parse("(abc)?(def|ghi)*"));
+	l.add_rule("b", re.parse("(abc)+xyz"));
 	l.generate();
 	std::stringstream ss;
 	ss << "ghi";

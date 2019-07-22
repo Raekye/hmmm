@@ -20,7 +20,7 @@ RegexEngine::RegexEngine() {
 	this->parser = RegexEngine::make();
 }
 
-std::unique_ptr<RegexAST> RegexEngine::compile(std::string pattern) {
+std::unique_ptr<RegexAST> RegexEngine::parse(std::string pattern) {
 	std::stringstream ss;
 	ss << pattern;
 	FileInputStream fis(&ss);
@@ -219,15 +219,17 @@ std::unique_ptr<Parser> RegexEngine::make() {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
+	/*
 	p->add_production("group_element", { "group_range" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
+	*/
 	p->add_production("group_element", { "group_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
-	p->add_production("group_range", { "group_literal", "DASH", "group_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("group_element", { "group_element", "DASH", "group_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n1 = m->nonterminal(0);
 		MatchedNonterminal* n2 = m->nonterminal(2);
 		ParserRegexAST* r1 = dynamic_cast<ParserRegexAST*>(n1->value.get());

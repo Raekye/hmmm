@@ -45,7 +45,9 @@ struct ExtendedProduction {
 struct ItemSet {
 	std::set<Item> head;
 	std::set<Item> additionals;
+	std::set<Item> closure;
 	std::map<std::string, ItemSet*> next;
+	std::map<std::string, Production*> reductions;
 	Int index;
 };
 
@@ -82,10 +84,12 @@ public:
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
 	void generate(std::string);
 	std::unique_ptr<Match> parse(IInputStream*);
+	void reset();
 
 private:
-	static const std::string END;
-	static const std::string EPSILON;
+	static std::string const ROOT;
+	static std::string const END;
+	static std::string const EPSILON;
 
 	static bool symbol_is_token(std::string);
 	static bool symbol_is_epsilon(std::string);
@@ -103,6 +107,10 @@ private:
 	std::vector<std::unique_ptr<ItemSet>> states;
 	std::map<std::set<Item>, ItemSet*> itemsets;
 
+	std::set<std::string> nullable;
+	std::map<std::string, std::set<std::string>> firsts;
+	std::map<std::string, std::set<std::string>> follows;
+
 	std::vector<std::unique_ptr<ExtendedProduction>> extended_grammar;
 	std::map<ExtendedSymbol, std::vector<ExtendedProduction*>> extended_nonterminals;
 	std::map<ExtendedSymbol, std::set<Symbol>> extended_firsts;
@@ -112,13 +120,22 @@ private:
 	std::stack<Int> parse_stack;
 	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
-	void reset();
+	ItemSet* current_state() {
+		return this->states[this->parse_stack.top()].get();
+	}
 
 	void push_token(std::unique_ptr<Token>);
 	std::unique_ptr<Token> next_token(IInputStream*);
 
+	bool parse_advance(std::unique_ptr<Token>);
+
 	ItemSet* generate_itemset(std::set<Item>);
 	void expand_symbol_into_itemset(ItemSet*, std::string, std::set<std::string>*);
+	void generate_itemsets();
+	void generate_closure(std::set<Item>*, std::set<Item>*);
+
+	void generate_first_sets();
+	void generate_follow_sets();
 
 	void generate_extended_grammar();
 	void generate_extended_first_sets();
