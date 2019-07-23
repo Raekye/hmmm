@@ -9,8 +9,8 @@
 
 int test_regex_engine() {
 	RegexEngine re;
-	std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678]";
-	//std::string pattern = "[a-]";
+	//std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678]";
+	std::string pattern = "[-a-b-cd---]";
 	std::unique_ptr<RegexAST> r = re.parse(pattern);
 	RegexASTPrinter printer;
 	r->accept(&printer);
@@ -124,10 +124,10 @@ int main() {
 	ULong x = ~0;
 	std::cout << "-1 is " << x << std::endl;
 	test_interval_tree();
-	test_regex_engine();
 	test_parser0();
 	test_parser2();
 	test_parser1();
+	test_regex_engine();
 	//test_generator();
 	return 0;
 }

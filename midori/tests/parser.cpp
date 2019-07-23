@@ -43,6 +43,26 @@ TEST_F(ParserTest, Recursion) {
 	p.parse(&fis);
 }
 
+TEST_F(ParserTest, Epsilon) {
+	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	};
+	Parser p;
+	p.add_token("A", std::unique_ptr<RegexAST>(new RegexASTLiteral('a')));
+	p.add_production("n", { "m", "n" }, fn);
+	p.add_production("n", {}, fn);
+	p.add_production("m", { "A" }, fn);
+	p.generate("n");
+	std::stringstream ss;
+	ss << "aaa";
+	FileInputStream fis(&ss);
+	p.parse(&fis);
+	p.reset();
+	ss << "";
+	p.parse(&fis);
+}
+
 TEST_F(ParserTest, RegexGroup) {
 	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;

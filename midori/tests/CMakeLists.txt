@@ -41,6 +41,7 @@ set(TESTS
 	utf8
 	lexer
 	parser
+	regex_engine
 	)
 
 include_directories(${CMAKE_SOURCE_DIR}/src)

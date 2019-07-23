@@ -133,6 +133,14 @@ bool Parser::parse_advance(std::unique_ptr<Token> t) {
 			return false;
 		}
 	}
+	std::cout << "no rules, expected to see" << std::endl;
+	for (auto const& kv : curr->next) {
+		std::cout << kv.first << " -> " << kv.second->index << std::endl;
+	}
+	for (auto const& kv : curr->reductions) {
+		std::cout << kv.first << " <- ";
+		Parser::debug_production(kv.second);
+	}
 	return true;
 }
 

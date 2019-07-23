@@ -1,8 +1,9 @@
 #ifndef MIDORI_UTF8_H_INCLUDED
 #define MIDORI_UTF8_H_INCLUDED
 
-#include <string>
 #include "global.h"
+#include <string>
+#include <istream>
 
 class utf8 {
 public:
@@ -63,6 +64,35 @@ public:
 		char d = str.at(pos + 3);
 		if (end != nullptr) {
 			*end = pos + 4;
+		}
+		return ((a & 0x07) << 18) | ((b & 0x3f) << 12) | ((c & 0x3f) << 6) | (d & 0x3f);
+	}
+
+	static Long codepoint_from_istream(std::istream* is) {
+		Int a = is->get();
+		if (!is->good()) {
+			return -1;
+		}
+		if ((a & 0x80) == 0) {
+			return a;
+		}
+		Int b = is->get();
+		if (!is->good()) {
+			return -1;
+		}
+		if ((a & 0xe0) == 0xc0) {
+			return ((a & 0x1f) << 6) | (b & 0x3f);
+		}
+		Int c = is->get();
+		if (!is->good()) {
+			return -1;
+		}
+		if ((a & 0xf0) == 0xe0) {
+			return ((a & 0x0f) << 12) | ((b & 0x3f) << 6) | (c & 0x3f);
+		}
+		Int d = is->get();
+		if (!is->good()) {
+			return -1;
 		}
 		return ((a & 0x07) << 18) | ((b & 0x3f) << 12) | ((c & 0x3f) << 6) | (d & 0x3f);
 	}

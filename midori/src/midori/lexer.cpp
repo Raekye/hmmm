@@ -14,8 +14,8 @@ FileInputStream::FileInputStream(std::istream* file) : file(file) {
 }
 
 Long FileInputStream::get() {
-	UInt ch = this->file->get();
-	if (!this->file->good()) {
+	Long ch = utf8::codepoint_from_istream(this->file);
+	if (ch < 0) {
 		if (this->file->eof()) {
 			return Lexer::CHAR_EOF;
 		}
@@ -35,8 +35,8 @@ Long VectorInputStream::get() {
 	return this->v.at(this->pos++);
 }
 
-Lexer::Lexer() : current_state(nullptr), buffer_pos(0), location(0, 0) {
-	return;
+Lexer::Lexer() {
+	this->reset();
 }
 
 void Lexer::generate() {
@@ -137,8 +137,8 @@ void Lexer::generate() {
 void Lexer::reset() {
 	this->buffer.clear();
 	this->buffer_pos = 0;
-	this->location.line = 0;
-	this->location.column = 0;
+	this->location.line = 1;
+	this->location.column = 1;
 }
 
 void Lexer::add_rule(std::string rule, std::unique_ptr<RegexAST> regex) {
@@ -147,7 +147,7 @@ void Lexer::add_rule(std::string rule, std::unique_ptr<RegexAST> regex) {
 }
 
 std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
-	this->current_state = this->dfa->root();
+	RegexDFAState* current_state = this->dfa->root();
 	bool matched = false;
 	std::vector<std::string> matched_tags;
 	std::string matched_str = "";
@@ -156,9 +156,9 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 	std::string found_buffer = "";
 	std::unique_ptr<Token> t;
 	while (true) {
-		if (!this->current_state->terminals.empty()) {
+		if (!current_state->terminals.empty()) {
 			matched = true;
-			matched_tags = this->current_state->terminals;
+			matched_tags = current_state->terminals;
 			matched_str.append(found_buffer);
 			matched_buffer_pos = this->buffer_pos;
 			matched_location = this->location;
@@ -167,7 +167,7 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 		Long ch = this->read(in);
 		if (ch == '\n') {
 			this->location.line++;
-			this->location.column = 0;
+			this->location.column = 1;
 		} else {
 			this->location.column++;
 		}
@@ -185,16 +185,18 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 			t.reset(new Token({ Lexer::TOKEN_BAD }, found_buffer, matched_location));
 			break;
 		}
-		RegexDFAState* next = this->current_state->next(ch);
+		found_buffer.append(utf8::string_from_codepoint(ch));
+		this->buffer_pos++;
+		RegexDFAState* next = current_state->next(ch);
 		if (next == nullptr) {
 			if (matched) {
 				t.reset(new Token(matched_tags, matched_str, matched_location));
+			} else {
+				t.reset(new Token({ Lexer::TOKEN_BAD }, found_buffer, matched_location));
 			}
 			break;
 		}
-		found_buffer.append(utf8::string_from_codepoint(ch));
-		this->buffer_pos++;
-		this->current_state = next;
+		current_state = next;
 	}
 	this->buffer_pos = matched_buffer_pos;
 	this->location = matched_location;

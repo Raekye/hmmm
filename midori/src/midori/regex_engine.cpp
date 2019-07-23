@@ -1,8 +1,9 @@
 #include "regex_engine.h"
 
-#include <sstream>
 #include "helper.h"
 #include "utf8.h"
+#include <sstream>
+#include <algorithm>
 
 ParserRegexAST::ParserRegexAST(std::unique_ptr<RegexAST> r) : regex(std::move(r)) {
 	return;
@@ -194,41 +195,26 @@ std::unique_ptr<Parser> RegexEngine::make() {
 		MatchedNonterminal* n2 = m->nonterminal(1);
 		ParserRegexAST* r1 = dynamic_cast<ParserRegexAST*>(n1->value.get());
 		ParserRegexAST* r2 = dynamic_cast<ParserRegexAST*>(n2->value.get());
+		RegexASTGroup* g1 = dynamic_cast<RegexASTGroup*>(r1->regex.get());
+		RegexASTGroup* g2 = dynamic_cast<RegexASTGroup*>(r2->regex.get());
+		assert(g1->span->next == nullptr);
 		std::unique_ptr<RegexASTGroup::RangeList> car(new RegexASTGroup::RangeList);
-		if (RegexASTLiteral* l = dynamic_cast<RegexASTLiteral*>(r1->regex.get())) {
-			car->range.first = l->ch;
-			car->range.second = l->ch;
-		} else if (RegexASTGroup* g = dynamic_cast<RegexASTGroup*>(r1->regex.get())) {
-			assert(g->span->next == nullptr);
-			car->range.first = g->span->range.first;
-			car->range.second = g->span->range.second;
-		}
-		std::unique_ptr<RegexASTGroup::RangeList> cdr = nullptr;
-		if (RegexASTLiteral* l2 = dynamic_cast<RegexASTLiteral*>(r2->regex.get())) {
-			cdr.reset(new RegexASTGroup::RangeList);
-			cdr->range.first = l2->ch;
-			cdr->range.second = l2->ch;
-			cdr->next = nullptr;
-		} else if (RegexASTGroup* g2 = dynamic_cast<RegexASTGroup*>(r2->regex.get())) {
-			cdr = std::move(g2->span);
-		}
-		car->next = std::move(cdr);
+		car->range.first = g1->span->range.first;
+		car->range.second = g1->span->range.second;
+		car->next = std::move(g2->span);
 		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTGroup(false, std::move(car)))));
 	});
 	p->add_production("group_contents", { "group_element" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
+
 	/*
 	p->add_production("group_element", { "group_range" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
 	*/
-	p->add_production("group_element", { "group_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		MatchedNonterminal* n = m->nonterminal(0);
-		return std::move(n->value);
-	});
 	p->add_production("group_element", { "group_element", "DASH", "group_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n1 = m->nonterminal(0);
 		MatchedNonterminal* n2 = m->nonterminal(2);
@@ -236,39 +222,38 @@ std::unique_ptr<Parser> RegexEngine::make() {
 		ParserRegexAST* r2 = dynamic_cast<ParserRegexAST*>(n2->value.get());
 		std::unique_ptr<RegexAST> p1(std::move(r1->regex));
 		std::unique_ptr<RegexAST> p2(std::move(r2->regex));
-		RegexASTLiteral* l1 = dynamic_cast<RegexASTLiteral*>(p1.get());
-		RegexASTLiteral* l2 = dynamic_cast<RegexASTLiteral*>(p2.get());
-		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { l1->ch, l2->ch }))));
+		RegexASTGroup* g1 = dynamic_cast<RegexASTGroup*>(p1.get());
+		RegexASTGroup* g2 = dynamic_cast<RegexASTGroup*>(p2.get());
+		assert(g1->span->next == nullptr);
+		assert(g2->span->next == nullptr);
+		assert(g2->span->range.first == g2->span->range.second);
+		UInt a = g1->span->range.first;
+		UInt b = g1->span->range.second;
+		UInt c = g2->span->range.first;
+		UInt lower = std::min({ a, b, c });
+		UInt upper = std::max({ a, b, c });
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { lower, upper }))));
 	});
-
-	p->add_production("group_literal", { "group_escaped_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("group_element", { "group_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedNonterminal* n = m->nonterminal(0);
 		return std::move(n->value);
 	});
-	/*
-	p->add_production("group_literal", { "DEC" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		MatchedTerminal* n = m->terminal(0);
-		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(n->token->lexeme.at(0)))));
+
+	p->add_production("group_literal", { "group_literal_char" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		MatchedNonterminal* n = m->nonterminal(0);
+		ParserRegexAST* r = dynamic_cast<ParserRegexAST*>(n->value.get());
+		RegexASTLiteral* l = dynamic_cast<RegexASTLiteral*>(r->regex.get());
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(RegexASTGroup::make(false, { l->ch, l->ch }))));
 	});
-	p->add_production("group_literal", { "HEX" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		MatchedTerminal* n = m->terminal(0);
-		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral(n->token->lexeme.at(0)))));
+	p->add_production("group_literal_char", { "group_escaped_literal" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		MatchedNonterminal* n = m->nonterminal(0);
+		return std::move(n->value);
 	});
-	RegexEngine::add_literal(p.get(), "group_literal", "N", 'n');
-	RegexEngine::add_literal(p.get(), "group_literal", "T", 't');
-	RegexEngine::add_literal(p.get(), "group_literal", "X", 'x');
-	RegexEngine::add_literal(p.get(), "group_literal", "COMMA", ',');
-	RegexEngine::add_literal(p.get(), "group_literal", "DOT", '.');
-	RegexEngine::add_literal(p.get(), "group_literal", "LPAREN", '(');
-	RegexEngine::add_literal(p.get(), "group_literal", "RPAREN", ')');
-	RegexEngine::add_literal(p.get(), "group_literal", "LBRACE", '{');
-	RegexEngine::add_literal(p.get(), "group_literal", "RBRACE", '}');
-	RegexEngine::add_literal(p.get(), "group_literal", "STAR", '*');
-	RegexEngine::add_literal(p.get(), "group_literal", "PLUS", '+');
-	RegexEngine::add_literal(p.get(), "group_literal", "QUESTION", '?');
-	RegexEngine::add_literal(p.get(), "group_literal", "OR", '|');
-	*/
-	p->add_production("group_literal", { "GROUP_ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("group_literal_char", { "DASH" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserRegexAST(std::unique_ptr<RegexAST>(new RegexASTLiteral('-'))));
+	});
+	p->add_production("group_literal_char", { "GROUP_ANY" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		MatchedTerminal* n = m->terminal(0);
 		Long ch = utf8::codepoint_from_string(n->token->lexeme, 0, nullptr);
 		assert(ch >= 0);
@@ -290,7 +275,7 @@ std::unique_ptr<Parser> RegexEngine::make() {
 	RegexEngine::add_literal(p.get(), "group_escape_special", "N", '\n');
 	RegexEngine::add_literal(p.get(), "group_escape_special", "T", '\t');
 	RegexEngine::add_literal(p.get(), "group_escape_special", "ESCAPE", '\\');
-	RegexEngine::add_literal(p.get(), "group_escape_special", "DASH", '-');
+	//RegexEngine::add_literal(p.get(), "group_escape_special", "DASH", '-');
 	RegexEngine::add_literal(p.get(), "group_escape_special", "LBRACKET", '[');
 	RegexEngine::add_literal(p.get(), "group_escape_special", "RBRACKET", ']');
 

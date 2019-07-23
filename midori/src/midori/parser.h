@@ -22,8 +22,6 @@ class ParserAST;
 
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::pair<Production*, Int> Item;
-typedef std::string Symbol;
-typedef std::tuple<Symbol, Int, Int> ExtendedSymbol;
 
 class ParserAST {
 public:
@@ -36,19 +34,12 @@ struct Production {
 	ProductionHandler handler;
 };
 
-struct ExtendedProduction {
-	ExtendedSymbol target;
-	std::vector<ExtendedSymbol> symbols;
-	Production* orig;
-};
-
 struct ItemSet {
+	Int index;
 	std::set<Item> head;
-	std::set<Item> additionals;
 	std::set<Item> closure;
 	std::map<std::string, ItemSet*> next;
 	std::map<std::string, Production*> reductions;
-	Int index;
 };
 
 class Match {

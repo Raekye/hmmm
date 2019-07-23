@@ -14,9 +14,6 @@
 struct LocationInfo {
 	UInt line;
 	UInt column;
-	LocationInfo(UInt line, UInt column) : line(line), column(column) {
-		return;
-	}
 };
 
 struct Token {
@@ -72,7 +69,6 @@ private:
 	std::vector<std::unique_ptr<RegexAST>> rules_regex;
 
 	std::unique_ptr<RegexDFA> dfa;
-	RegexDFAState* current_state;
 
 	std::vector<UInt> buffer;
 	UInt buffer_pos;
