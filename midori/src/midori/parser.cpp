@@ -2,13 +2,7 @@
 #include "helper.h"
 #include <list>
 
-/*
- * TODO
- * - for loops const and auto and by reference
- */
-
 std::string const Parser::ROOT = "$root";
-//std::string const Parser::EPSILON = "0";
 
 ParserAST::~ParserAST() {
 	return;
@@ -24,7 +18,13 @@ Match::~Match() {
 MatchedTerminal::MatchedTerminal(std::unique_ptr<Token> t) : token(std::move(t)) {
 	return;
 }
-MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms(p->symbols.size()), value(nullptr) {
+MatchedNonterminal::MatchedNonterminal() : MatchedNonterminal(nullptr, 0) {
+	return;
+}
+MatchedNonterminal::MatchedNonterminal(Production* p) : MatchedNonterminal(p, p->symbols.size()) {
+	return;
+}
+MatchedNonterminal::MatchedNonterminal(Production* p, size_t n) : production(p) , terms(n), value(nullptr) {
 	return;
 }
 
@@ -47,33 +47,41 @@ void Parser::add_production(std::string target, std::vector<std::string> symbols
 }
 
 void Parser::generate(std::string start) {
+	this->terminals.insert(Lexer::TOKEN_END);
 	this->add_production(Parser::ROOT, { start, Lexer::TOKEN_END }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::move(m->value);
 	});
+	this->lexer.generate();
 	this->generate_first_sets();
 	this->generate_follow_sets();
 	this->generate_itemsets();
-	this->lexer.generate();
-
-	Parser::debug(this);
 }
 
 std::unique_ptr<MatchedNonterminal> Parser::parse(IInputStream* in) {
 	this->reset();
 	std::cout << std::endl << "===== Parsing" << std::endl;
 	this->parse_stack.push(0);
+	bool accept = false;
 	while (true) {
 		std::unique_ptr<Token> t = this->next_token(in);
+		std::cout << "Got token";
+		for (std::string const& tag : t->tags) {
+			std::cout << " " << tag;
+		}
+		std::cout << ": " << t->lexeme << " (" << t->loc.line << ", " << t->loc.column << ")" <<std::endl;
 		if (t->tags.at(0) == Lexer::TOKEN_BAD) {
-			std::cout << "Bad token " << t->lexeme << std::endl;
+			std::cout << "Bad token " << std::endl;
 			break;
 		}
-		if (this->parse_advance(std::move(t))) {
+		if (this->parse_advance(std::move(t), &accept)) {
 			break;
 		}
 	}
 	mdk::printf("[debug] parse stack size %zd, stack matches %zd\n", this->parse_stack.size(), this->parse_stack_matches.size());
 	Parser::debug_match(this->parse_stack_matches.top().get(), 0);
+	if (!accept) {
+		return nullptr;
+	}
 	assert(this->parse_stack.size() == 2);
 	assert(this->parse_stack_matches.size() == 1);
 	std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
@@ -94,16 +102,11 @@ void Parser::reset() {
 
 #pragma mark - Parser - private
 
-bool Parser::parse_advance(std::unique_ptr<Token> t) {
+bool Parser::parse_advance(std::unique_ptr<Token> t, bool* accept) {
 	mdk::printf("[debug] parse at state %d, size %zd\n", this->parse_stack.top(), this->parse_stack.size());
-	std::cout << "Got token";
-	for (std::string const& tag : t->tags) {
-		std::cout << " " << tag;
-	}
-	std::cout << ": " << t->lexeme << std::endl;
 	ItemSet* curr = this->current_state();
 	for (std::string const& tag : t->tags) {
-		std::cout << "Trying tag " << tag << " (" << t->loc.line << ", " << t->loc.column << ")" << std::endl;
+		std::cout << "Trying tag " << tag << std::endl;
 		std::map<std::string, ItemSet*>::iterator next_shift = curr->next.find(tag);
 		std::map<std::string, Production*>::iterator next_reduction = curr->reductions.find(tag);
 		if (next_shift != curr->next.end()) {
@@ -111,6 +114,7 @@ bool Parser::parse_advance(std::unique_ptr<Token> t) {
 				std::cout << "Shift reduce conflict" << std::endl;
 			}
 			if (tag == Lexer::TOKEN_END) {
+				*accept = true;
 				return true;
 			}
 			std::cout << "shifting to " << next_shift->second->index << std::endl;
@@ -144,10 +148,10 @@ bool Parser::parse_advance(std::unique_ptr<Token> t) {
 		}
 	}
 	std::cout << "no rules, expected to see" << std::endl;
-	for (auto const& kv : curr->next) {
+	for (std::map<std::string, ItemSet*>::value_type const& kv : curr->next) {
 		std::cout << kv.first << " -> " << kv.second->index << std::endl;
 	}
-	for (auto const& kv : curr->reductions) {
+	for (std::map<std::string, Production*>::value_type const& kv : curr->reductions) {
 		std::cout << kv.first << " <- ";
 		Parser::debug_production(kv.second);
 	}
@@ -209,7 +213,7 @@ void Parser::generate_closure(std::set<Item>* kernel, std::set<Item>* closure) {
 		if (closure->insert(i).second) {
 			if (!Parser::item_is_done(i)) {
 				std::string s = i.first->symbols.at(i.second);
-				if (Parser::symbol_is_token(s)) {
+				if (this->symbol_is_token(s)) {
 					continue;
 				}
 				for (Production* p : this->nonterminals.at(s)) {
@@ -224,7 +228,6 @@ void Parser::generate_closure(std::set<Item>* kernel, std::set<Item>* closure) {
  * Dragon book page 221
  */
 void Parser::generate_first_sets() {
-	this->firsts[Lexer::TOKEN_END].insert(Lexer::TOKEN_END);
 	for (std::string const& s : this->terminals) {
 		this->firsts[s].insert(s);
 	}
@@ -324,17 +327,6 @@ std::unique_ptr<Token> Parser::next_token(IInputStream* in) {
 	return t;
 }
 
-bool Parser::symbol_is_token(std::string str) {
-	UInt ch = str[0];
-	return (('A' <= ch) && (ch <= 'Z')) || (str == Lexer::TOKEN_END);
-}
-
-/*
-bool Parser::symbol_is_epsilon(std::string str) {
-	return str == Parser::EPSILON;
-}
-*/
-
 bool Parser::production_is_epsilon(Production* p) {
 	return p->symbols.size() == 0;
 }
@@ -347,7 +339,7 @@ bool Parser::item_is_done(Item item) {
 void Parser::debug_production(Production* p, Int dot) {
 	std::cout << p->target << " ::=";
 	Int i = 0;
-	for (auto& s : p->symbols) {
+	for (std::string const& s : p->symbols) {
 		if (i == dot) {
 			std::cout << " .";
 		}
@@ -369,7 +361,7 @@ void Parser::debug_item(Item item) {
 
 void Parser::debug_set(std::set<std::string> s) {
 	std::cout << "{";
-	for (auto& str : s) {
+	for (std::string const& str : s) {
 		std::cout << " " << str;
 	}
 	std::cout << " }" << std::endl;
@@ -398,36 +390,37 @@ void Parser::debug_match(Match* m, Int levels) {
 	}
 }
 
-void Parser::debug(Parser* p) {
+void Parser::debug() {
 	std::cout << "===== Hmmmmm" << std::endl;
+	this->lexer.debug();
 	std::cout << "=== Firsts" << std::endl;
-	for (auto& kv : p->firsts) {
+	for (std::map<std::string, std::set<std::string>>::value_type const& kv : this->firsts) {
 		std::cout << "\t" << kv.first << ": ";
 		Parser::debug_set(kv.second);
 	}
 	std::cout << "=== Follows" << std::endl;
-	for (auto& kv : p->follows) {
+	for (std::map<std::string, std::set<std::string>>::value_type const& kv : this->follows) {
 		std::cout << "\t" << kv.first << ": ";
 		Parser::debug_set(kv.second);
 	}
-	for (auto& is : p->states) {
+	for (std::unique_ptr<ItemSet> const& is : this->states) {
 		std::cout << "=== Item Set " << is->index << std::endl;
 		std::cout << "Head:" << std::endl;
-		for (auto& x : is->head) {
+		for (Item const& x : is->head) {
 			std::cout << "\t";
 			Parser::debug_item(x);
 		}
 		std::cout << "Closure:" << std::endl;
-		for (auto& x : is->closure) {
+		for (Item const& x : is->closure) {
 			std::cout << "\t";
 			Parser::debug_item(x);
 		}
 		std::cout << "Next states:" << std::endl;
-		for (auto& kv : is->next) {
+		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
 			std::cout << "\t" << kv.first << " -> " << kv.second->index << std::endl;
 		}
 		std::cout << "Reductions:" << std::endl;
-		for (auto& kv : is->reductions) {
+		for (std::map<std::string, Production*>::value_type const& kv : is->reductions) {
 			std::cout << "\t" << kv.first << " -> ";
 			Parser::debug_production(kv.second);
 		}

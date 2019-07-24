@@ -57,7 +57,11 @@ void RegexASTGroup::flatten(std::vector<Range>* l) {
 		return;
 	}
 	std::vector<Range> l2;
-	this->span->flatten(&l2);
+	RangeList* curr = this->span.get();
+	while (curr != nullptr) {
+		l2.push_back(curr->range);
+		curr = curr->next.get();
+	}
 	std::sort(l2.begin(), l2.end());
 	if (this->negate) {
 		std::vector<Range> l3;
@@ -153,7 +157,7 @@ void RegexNFAGenerator::visit(RegexASTChain* node) {
 	RegexNFAState* saved_root = this->root;
 	RegexNFAState* saved_target_state = this->target_state;
 	UInt i = 0;
-	for (auto& each : node->sequence) {
+	for (std::unique_ptr<RegexAST> const& each : node->sequence) {
 		i++;
 		this->target_state = (i == node->sequence.size()) ? saved_target_state : this->nfa.new_state();
 		each->accept(this);

@@ -80,14 +80,14 @@ std::unique_ptr<Parser> ParserGenerator::from_file(std::istream* is) {
 		ParserASTStringList* l = dynamic_cast<ParserASTStringList*>(n.get());
 		return std::unique_ptr<ParserAST>(new ParserASTStringListList({ l->list }));
 	});
-	// TODO: why doesn't the following work?
 	/*
-	p->add_production("production_list", { "nl_optional", "production", "nl_optional", "BAR", "production_list" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		return nullptr;
-	});
-	p->add_production("production_list", { "production" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		return nullptr;
-	});
+	 * TODO: why doesn't the following work?
+		p->add_production("production_list", { "nl_optional", "production", "nl_optional", "BAR", "production_list" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+			return nullptr;
+		});
+		p->add_production("production_list", { "production" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+			return nullptr;
+		});
 	*/
 
 	p->add_production("production", { "symbol_list" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {

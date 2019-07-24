@@ -21,7 +21,7 @@ TEST(ParserTest, Basic) {
 	std::stringstream ss;
 	ss << "*x=x";
 	FileInputStream fis(&ss);
-	p.parse(&fis);
+	ASSERT_NE(p.parse(&fis), nullptr);
 }
 
 TEST(ParserTest, Recursion) {
@@ -37,7 +37,7 @@ TEST(ParserTest, Recursion) {
 	std::stringstream ss;
 	ss << "aaa";
 	FileInputStream fis(&ss);
-	p.parse(&fis);
+	ASSERT_NE(p.parse(&fis), nullptr);
 }
 
 TEST(ParserTest, Epsilon) {
@@ -54,10 +54,10 @@ TEST(ParserTest, Epsilon) {
 	std::stringstream ss;
 	ss << "aaa";
 	FileInputStream fis(&ss);
-	p.parse(&fis);
+	ASSERT_NE(p.parse(&fis), nullptr);
 	p.reset();
 	ss << "";
-	p.parse(&fis);
+	ASSERT_NE(p.parse(&fis), nullptr);
 }
 
 TEST(ParserTest, RegexGroup) {
@@ -81,5 +81,5 @@ TEST(ParserTest, RegexGroup) {
 	std::stringstream ss;
 	ss << "[-a-c-d-]";
 	FileInputStream fis(&ss);
-	p.parse(&fis);
+	ASSERT_NE(p.parse(&fis), nullptr);
 }

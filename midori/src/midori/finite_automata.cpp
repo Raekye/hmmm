@@ -137,7 +137,7 @@ std::unique_ptr<RegexDFA> RegexNFA::to_dfa() {
 			}
 		}
 
-		for (auto const& kv : _transitions) {
+		for (std::map<UInt, GroupedNFAState>::value_type const& kv : _transitions) {
 			RegexDFAState* next_dfa_state = nullptr;
 			std::map<GroupedNFAState, RegexDFAState*>::iterator it = generated_states.find(kv.second);
 			if (it == generated_states.end()) {
@@ -148,7 +148,7 @@ std::unique_ptr<RegexDFA> RegexNFA::to_dfa() {
 			assert(curr_dfa_state->_transitions[kv.first] == nullptr);
 			curr_dfa_state->_transitions[kv.first] = next_dfa_state;
 		}
-		for (auto const& kv : transitions) {
+		for (std::map<RegexNFAState::UnicodeIntervalTree::Interval, GroupedNFAState>::value_type const& kv : transitions) {
 			RegexDFAState* next_dfa_state = nullptr;
 			std::map<GroupedNFAState, RegexDFAState*>::iterator it = generated_states.find(kv.second);
 			if (it == generated_states.end()) {

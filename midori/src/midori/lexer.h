@@ -1,13 +1,11 @@
 #ifndef MIDORI_LEXER_H_INCLUDED
 #define MIDORI_LEXER_H_INCLUDED
 
-#include <cstdint>
 #include <string>
 #include <map>
 #include <vector>
 #include <istream>
 #include <functional>
-#include <stack>
 #include "global.h"
 #include "regex_ast.h"
 
@@ -64,6 +62,8 @@ public:
 	std::unique_ptr<Token> scan(IInputStream*);
 	void generate();
 	void reset();
+
+	void debug();
 
 private:
 	std::vector<std::string> rules;

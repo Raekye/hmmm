@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include <set>
-#include <stack>
 #include <tuple>
 #include <iostream>
 #include <memory>
@@ -64,17 +63,9 @@ public:
 	static UInt const UNICODE_MAX;
 
 	typedef std::pair<UInt, UInt> Range;
-	class RangeList {
-	public:
+	struct RangeList {
 		Range range;
 		std::unique_ptr<RangeList> next;
-
-		void flatten(std::vector<Range>* l) {
-			l->push_back(this->range);
-			if (this->next != nullptr) {
-				this->next->flatten(l);
-			}
-		}
 	};
 
 	bool negate;
