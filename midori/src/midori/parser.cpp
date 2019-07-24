@@ -14,6 +14,10 @@ ParserAST::~ParserAST() {
 	return;
 }
 
+ParserASTString::ParserASTString(std::string s) : str(s) {
+	return;
+}
+
 Match::~Match() {
 	return;
 }
@@ -27,6 +31,10 @@ MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms(p->
 void Parser::add_token(std::string tag, std::unique_ptr<RegexAST> regex) {
 	this->lexer.add_rule(tag, std::move(regex));
 	this->terminals.insert(tag);
+}
+
+void Parser::add_skip(std::string symbol) {
+	this->lexer.add_skip(symbol);
 }
 
 void Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler) {
@@ -50,15 +58,14 @@ void Parser::generate(std::string start) {
 	Parser::debug(this);
 }
 
-// TODO better return type possible?
-std::unique_ptr<Match> Parser::parse(IInputStream* in) {
+std::unique_ptr<MatchedNonterminal> Parser::parse(IInputStream* in) {
 	this->reset();
 	std::cout << std::endl << "===== Parsing" << std::endl;
 	this->parse_stack.push(0);
 	while (true) {
 		std::unique_ptr<Token> t = this->next_token(in);
 		if (t->tags.at(0) == Lexer::TOKEN_BAD) {
-			std::cout << "Bad token" << std::endl;
+			std::cout << "Bad token " << t->lexeme << std::endl;
 			break;
 		}
 		if (this->parse_advance(std::move(t))) {
@@ -69,8 +76,9 @@ std::unique_ptr<Match> Parser::parse(IInputStream* in) {
 	Parser::debug_match(this->parse_stack_matches.top().get(), 0);
 	assert(this->parse_stack.size() == 2);
 	assert(this->parse_stack_matches.size() == 1);
-	std::unique_ptr<Match> ret = std::move(this->parse_stack_matches.top());
+	std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
 	this->parse_stack_matches.pop();
+	std::unique_ptr<MatchedNonterminal> ret(dynamic_cast<MatchedNonterminal*>(m.release()));
 	return ret;
 }
 
@@ -95,7 +103,7 @@ bool Parser::parse_advance(std::unique_ptr<Token> t) {
 	std::cout << ": " << t->lexeme << std::endl;
 	ItemSet* curr = this->current_state();
 	for (std::string const& tag : t->tags) {
-		std::cout << "Trying tag " << tag << std::endl;
+		std::cout << "Trying tag " << tag << " (" << t->loc.line << ", " << t->loc.column << ")" << std::endl;
 		std::map<std::string, ItemSet*>::iterator next_shift = curr->next.find(tag);
 		std::map<std::string, Production*>::iterator next_reduction = curr->reductions.find(tag);
 		if (next_shift != curr->next.end()) {
@@ -120,7 +128,9 @@ bool Parser::parse_advance(std::unique_ptr<Token> t) {
 				this->parse_stack_matches.pop();
 				mnt->terms[next_reduction->second->symbols.size() - i - 1] = std::move(m);
 			}
-			mnt->value = next_reduction->second->handler(mnt.get());
+			if (next_reduction->second->handler != nullptr) {
+				mnt->value = next_reduction->second->handler(mnt.get());
+			}
 			// TODO: why no cast?
 			this->parse_stack_matches.push(std::move(mnt));
 			std::cout << "getting shift from state " << this->parse_stack.top() << " size " << this->parse_stack.size() << std::endl;

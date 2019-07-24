@@ -1,10 +1,7 @@
 #include "gtest/gtest.h"
 #include "midori/regex_ast.h"
 
-class RegexTest : public ::testing::Test {
-};
-
-TEST_F(RegexTest, Group) {
+TEST(RegexTest, Group) {
 	std::unique_ptr<RegexASTGroup::RangeList> r1(new RegexASTGroup::RangeList);
 	r1->range.first = 100;
 	r1->range.second = 116;
@@ -47,7 +44,7 @@ TEST_F(RegexTest, Group) {
 	ASSERT_EQ(l3.at(2).second, RegexASTGroup::UNICODE_MAX);
 }
 
-TEST_F(RegexTest, GroupMerge) {
+TEST(RegexTest, GroupMerge) {
 	std::vector<std::pair<UInt, UInt>> ranges = {
 		std::make_pair(0, 16),
 		std::make_pair(0, 4),
@@ -78,7 +75,7 @@ TEST_F(RegexTest, GroupMerge) {
 	ASSERT_EQ(l.at(2).second, 232);
 }
 
-TEST_F(RegexTest, GroupNegate) {
+TEST(RegexTest, GroupNegate) {
 	std::unique_ptr<RegexASTGroup::RangeList> r1(new RegexASTGroup::RangeList);
 	r1->range.first = 100;
 	r1->range.second = 116;

@@ -3,10 +3,7 @@
 #include <sstream>
 #include "midori/regex_engine.h"
 
-class RegexEngineTest : public ::testing::Test {
-};
-
-TEST_F(RegexEngineTest, Dash) {
+TEST(RegexEngineTest, Dash) {
 	RegexEngine re;
 	Lexer l;
 	l.add_rule("a", re.parse("[-b-a-cd---]"));

@@ -4,10 +4,7 @@
 #include <vector>
 #include "midori/regex_engine.h"
 
-class LexerTest : public ::testing::Test {
-};
-
-TEST_F(LexerTest, Ascii) {
+TEST(LexerTest, Ascii) {
 	std::unique_ptr<RegexASTGroup> n1(new RegexASTGroup(false, nullptr));
 	n1->add_range('a', 'c');
 	n1->add_range('b', 'd');
@@ -35,7 +32,7 @@ TEST_F(LexerTest, Ascii) {
 	ASSERT_EQ(t->lexeme, "nopq");
 }
 
-TEST_F(LexerTest, Ranges) {
+TEST(LexerTest, Ranges) {
 	std::unique_ptr<RegexASTGroup> n1(new RegexASTGroup(false, nullptr));
 	n1->add_range(200, 299);
 	n1->add_range(400, 499);
@@ -55,7 +52,7 @@ TEST_F(LexerTest, Ranges) {
 	ASSERT_EQ(t->lexeme.length(), 6);
 }
 
-TEST_F(LexerTest, Multiplication) {
+TEST(LexerTest, Multiplication) {
 	RegexEngine re;
 	Lexer l;
 	l.add_rule("a", re.parse("(abc)?(def|ghi)*"));
@@ -83,4 +80,34 @@ TEST_F(LexerTest, Multiplication) {
 	t = l.scan(&fis);
 	ASSERT_EQ(t->tags.at(0), "b");
 	ASSERT_EQ(t->lexeme, "abcxyz");
+}
+
+TEST(LexerTest, LocationInfo) {
+	Lexer l;
+	std::string str;
+	for (char ch = 'a'; ch <= 'z'; ch++) {
+		l.add_rule(std::string(1, (ch - 'a' + 'A')), std::unique_ptr<RegexAST>(new RegexASTLiteral(ch)));
+		str.append(std::string(1, ch));
+	}
+	l.add_rule("NL", std::unique_ptr<RegexAST>(new RegexASTLiteral('\n')));
+	l.generate();
+	std::stringstream ss;
+	for (Int i = 0; i < 4; i++) {
+		ss << str << "\n";
+	}
+	FileInputStream fis(&ss);
+	for (Int i = 0; i < 4; i++) {
+		for (Int j = 0; j < 26; j++) {
+			std::unique_ptr<Token> t = l.scan(&fis);
+			ASSERT_EQ(t->loc.line, i + 1);
+			ASSERT_EQ(t->loc.column, j + 1);
+		}
+		std::unique_ptr<Token> t = l.scan(&fis);
+		ASSERT_EQ(t->loc.line, i + 1);
+		ASSERT_EQ(t->loc.column, 27);
+	}
+	std::unique_ptr<Token> t = l.scan(&fis);
+	ASSERT_EQ(t->tags.at(0), Lexer::TOKEN_END);
+	ASSERT_EQ(t->loc.line, 5);
+	ASSERT_EQ(t->loc.column, 1);
 }

@@ -1,12 +1,9 @@
 #include "gtest/gtest.h"
 #include "midori/interval_tree.h"
 
-class IntervalTreeTest : public ::testing::Test {
-public:
-	typedef IntervalTree<Int, Int> IT;
-};
+typedef IntervalTree<Int, Int> IT;
 
-TEST_F(IntervalTreeTest, IsBalanced) {
+TEST(IntervalTreeTest, IsBalanced) {
 	IT a;
 	for (Int i = 0; i < 1000; i++) {
 		a.insert(IT::Interval(i, i + 16), i);
@@ -18,7 +15,7 @@ TEST_F(IntervalTreeTest, IsBalanced) {
 	a.invariants();
 }
 
-TEST_F(IntervalTreeTest, Find) {
+TEST(IntervalTreeTest, Find) {
 	IT a;
 	for (Int i = 0; i < 1000; i++) {
 		a.insert(IT::Interval(i, i + 2), i);
@@ -27,7 +24,7 @@ TEST_F(IntervalTreeTest, Find) {
 	ASSERT_EQ(a.all()->size(), 1000);
 }
 
-TEST_F(IntervalTreeTest, Pop) {
+TEST(IntervalTreeTest, Pop) {
 	IT a;
 	for (Int i = 0; i < 1000; i++) {
 		a.insert(IT::Interval(i, i + 16), i);

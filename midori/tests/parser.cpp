@@ -2,10 +2,7 @@
 #include "midori/parser.h"
 #include <sstream>
 
-class ParserTest : public ::testing::Test {
-};
-
-TEST_F(ParserTest, Basic) {
+TEST(ParserTest, Basic) {
 	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return nullptr;
@@ -27,7 +24,7 @@ TEST_F(ParserTest, Basic) {
 	p.parse(&fis);
 }
 
-TEST_F(ParserTest, Recursion) {
+TEST(ParserTest, Recursion) {
 	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return nullptr;
@@ -43,7 +40,7 @@ TEST_F(ParserTest, Recursion) {
 	p.parse(&fis);
 }
 
-TEST_F(ParserTest, Epsilon) {
+TEST(ParserTest, Epsilon) {
 	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return nullptr;
@@ -63,7 +60,7 @@ TEST_F(ParserTest, Epsilon) {
 	p.parse(&fis);
 }
 
-TEST_F(ParserTest, RegexGroup) {
+TEST(ParserTest, RegexGroup) {
 	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return nullptr;

@@ -146,12 +146,35 @@ void Lexer::add_rule(std::string rule, std::unique_ptr<RegexAST> regex) {
 	this->rules_regex.push_back(std::move(regex));
 }
 
+void Lexer::add_skip(std::string symbol) {
+	this->skip.insert(symbol);
+}
+
 std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
+	// TODO: trailing newline in files?
+	while (true) {
+		std::unique_ptr<Token> t = this->_scan(in);
+		Int i = 0;
+		for (std::string const& s : t->tags) {
+			if (this->skip.find(s) != this->skip.end()) {
+				break;
+			}
+			i++;
+		}
+		if (i == t->tags.size()) {
+			return t;
+		}
+	}
+	return nullptr;
+}
+
+std::unique_ptr<Token> Lexer::_scan(IInputStream* in) {
 	RegexDFAState* current_state = this->dfa->root();
 	bool matched = false;
 	std::vector<std::string> matched_tags;
 	std::string matched_str = "";
 	UInt matched_buffer_pos = this->buffer_pos;
+	LocationInfo saved_location = this->location;
 	LocationInfo matched_location = this->location;
 	std::string found_buffer = "";
 	std::unique_ptr<Token> t;
@@ -165,15 +188,9 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 			found_buffer = "";
 		}
 		Long ch = this->read(in);
-		if (ch == '\n') {
-			this->location.line++;
-			this->location.column = 1;
-		} else {
-			this->location.column++;
-		}
 		if (ch < 0) {
 			if (matched) {
-				t.reset(new Token(matched_tags, matched_str, matched_location));
+				t.reset(new Token(matched_tags, matched_str, saved_location));
 				break;
 			}
 			if (ch == Lexer::CHAR_EOF) {
@@ -182,17 +199,23 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 					break;
 				}
 			}
-			t.reset(new Token({ Lexer::TOKEN_BAD }, found_buffer, matched_location));
+			t.reset(new Token({ Lexer::TOKEN_BAD }, found_buffer, saved_location));
 			break;
 		}
 		found_buffer.append(utf8::string_from_codepoint(ch));
 		this->buffer_pos++;
+		if (ch == '\n') {
+			this->location.line++;
+			this->location.column = 1;
+		} else {
+			this->location.column++;
+		}
 		RegexDFAState* next = current_state->next(ch);
 		if (next == nullptr) {
 			if (matched) {
-				t.reset(new Token(matched_tags, matched_str, matched_location));
+				t.reset(new Token(matched_tags, matched_str, saved_location));
 			} else {
-				t.reset(new Token({ Lexer::TOKEN_BAD }, found_buffer, matched_location));
+				t.reset(new Token({ Lexer::TOKEN_BAD }, found_buffer, saved_location));
 			}
 			break;
 		}

@@ -4,25 +4,6 @@
 #include "regex_ast.h"
 #include "parser.h"
 
-class ParserRegexAST : public ParserAST {
-public:
-	std::unique_ptr<RegexAST> regex;
-	ParserRegexAST(std::unique_ptr<RegexAST>);
-};
-
-class ParserStringAST : public ParserAST {
-public:
-	std::string str;
-	ParserStringAST(std::string);
-};
-
-class ParserRangeAST : public ParserAST {
-public:
-	UInt min;
-	UInt max;
-	ParserRangeAST(Long, Long);
-};
-
 class RegexEngine {
 public:
 	RegexEngine();

@@ -28,6 +28,12 @@ public:
 	virtual ~ParserAST() = 0;
 };
 
+class ParserASTString : public ParserAST {
+public:
+	std::string str;
+	ParserASTString(std::string);
+};
+
 struct Production {
 	std::string target;
 	std::vector<std::string> symbols;
@@ -61,10 +67,10 @@ public:
 
 	MatchedNonterminal(Production*);
 	inline MatchedTerminal* terminal(Int i) {
-		return dynamic_cast<MatchedTerminal*>(this->terms[i].get());
+		return dynamic_cast<MatchedTerminal*>(this->terms.at(i).get());
 	}
 	inline MatchedNonterminal* nonterminal(Int i) {
-		return dynamic_cast<MatchedNonterminal*>(this->terms[i].get());
+		return dynamic_cast<MatchedNonterminal*>(this->terms.at(i).get());
 	}
 };
 
@@ -72,9 +78,10 @@ class Parser {
 public:
 	void set_start(std::string);
 	void add_token(std::string, std::unique_ptr<RegexAST>);
+	void add_skip(std::string);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
 	void generate(std::string);
-	std::unique_ptr<Match> parse(IInputStream*);
+	std::unique_ptr<MatchedNonterminal> parse(IInputStream*);
 	void reset();
 
 private:

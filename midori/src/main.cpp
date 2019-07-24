@@ -6,14 +6,34 @@
 #include "midori/parser.h"
 #include "midori/regex_engine.h"
 #include "midori/interval_tree.h"
+#include "midori/generator.h"
 
-int test_regex_engine() {
-	RegexEngine re;
-	//std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678]";
-	std::string pattern = "[-a-b-cd---]";
-	std::unique_ptr<RegexAST> r = re.parse(pattern);
-	RegexASTPrinter printer;
-	r->accept(&printer);
+int test_interval_tree() {
+	typedef IntervalTree<UInt, Int> Foo;
+	Foo a;
+	for (UInt i = 0; i < 100; i++) {
+		a.insert(Foo::Interval(i, i + 10), i);
+	}
+	a.invariants();
+	std::unique_ptr<Foo::SearchList> all = a.all();
+	std::cout << all->size() << std::endl;
+
+	std::unique_ptr<Foo::SearchList> results = a.pop(Foo::Interval(3, 3));
+	a.invariants();
+	std::cout << results->size() << std::endl;
+
+	results = a.pop(Foo::Interval(50, 51));
+	a.invariants();
+	std::cout << results->size() << std::endl;
+
+	Foo b;
+	for (UInt i = 0; i < 1000; i++) {
+		b.insert(Foo::Interval(i, i), i);
+	}
+	b.invariants();
+	results = b.pop(Foo::Interval(800, 899));
+	b.invariants();
+	std::cout << results->size() << std::endl;
 	return 0;
 }
 
@@ -82,41 +102,24 @@ int test_parser2() {
 	return 0;
 }
 
-/*
-int test_generator() {
-	std::fstream f("src/parser.txt", std::fstream::in);
-	std::unique_ptr<Parser> p = Parser::from_file(&f);
-	(void) p;
+int test_regex_engine() {
+	RegexEngine re;
+	//std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678]";
+	std::string pattern = "[-a-b-cd---]";
+	std::unique_ptr<RegexAST> r = re.parse(pattern);
+	RegexASTPrinter printer;
+	r->accept(&printer);
 	return 0;
 }
-*/
 
-int test_interval_tree() {
-	typedef IntervalTree<UInt, Int> Foo;
-	Foo a;
-	for (UInt i = 0; i < 100; i++) {
-		a.insert(Foo::Interval(i, i + 10), i);
-	}
-	a.invariants();
-	std::unique_ptr<Foo::SearchList> all = a.all();
-	std::cout << all->size() << std::endl;
-
-	std::unique_ptr<Foo::SearchList> results = a.pop(Foo::Interval(3, 3));
-	a.invariants();
-	std::cout << results->size() << std::endl;
-
-	results = a.pop(Foo::Interval(50, 51));
-	a.invariants();
-	std::cout << results->size() << std::endl;
-
-	Foo b;
-	for (UInt i = 0; i < 1000; i++) {
-		b.insert(Foo::Interval(i, i), i);
-	}
-	b.invariants();
-	results = b.pop(Foo::Interval(800, 899));
-	b.invariants();
-	std::cout << results->size() << std::endl;
+int test_generator() {
+	std::fstream f("../src/parser.txt", std::fstream::in);
+	std::unique_ptr<Parser> p = ParserGenerator::from_file(&f);
+	std::stringstream ss;
+	ss << "a1ab2bc3cd4d";
+	FileInputStream fis(&ss);
+	std::unique_ptr<MatchedNonterminal> m = p->parse(&fis);
+	assert(m != nullptr);
 	return 0;
 }
 
@@ -128,6 +131,6 @@ int main() {
 	test_parser2();
 	test_parser1();
 	test_regex_engine();
-	//test_generator();
+	test_generator();
 	return 0;
 }

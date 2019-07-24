@@ -1,1 +1,14 @@
-aaabbb
+
+
+LETTER: /[a-z]
+NUMBER: /[0-9]
+
+root: zip_list;
+
+zip_list:
+	zip_list zip
+	| $epsilon;
+
+zip: half half;
+
+half: LETTER NUMBER LETTER;

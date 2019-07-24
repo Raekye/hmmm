@@ -60,6 +60,7 @@ public:
 	Lexer();
 
 	void add_rule(std::string, std::unique_ptr<RegexAST>);
+	void add_skip(std::string);
 	std::unique_ptr<Token> scan(IInputStream*);
 	void generate();
 	void reset();
@@ -67,6 +68,7 @@ public:
 private:
 	std::vector<std::string> rules;
 	std::vector<std::unique_ptr<RegexAST>> rules_regex;
+	std::set<std::string> skip;
 
 	std::unique_ptr<RegexDFA> dfa;
 
@@ -75,6 +77,7 @@ private:
 
 	LocationInfo location;
 
+	std::unique_ptr<Token> _scan(IInputStream*);
 	Long read(IInputStream*);
 };
 

@@ -4,8 +4,9 @@ Me playing around, learning to build compilers.
 See my [compiler for a custom soft processor on an FPGA][1] for this put in practice.
 
 ## Directory map
-The names are not particularly meaningful; just something unique and identifiable (not "lexer" or "compiler\_1") I thought of at the moment.
-Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
+Directories `madoka` to `tk` contain a `Makefile` that puts stuff in a `bin/` folder.
+Starting from `midori`, CMake is used.
+Example build: `mkdir build && cd build && cmake .. && make && make test`.
 
 - `madoka`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
 - `sayaka` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
@@ -21,6 +22,10 @@ Each of these directories has a `Makefile` that puts stuff in a `bin/` folder.
 
 ### Tk
 - fixed parser handling epsilon productions
+
+### Midori
+- lexer/finite automata now support ranges using interval trees
+- rewrote parser generator/parsing algorithm, influenced by [Lark][2]
 
 ## Regex grammar
 - multiplication is repetition
@@ -190,5 +195,7 @@ dec_int
 - http://swtch.com/~rsc/regexp/regexp1.html
 - http://stackoverflow.com/questions/2245962/is-there-an-alternative-for-flex-bison-that-is-usable-on-8-bit-embedded-systems
 - https://web.cs.dal.ca/~sjackson/lalr1.html
+- https://stackoverflow.com/questions/8242509/how-does-the-yacc-bison-lalr1-algorithm-treat-empty-rules
 
 [1]: https://github.com/Raekye/bdel_and_dfr_compiler
+[2]: https://github.com/lark-parser/lark
