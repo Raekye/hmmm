@@ -9,7 +9,7 @@ Starting from `midori`, CMake is used.
 Example build: `mkdir build && cd build && cmake .. && make && make test`.
 
 - `madoka`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
-- `sayaka` (in progress): successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
+- `sayaka`: successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
 - `siyu`: hand written LL(1) regex parser, NFA state generator, DFA state generator, lexer-generator, and parser-generator
 - `tk`: successor to `siyu/`, completed LALR(1) parser generator
 - `midori`: successor to `tk/`, hmmmm

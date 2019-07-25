@@ -358,6 +358,19 @@ std::unique_ptr<Parser> RegexEngine::make() {
 		Long l2 = std::stol(r2->str.c_str(), nullptr, 10);
 		return std::unique_ptr<ParserAST>(new ParserASTRange(l1, l2));
 	});
+	p->add_production("mul_range", { "LBRACE", "dec_int", "RBRACE" }, nullptr, [](std::unique_ptr<MatchedNonterminal> m) -> std::unique_ptr<MatchedNonterminal> {
+		std::unique_ptr<MatchedNonterminal> ret(new MatchedNonterminal);
+		LocationInfo loc;
+		std::unique_ptr<MatchedTerminal> t0(new MatchedTerminal(std::unique_ptr<Token>(new Token({ "DEC" }, "0", loc))));
+		std::unique_ptr<MatchedTerminal> t1(new MatchedTerminal(std::unique_ptr<Token>(new Token({ "COMMA" }, "", loc))));
+		ret->terms.push_back(std::move(m->terms.at(0)));
+		ret->terms.push_back(std::move(t0));
+		ret->terms.push_back(std::move(t1));
+		ret->terms.push_back(std::move(m->terms.at(1)));
+		ret->terms.push_back(std::move(m->terms.at(2)));
+		return ret;
+	});
+
 	p->add_production("dec_int", { "DEC", "dec_int" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		std::string str1 = m->terminal(0)->token->lexeme;
 		std::string str2 = dynamic_cast<ParserASTString*>(m->nonterminal(1)->value.get())->str;

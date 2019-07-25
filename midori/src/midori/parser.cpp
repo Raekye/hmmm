@@ -38,10 +38,14 @@ void Parser::add_skip(std::string symbol) {
 }
 
 void Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler) {
+	this->add_production(target, symbols, handler, nullptr);
+}
+void Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler, RewriteHandler rewrite) {
 	std::unique_ptr<Production> p(new Production);
 	p->target = target;
 	p->symbols = symbols;
 	p->handler = handler;
+	p->rewrite = rewrite;
 	this->nonterminals[target].push_back(p.get());
 	this->productions.push_back(std::move(p));
 }
@@ -132,6 +136,11 @@ bool Parser::parse_advance(std::unique_ptr<Token> t, bool* accept) {
 				this->parse_stack_matches.pop();
 				mnt->terms[next_reduction->second->symbols.size() - i - 1] = std::move(m);
 			}
+			if (next_reduction->second->rewrite != nullptr) {
+				std::unique_ptr<MatchedNonterminal> transformed = next_reduction->second->rewrite(std::move(mnt));
+				this->pull_tokens(transformed.get());
+				return false;
+			}
 			if (next_reduction->second->handler != nullptr) {
 				mnt->value = next_reduction->second->handler(mnt.get());
 			}
@@ -156,6 +165,18 @@ bool Parser::parse_advance(std::unique_ptr<Token> t, bool* accept) {
 		Parser::debug_production(kv.second);
 	}
 	return true;
+}
+
+void Parser::pull_tokens(Match* m) {
+	if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
+		this->push_token(std::move(mt->token));
+		return;
+	}
+	MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m);
+	assert(mnt != nullptr);
+	for (std::vector<std::unique_ptr<Match>>::reverse_iterator it = mnt->terms.rbegin(); it != mnt->terms.rend(); it++) {
+		this->pull_tokens(it->get());
+	}
 }
 
 void Parser::generate_itemsets() {
@@ -235,8 +256,6 @@ void Parser::generate_first_sets() {
 	while (changed) {
 		changed = false;
 		for (const std::unique_ptr<Production>& p : this->productions) {
-			mdk::printf("[debug] generating first set for\n");
-			Parser::debug_production(p.get());
 			std::set<std::string>& f = this->firsts[p->target];
 			if (Parser::production_is_epsilon(p.get())) {
 				//changed = changed || f.insert(Parser::EPSILON).second;

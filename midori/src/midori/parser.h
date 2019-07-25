@@ -22,6 +22,7 @@ class MatchedNonterminal;
 class ParserAST;
 
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
+typedef std::function<std::unique_ptr<MatchedNonterminal>(std::unique_ptr<MatchedNonterminal>)> RewriteHandler;
 typedef std::pair<Production*, Int> Item;
 
 class ParserAST {
@@ -39,6 +40,7 @@ struct Production {
 	std::string target;
 	std::vector<std::string> symbols;
 	ProductionHandler handler;
+	RewriteHandler rewrite;
 };
 
 struct ItemSet {
@@ -84,6 +86,7 @@ public:
 	void add_token(std::string, std::unique_ptr<RegexAST>);
 	void add_skip(std::string);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
+	void add_production(std::string, std::vector<std::string>, ProductionHandler, RewriteHandler);
 	void generate(std::string);
 	std::unique_ptr<MatchedNonterminal> parse(IInputStream*);
 	void reset();
@@ -121,6 +124,7 @@ private:
 	}
 
 	void push_token(std::unique_ptr<Token>);
+	void pull_tokens(Match*);
 	std::unique_ptr<Token> next_token(IInputStream*);
 
 	bool parse_advance(std::unique_ptr<Token>, bool*);
