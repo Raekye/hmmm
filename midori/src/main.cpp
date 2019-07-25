@@ -105,7 +105,7 @@ int test_parser2() {
 int test_regex_engine() {
 	RegexEngine re;
 	//std::string pattern = "(abc){0,3}[a-zA-Z]|def.\\.[^a-zA-Z]?+-^\\n+[^\\t\\xff-\\u12345678]";
-	std::string pattern = "[-a-b-cd---]{3}";
+	std::string pattern = "[-a-b-cd---]{3}abc";
 	std::unique_ptr<RegexAST> r = re.parse(pattern);
 	RegexASTPrinter printer;
 	r->accept(&printer);

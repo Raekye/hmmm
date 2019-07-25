@@ -67,17 +67,20 @@ std::unique_ptr<MatchedNonterminal> Parser::parse(IInputStream* in) {
 	this->parse_stack.push(0);
 	bool accept = false;
 	while (true) {
-		std::unique_ptr<Token> t = this->next_token(in);
-		std::cout << "Got token";
-		for (std::string const& tag : t->tags) {
-			std::cout << " " << tag;
+		std::unique_ptr<Match> s = this->next_symbol(in);
+		if (MatchedTerminal* m = dynamic_cast<MatchedTerminal*>(s.get())) {
+			Token* t = m->token.get();
+			std::cout << "Got token";
+			for (std::string const& tag : t->tags) {
+				std::cout << " " << tag;
+			}
+			std::cout << ": " << t->lexeme << " (" << t->loc.line << ", " << t->loc.column << ")" <<std::endl;
+			if (t->tags.at(0) == Lexer::TOKEN_BAD) {
+				std::cout << "Bad token " << std::endl;
+				break;
+			}
 		}
-		std::cout << ": " << t->lexeme << " (" << t->loc.line << ", " << t->loc.column << ")" <<std::endl;
-		if (t->tags.at(0) == Lexer::TOKEN_BAD) {
-			std::cout << "Bad token " << std::endl;
-			break;
-		}
-		if (this->parse_advance(std::move(t), &accept)) {
+		if (this->parse_advance(std::move(s), &accept)) {
 			break;
 		}
 	}
@@ -106,56 +109,24 @@ void Parser::reset() {
 
 #pragma mark - Parser - private
 
-bool Parser::parse_advance(std::unique_ptr<Token> t, bool* accept) {
+bool Parser::parse_advance(std::unique_ptr<Match> s, bool* accept) {
 	mdk::printf("[debug] parse at state %d, size %zd\n", this->parse_stack.top(), this->parse_stack.size());
-	ItemSet* curr = this->current_state();
-	for (std::string const& tag : t->tags) {
-		std::cout << "Trying tag " << tag << std::endl;
-		std::map<std::string, ItemSet*>::iterator next_shift = curr->next.find(tag);
-		std::map<std::string, Production*>::iterator next_reduction = curr->reductions.find(tag);
-		if (next_shift != curr->next.end()) {
-			if (next_reduction != curr->reductions.end()) {
-				std::cout << "Shift reduce conflict" << std::endl;
+	if (MatchedTerminal* m = dynamic_cast<MatchedTerminal*>(s.get())) {
+		for (std::string const& tag : m->token->tags) {
+			std::cout << "Trying tag " << tag << std::endl;
+			s = this->parse_symbol(tag, std::move(s), accept);
+			if (s == nullptr) {
+				return (*accept);
 			}
-			if (tag == Lexer::TOKEN_END) {
-				*accept = true;
-				return true;
-			}
-			std::cout << "shifting to " << next_shift->second->index << std::endl;
-			this->parse_stack.push(next_shift->second->index);
-			this->parse_stack_matches.push(std::unique_ptr<Match>(new MatchedTerminal(std::move(t))));
-			return false;
 		}
-		if (next_reduction != curr->reductions.end()) {
-			std::cout << "reducing via rule ";
-			Parser::debug_production(next_reduction->second);
-			std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(next_reduction->second));
-			for (size_t i = 0; i < next_reduction->second->symbols.size(); i++) {
-				this->parse_stack.pop();
-				std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
-				this->parse_stack_matches.pop();
-				mnt->terms[next_reduction->second->symbols.size() - i - 1] = std::move(m);
-			}
-			if (next_reduction->second->rewrite != nullptr) {
-				std::unique_ptr<MatchedNonterminal> transformed = next_reduction->second->rewrite(std::move(mnt));
-				this->pull_tokens(transformed.get());
-				return false;
-			}
-			if (next_reduction->second->handler != nullptr) {
-				mnt->value = next_reduction->second->handler(mnt.get());
-			}
-			// TODO: why no cast?
-			this->parse_stack_matches.push(std::move(mnt));
-			std::cout << "getting shift from state " << this->parse_stack.top() << " size " << this->parse_stack.size() << std::endl;
-			ItemSet* reduce_state = this->current_state();
-			std::map<std::string, ItemSet*>::iterator reduction_shift = reduce_state->next.find(next_reduction->second->target);
-			assert(reduction_shift != reduce_state->next.end());
-			std::cout << "reduction shifting to " << reduction_shift->second->index << std::endl;
-			this->parse_stack.push(reduction_shift->second->index);
-			this->push_token(std::move(t));
-			return false;
+	} else if (MatchedNonterminal* m = dynamic_cast<MatchedNonterminal*>(s.get())) {
+		std::cout << "Trying nonterminal " << m->production->target << std::endl;
+		s = this->parse_symbol(m->production->target, std::move(s), accept);
+		if (s == nullptr) {
+			return (*accept);
 		}
 	}
+	ItemSet* curr = this->current_state();
 	std::cout << "no rules, expected to see" << std::endl;
 	for (std::map<std::string, ItemSet*>::value_type const& kv : curr->next) {
 		std::cout << kv.first << " -> " << kv.second->index << std::endl;
@@ -167,16 +138,58 @@ bool Parser::parse_advance(std::unique_ptr<Token> t, bool* accept) {
 	return true;
 }
 
-void Parser::pull_tokens(Match* m) {
-	if (MatchedTerminal* mt = dynamic_cast<MatchedTerminal*>(m)) {
-		this->push_token(std::move(mt->token));
-		return;
+std::unique_ptr<Match> Parser::parse_symbol(std::string tag, std::unique_ptr<Match> s, bool* accept) {
+	ItemSet* curr = this->current_state();
+	std::map<std::string, ItemSet*>::iterator next_shift = curr->next.find(tag);
+	std::map<std::string, Production*>::iterator next_reduction = curr->reductions.find(tag);
+	if (next_shift != curr->next.end()) {
+		if (next_reduction != curr->reductions.end()) {
+			std::cout << "Shift reduce conflict" << std::endl;
+		}
+		if (tag == Lexer::TOKEN_END) {
+			*accept = true;
+			return nullptr;
+		}
+		std::cout << "shifting to " << next_shift->second->index << std::endl;
+		this->parse_stack.push(next_shift->second->index);
+		this->parse_stack_matches.push(std::move(s));
+		return nullptr;
 	}
-	MatchedNonterminal* mnt = dynamic_cast<MatchedNonterminal*>(m);
-	assert(mnt != nullptr);
-	for (std::vector<std::unique_ptr<Match>>::reverse_iterator it = mnt->terms.rbegin(); it != mnt->terms.rend(); it++) {
-		this->pull_tokens(it->get());
+	if (next_reduction != curr->reductions.end()) {
+		this->push_symbol(std::move(s));
+		std::cout << "reducing via rule ";
+		Parser::debug_production(next_reduction->second);
+		std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(next_reduction->second));
+		size_t n = next_reduction->second->symbols.size();
+		for (size_t i = 0; i < n; i++) {
+			this->parse_stack.pop();
+			std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
+			this->parse_stack_matches.pop();
+			mnt->terms[n - i - 1] = std::move(m);
+		}
+		if (next_reduction->second->handler != nullptr) {
+			mnt->value = next_reduction->second->handler(mnt.get());
+		}
+		if (next_reduction->second->rewrite != nullptr) {
+			std::unique_ptr<MatchedNonterminal> transformed = next_reduction->second->rewrite(std::move(mnt));
+			this->pull_symbols(std::move(transformed));
+			return nullptr;
+		}
+		/*
+		// TODO: why no cast?
+		this->parse_stack_matches.push(std::move(mnt));
+		std::cout << "getting shift from state " << this->parse_stack.top() << " size " << this->parse_stack.size() << std::endl;
+		ItemSet* reduce_state = this->current_state();
+		std::map<std::string, ItemSet*>::iterator reduction_shift = reduce_state->next.find(next_reduction->second->target);
+		assert(reduction_shift != reduce_state->next.end());
+		std::cout << "reduction shifting to " << reduction_shift->second->index << std::endl;
+		this->parse_stack.push(reduction_shift->second->index);
+		this->push_token(std::move(t));
+		*/
+		this->push_symbol(std::move(mnt));
+		return nullptr;
 	}
+	return s;
 }
 
 void Parser::generate_itemsets() {
@@ -333,17 +346,35 @@ void Parser::generate_follow_sets() {
 	}
 }
 
-void Parser::push_token(std::unique_ptr<Token> t) {
-	this->token_buffer.push(std::move(t));
+void Parser::push_symbol(std::unique_ptr<Match> s) {
+	this->symbol_buffer.push(std::move(s));
 }
 
-std::unique_ptr<Token> Parser::next_token(IInputStream* in) {
-	if (this->token_buffer.empty()) {
-		return this->lexer.scan(in);
+void Parser::pull_symbols(std::unique_ptr<Match> s) {
+	if (dynamic_cast<MatchedTerminal*>(s.get())) {
+		this->push_symbol(std::move(s));
+		return;
 	}
-	std::unique_ptr<Token> t = std::move(this->token_buffer.top());
-	this->token_buffer.pop();
-	return t;
+	MatchedNonterminal* m = dynamic_cast<MatchedNonterminal*>(s.get());
+	assert(m != nullptr);
+	if (m->production != nullptr) {
+		std::cout << "[debug] pulling already made nonterminal" << std::endl;
+		this->push_symbol(std::move(s));
+		return;
+	}
+	for (std::vector<std::unique_ptr<Match>>::reverse_iterator it = m->terms.rbegin(); it != m->terms.rend(); it++) {
+		this->pull_symbols(std::move(*it));
+	}
+}
+
+std::unique_ptr<Match> Parser::next_symbol(IInputStream* in) {
+	if (this->symbol_buffer.empty()) {
+		std::unique_ptr<Token> t = this->lexer.scan(in);
+		return std::unique_ptr<Match>(new MatchedTerminal(std::move(t)));
+	}
+	std::unique_ptr<Match> s = std::move(this->symbol_buffer.top());
+	this->symbol_buffer.pop();
+	return s;
 }
 
 bool Parser::production_is_epsilon(Production* p) {

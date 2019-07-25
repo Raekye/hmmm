@@ -20,6 +20,7 @@
 struct Production;
 class MatchedNonterminal;
 class ParserAST;
+class Parser;
 
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::function<std::unique_ptr<MatchedNonterminal>(std::unique_ptr<MatchedNonterminal>)> RewriteHandler;
@@ -100,19 +101,19 @@ private:
 	static bool item_is_done(Item);
 
 	Lexer lexer;
-	std::stack<std::unique_ptr<Token>> token_buffer;
 
 	std::set<std::string> terminals;
 	std::map<std::string, std::vector<Production*>> nonterminals;
 	std::vector<std::unique_ptr<Production>> productions;
 
-	std::vector<std::unique_ptr<ItemSet>> states;
-	std::map<std::set<Item>, ItemSet*> itemsets;
-
 	std::set<std::string> nullable;
 	std::map<std::string, std::set<std::string>> firsts;
 	std::map<std::string, std::set<std::string>> follows;
 
+	std::vector<std::unique_ptr<ItemSet>> states;
+	std::map<std::set<Item>, ItemSet*> itemsets;
+
+	std::stack<std::unique_ptr<Match>> symbol_buffer;
 	std::stack<Int> parse_stack;
 	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
@@ -123,11 +124,12 @@ private:
 		return this->terminals.find(s) != this->terminals.end();
 	}
 
-	void push_token(std::unique_ptr<Token>);
-	void pull_tokens(Match*);
-	std::unique_ptr<Token> next_token(IInputStream*);
+	void push_symbol(std::unique_ptr<Match>);
+	void pull_symbols(std::unique_ptr<Match>);
+	std::unique_ptr<Match> next_symbol(IInputStream*);
 
-	bool parse_advance(std::unique_ptr<Token>, bool*);
+	bool parse_advance(std::unique_ptr<Match>, bool*);
+	std::unique_ptr<Match> parse_symbol(std::string, std::unique_ptr<Match>, bool*);
 
 	void generate_first_sets();
 	void generate_follow_sets();
