@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <utility>
-#include <list>
+#include <vector>
 #include <algorithm>
 #include "global.h"
 
@@ -11,7 +11,7 @@ template <typename K, typename V> class IntervalTree {
 public:
 	typedef std::pair<K, K> Interval;
 	typedef std::pair<Interval, V> SearchResult;
-	typedef std::list<SearchResult> SearchList;
+	typedef std::vector<SearchResult> SearchList;
 
 	void insert(Interval, V);
 	std::unique_ptr<SearchList> pop(Interval);

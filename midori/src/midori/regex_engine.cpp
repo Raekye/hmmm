@@ -31,9 +31,11 @@ std::unique_ptr<RegexAST> RegexEngine::parse(std::string pattern) {
 	std::stringstream ss;
 	ss << pattern;
 	FileInputStream fis(&ss);
-	std::unique_ptr<Match> m = this->parser->parse(&fis);
-	MatchedNonterminal* n = dynamic_cast<MatchedNonterminal*>(m.get());
-	ParserASTRegex* r = dynamic_cast<ParserASTRegex*>(n->value.get());
+	std::unique_ptr<MatchedNonterminal> m = this->parser->parse(&fis);
+	if (m == nullptr) {
+		return nullptr;
+	}
+	ParserASTRegex* r = dynamic_cast<ParserASTRegex*>(m->value.get());
 	return std::move(r->regex);
 }
 

@@ -196,6 +196,11 @@ dec_int
 - http://stackoverflow.com/questions/2245962/is-there-an-alternative-for-flex-bison-that-is-usable-on-8-bit-embedded-systems
 - https://web.cs.dal.ca/~sjackson/lalr1.html
 - https://stackoverflow.com/questions/8242509/how-does-the-yacc-bison-lalr1-algorithm-treat-empty-rules
+- https://stackoverflow.com/questions/57120176/grammar-matching-regex-character-classes-trailing-dash/
+- Compilers: Principles, Techniques, and Tools (the Dragon book)
+- Parsing Theory Volume 2 LR(k) and LL(k) Parsing
+- Efficient Parsing for Natural Language: A Fast Algorithm for Practical Systems
+- http://scottmcpeak.com/elkhound/elkhound.ps
 
 [1]: https://github.com/Raekye/bdel_and_dfr_compiler
 [2]: https://github.com/lark-parser/lark

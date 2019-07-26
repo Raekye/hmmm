@@ -46,7 +46,7 @@ struct Production {
 
 struct ItemSet {
 	Int index;
-	std::set<Item> head;
+	std::set<Item> kernel;
 	std::set<Item> closure;
 	std::map<std::string, ItemSet*> next;
 	std::map<std::string, Production*> reductions;
