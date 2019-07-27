@@ -7,7 +7,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/parser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/regex_engine.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/generator.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/glr.cpp
+	#${CMAKE_CURRENT_SOURCE_DIR}/glr.cpp
 	)
 
 add_library(midori SHARED ${SOURCES})

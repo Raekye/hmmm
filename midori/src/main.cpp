@@ -123,14 +123,39 @@ int test_generator() {
 	return 0;
 }
 
+int test_lalr() {
+	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	};
+	Parser p;
+	p.add_token("EQUALS", std::unique_ptr<RegexAST>(new RegexASTLiteral('=')));
+	p.add_token("STAR", std::unique_ptr<RegexAST>(new RegexASTLiteral('*')));
+	p.add_token("ID", std::unique_ptr<RegexAST>(new RegexASTLiteral('i')));
+	p.add_production("s", { "l", "EQUALS", "r" }, fn);
+	p.add_production("s", { "r" }, fn);
+	p.add_production("l", { "STAR", "r" }, fn);
+	p.add_production("l", { "ID" }, fn);
+	p.add_production("r", { "l" }, fn);
+	p.generate("s");
+	std::stringstream ss;
+	ss << "*id=id";
+	FileInputStream fis(&ss);
+	p.parse(&fis);
+	return 0;
+}
+
 int main() {
 	ULong x = ~0;
 	std::cout << "-1 is " << x << std::endl;
+	/*
 	test_interval_tree();
 	test_parser0();
 	test_parser2();
 	test_parser1();
 	test_generator();
 	test_regex_engine();
+	*/
+	test_lalr();
 	return 0;
 }

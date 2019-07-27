@@ -59,6 +59,14 @@ void Parser::generate(std::string start) {
 	this->generate_first_sets();
 	this->generate_follow_sets();
 	this->generate_itemsets();
+
+	for (std::unique_ptr<ItemSet> const& i : this->states) {
+		for (std::map<std::string, ItemSet*>::value_type it : i->next) {
+			if (i->reductions.find(it.first) != i->reductions.end()) {
+				std::cout << "Shift reduce conflict at state " << i->index << " for " << it.first << std::endl;
+			}
+		}
+	}
 }
 
 std::unique_ptr<MatchedNonterminal> Parser::parse(IInputStream* in) {
