@@ -197,7 +197,7 @@ std::unique_ptr<Match> Parser::parse_symbol(std::string tag, std::unique_ptr<Mat
 void Parser::generate_itemsets() {
 	assert(this->states.size() == 0);
 	std::unique_ptr<ItemSet> start(new ItemSet);
-	for (Production* p : this->nonterminals.at(Parser::ROOT)) {
+	for (Production* const p : this->nonterminals.at(Parser::ROOT)) {
 		start->kernel.insert(Item(p, 0));
 	}
 	std::list<ItemSet*> q;
@@ -258,7 +258,7 @@ void Parser::generate_closure(std::set<Item>* kernel, std::set<Item>* closure) {
 				if (this->symbol_is_token(s)) {
 					continue;
 				}
-				for (Production* p : this->nonterminals.at(s)) {
+				for (Production* const p : this->nonterminals.at(s)) {
 					q.push_back(Item(p, 0));
 				}
 			}

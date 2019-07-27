@@ -6,8 +6,6 @@
 #include <set>
 #include <stack>
 #include <functional>
-#include <utility>
-#include <tuple>
 #include "global.h"
 #include "lexer.h"
 
@@ -20,7 +18,6 @@
 struct Production;
 class MatchedNonterminal;
 class ParserAST;
-class Parser;
 
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::function<std::unique_ptr<MatchedNonterminal>(std::unique_ptr<MatchedNonterminal>)> RewriteHandler;
@@ -56,6 +53,7 @@ class Match {
 public:
 	virtual ~Match() = 0;
 };
+
 class MatchedTerminal : public Match {
 public:
 	std::unique_ptr<Token> token;
@@ -133,9 +131,6 @@ private:
 
 	void generate_first_sets();
 	void generate_follow_sets();
-
-	ItemSet* generate_itemset(std::set<Item>);
-	void expand_symbol_into_itemset(ItemSet*, std::string, std::set<std::string>*);
 	void generate_itemsets();
 	void generate_closure(std::set<Item>*, std::set<Item>*);
 
