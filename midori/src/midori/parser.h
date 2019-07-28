@@ -6,14 +6,9 @@
 #include <set>
 #include <stack>
 #include <functional>
+#include <tuple>
 #include "global.h"
 #include "lexer.h"
-
-// TODO: named matches
-// TODO: use symbol typedef
-// TODO: asserts
-// TODO: unique ptr
-// TODO: for loops const and &
 
 struct Production;
 class MatchedNonterminal;
@@ -35,6 +30,7 @@ public:
 };
 
 struct Production {
+	Int index;
 	std::string target;
 	std::vector<std::string> symbols;
 	ProductionHandler handler;
@@ -46,6 +42,33 @@ struct ItemSet {
 	std::set<Item> kernel;
 	std::set<Item> closure;
 	std::map<std::string, ItemSet*> next;
+	std::map<std::string, Production*> reductions;
+};
+
+struct LR1Item {
+	Production* production;
+	Int dot;
+	std::string terminal;
+
+	LR1Item(Production* p, Int d, std::string t) : production(p), dot(d), terminal(t) {
+		return;
+	}
+
+	bool is_done() const {
+		return this->dot == this->production->symbols.size();
+	}
+
+	friend bool operator<(LR1Item const& lhs, LR1Item const& rhs) {
+		return std::tie(lhs.production->index, lhs.dot, lhs.terminal) < std::tie(rhs.production->index, rhs.dot, rhs.terminal);
+	}
+};
+
+struct LR1ItemSet {
+	Int index;
+	bool accept;
+	std::set<LR1Item> kernel;
+	std::set<LR1Item> closure;
+	std::map<std::string, LR1ItemSet*> next;
 	std::map<std::string, Production*> reductions;
 };
 
@@ -111,8 +134,12 @@ private:
 	std::vector<std::unique_ptr<ItemSet>> states;
 	std::map<std::set<Item>, ItemSet*> itemsets;
 
+	std::vector<std::unique_ptr<LR1ItemSet>> lr1_states;
+	std::map<std::set<LR1Item>, LR1ItemSet*> lr1_itemsets;
+
 	std::stack<std::unique_ptr<Match>> symbol_buffer;
 	std::stack<Int> parse_stack;
+	std::stack<LR1ItemSet*> parse_stack_states;
 	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
 	ItemSet* current_state() {
@@ -133,9 +160,14 @@ private:
 	void generate_follow_sets();
 	void generate_itemsets();
 	void generate_closure(std::set<Item>*, std::set<Item>*);
+	void generate_lr1_itemsets();
+	void generate_closure(LR1ItemSet*);
+	LR1ItemSet* generate_goto(LR1ItemSet*, std::string);
+	LR1ItemSet* register_state(std::unique_ptr<LR1ItemSet>);
 
-	static void debug_production(Production*, Int = -1);
+	static void debug_production(Production*, Int = -1, std::string = "");
 	static void debug_item(Item);
+	static void debug_item(LR1Item);
 	static void debug_set(std::set<std::string>);
 	static void debug_match(Match*, Int);
 };

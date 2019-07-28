@@ -138,8 +138,29 @@ int test_lalr() {
 	p.add_production("l", { "ID" }, fn);
 	p.add_production("r", { "l" }, fn);
 	p.generate("s");
+	p.debug();
 	std::stringstream ss;
-	ss << "*id=id";
+	ss << "*i=i";
+	FileInputStream fis(&ss);
+	p.parse(&fis);
+	return 0;
+}
+
+int test_lr1() {
+	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	};
+	Parser p;
+	p.add_token("C", std::unique_ptr<RegexAST>(new RegexASTLiteral('c')));
+	p.add_token("D", std::unique_ptr<RegexAST>(new RegexASTLiteral('d')));
+	p.add_production("s", { "c", "c" }, fn);
+	p.add_production("c", { "C", "c" }, fn);
+	p.add_production("c", { "D" }, fn);
+	p.generate("s");
+	p.debug();
+	std::stringstream ss;
+	ss << "ccdccd";
 	FileInputStream fis(&ss);
 	p.parse(&fis);
 	return 0;
@@ -156,6 +177,7 @@ int main() {
 	test_generator();
 	test_regex_engine();
 	*/
+	//test_lr1();
 	test_lalr();
 	return 0;
 }
