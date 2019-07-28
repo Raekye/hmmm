@@ -39,6 +39,7 @@ struct Production {
 
 struct ItemSet {
 	Int index;
+	bool accept;
 	std::set<Item> kernel;
 	std::set<Item> closure;
 	std::map<std::string, ItemSet*> next;
@@ -116,7 +117,11 @@ public:
 	void debug();
 
 private:
+	typedef std::map<Item, std::unique_ptr<std::set<std::string>>> LookaheadMap;
+	typedef std::map<Item, std::vector<std::set<std::string>*>> PropagateLookaheadMap;
+
 	static std::string const ROOT;
+	static std::string const TOKEN_MIDORI;
 
 	static bool production_is_epsilon(Production*);
 	static bool item_is_done(Item);
@@ -136,6 +141,9 @@ private:
 
 	std::vector<std::unique_ptr<LR1ItemSet>> lr1_states;
 	std::map<std::set<LR1Item>, LR1ItemSet*> lr1_itemsets;
+
+	std::vector<LookaheadMap> lookaheads;
+	std::vector<PropagateLookaheadMap> lookahead_propagates;
 
 	std::stack<std::unique_ptr<Match>> symbol_buffer;
 	std::stack<Int> parse_stack;
@@ -160,10 +168,16 @@ private:
 	void generate_follow_sets();
 	void generate_itemsets();
 	void generate_closure(std::set<Item>*, std::set<Item>*);
+
 	void generate_lr1_itemsets();
 	void generate_closure(LR1ItemSet*);
 	LR1ItemSet* generate_goto(LR1ItemSet*, std::string);
 	LR1ItemSet* register_state(std::unique_ptr<LR1ItemSet>);
+
+	void discover_lookaheads();
+	void propagate_lookaheads();
+	void generate_lalr_itemsets();
+	//void prepare_reductions();
 
 	static void debug_production(Production*, Int = -1, std::string = "");
 	static void debug_item(Item);

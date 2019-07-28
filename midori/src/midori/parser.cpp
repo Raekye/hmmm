@@ -3,6 +3,7 @@
 #include <list>
 
 std::string const Parser::ROOT = "$root";
+std::string const Parser::TOKEN_MIDORI = "#";
 
 ParserAST::~ParserAST() {
 	return;
@@ -60,8 +61,14 @@ void Parser::generate(std::string start) {
 	this->lexer.generate();
 	this->generate_first_sets();
 	//this->generate_follow_sets();
-	//this->generate_itemsets();
-	this->generate_lr1_itemsets();
+	this->generate_itemsets();
+	//this->generate_lr1_itemsets();
+	this->lookaheads.resize(this->states.size());
+	this->lookahead_propagates.resize(this->states.size());
+	this->discover_lookaheads();
+	this->propagate_lookaheads();
+	//this->prepare_reductions();
+	this->generate_lalr_itemsets();
 
 	/*
 	for (std::unique_ptr<ItemSet> const& i : this->states) {
@@ -76,7 +83,7 @@ void Parser::generate(std::string start) {
 	for (std::unique_ptr<LR1ItemSet> const& i : this->lr1_states) {
 		for (std::map<std::string, LR1ItemSet*>::value_type it : i->next) {
 			if (i->reductions.find(it.first) != i->reductions.end()) {
-				std::cout << "shift reduce conflict at state " << i->index << " for " << it.first << std::endl;
+				std::cout << "LR1 shift reduce conflict at state " << i->index << " for " << it.first << std::endl;
 			}
 		}
 	}
@@ -106,11 +113,12 @@ std::unique_ptr<MatchedNonterminal> Parser::parse(IInputStream* in) {
 			break;
 		}
 	}
-	mdk::printf("[debug] parse stack size %zd, stack matches %zd\n", this->parse_stack_states.size(), this->parse_stack_matches.size());
+	mdk::printf("[debug] parse stack size %zd, lr1 stack %zd, stack matches %zd\n", this->parse_stack.size(), this->parse_stack_states.size(), this->parse_stack_matches.size());
 	Parser::debug_match(this->parse_stack_matches.top().get(), 0);
 	if (!accept) {
 		return nullptr;
 	}
+	//assert(this->parse_stack.size() == 2);
 	assert(this->parse_stack_states.size() == 2);
 	assert(this->parse_stack_matches.size() == 1);
 	std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
@@ -172,6 +180,7 @@ bool Parser::parse_advance(std::unique_ptr<Match> s, bool* accept) {
 std::unique_ptr<Match> Parser::parse_symbol(std::string tag, std::unique_ptr<Match> s, bool* accept) {
 	//ItemSet* curr = this->current_state();
 	LR1ItemSet* curr = this->parse_stack_states.top();
+	//std::map<std::string, ItemSet*>::iterator shift = curr->next.find(tag);
 	std::map<std::string, LR1ItemSet*>::iterator shift = curr->next.find(tag);
 	std::map<std::string, Production*>::iterator reduce = curr->reductions.find(tag);
 	if (shift != curr->next.end()) {
@@ -242,6 +251,13 @@ void Parser::generate_itemsets() {
 	std::list<ItemSet*> q;
 	auto register_state = [ &q ](Parser* self, std::unique_ptr<ItemSet> is) -> ItemSet* {
 		is->index = self->states.size();
+		// TODO: why need initialize?
+		is->accept = false;
+		for (Item const& i : is->kernel) {
+			if ((i.first->target == Parser::ROOT) && Parser::item_is_done(i)) {
+				is->accept = true;
+			}
+		}
 		self->generate_closure(&(is->kernel), &(is->closure));
 		ItemSet* ret = is.get();
 		q.push_back(ret);
@@ -255,6 +271,7 @@ void Parser::generate_itemsets() {
 		q.pop_front();
 		for (Item const& i : is->closure) {
 			if (Parser::item_is_done(i)) {
+				/*
 				for (std::string const& s : this->follows[i.first->target]) {
 					std::map<std::string, Production*>::iterator it = is->reductions.find(s);
 					if (it == is->reductions.end()) {
@@ -264,6 +281,7 @@ void Parser::generate_itemsets() {
 						// how to handle
 					}
 				}
+				*/
 				continue;
 			}
 			std::string next_symbol = i.first->symbols.at(i.second);
@@ -413,7 +431,7 @@ LR1ItemSet* Parser::register_state(std::unique_ptr<LR1ItemSet> itemset) {
 	// why isn't this 0 initialized?
 	itemset->accept = false;
 	for (LR1Item const& i : itemset->kernel) {
-		if (i.production->target == Parser::ROOT && i.is_done()) {
+		if ((i.production->target == Parser::ROOT) && i.is_done()) {
 			// TODO
 			if (i.terminal != Lexer::TOKEN_END) {
 				std::cout << "UNEXPECTED" << std::endl;
@@ -427,6 +445,160 @@ LR1ItemSet* Parser::register_state(std::unique_ptr<LR1ItemSet> itemset) {
 	this->lr1_states.push_back(std::move(itemset));
 	return ret;
 }
+
+void Parser::discover_lookaheads() {
+	ItemSet* root = this->states.at(0).get();
+	assert(root->kernel.size() == 1);
+	Item start = *(root->kernel.begin());
+	std::unique_ptr<std::set<std::string>> s(new std::set<std::string>);
+	s->insert(Lexer::TOKEN_END);
+	this->lookaheads.at(0)[start] = std::move(s);
+	for (std::unique_ptr<ItemSet> const& is : this->states) {
+		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
+			for (Item const& i : is->kernel) {
+				std::cout << "discovering lookaheads for state " << is->index << " kernel item ";
+				Parser::debug_item(i);
+				std::unique_ptr<LR1ItemSet> js(new LR1ItemSet);
+				js->kernel.emplace(i.first, i.second, Parser::TOKEN_MIDORI);
+				this->generate_closure(js.get());
+				for (LR1Item const& j : js->closure) {
+					std::cout << "\tLR1Item in closure: ";
+					Parser::debug_item(j);
+					if (j.is_done()) {
+						continue;
+					}
+					std::string s = j.production->symbols.at(j.dot);
+					Item i2(j.production, j.dot + 1);
+					ItemSet* next = is->next.at(s);
+					std::cout << "\tgetting from next state " << next->index << " item ";
+					Parser::debug_item(i2);
+					assert(next->kernel.count(i2) == 1);
+					LookaheadMap& m = this->lookaheads.at(next->index);
+					LookaheadMap::iterator it = m.find(i2);
+					std::set<std::string>* x = nullptr;
+					if (it == m.end()) {
+						std::unique_ptr<std::set<std::string>> x2(new std::set<std::string>);
+						x = x2.get();
+						m[i2] = std::move(x2);
+					} else {
+						x = it->second.get();
+					}
+					if (j.terminal == Parser::TOKEN_MIDORI) {
+						std::cout << "propagating from ";
+						Parser::debug_item(i);
+						std::cout << "\tto ";
+						Parser::debug_item(i2);
+						std::cout << "\tin state " << next->index << std::endl;
+						this->lookahead_propagates.at(is->index)[i].push_back(x);
+					} else {
+						std::cout << "inserting " << j.terminal << " for state " << next->index << " kernel item ";
+						Parser::debug_item(i2);
+						x->insert(j.terminal);
+					}
+				}
+			}
+		}
+	}
+}
+
+void Parser::propagate_lookaheads() {
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (std::unique_ptr<ItemSet> const& is : this->states) {
+			for (Item const& i : is->kernel) {
+				std::cout << "Propagating for ";
+				Parser::debug_item(i);
+				LookaheadMap& m = this->lookaheads.at(is->index);
+				LookaheadMap::iterator it = m.find(i);
+				if (it == m.end()) {
+					std::cout << "\tno entries" << std::endl;
+					continue;
+				}
+				std::set<std::string>* from = it->second.get();
+				std::cout << "\thave " << from->size() << " entries to propagate to " << this->lookahead_propagates.at(is->index)[i].size() << " others" << std::endl;
+				for (std::set<std::string>* const to : this->lookahead_propagates.at(is->index)[i]) {
+					size_t old = to->size();
+					to->insert(from->begin(), from->end());
+					changed = changed || (to->size() != old);
+				}
+				std::cout << "done" << std::endl;
+			}
+		}
+	}
+}
+
+void Parser::generate_lalr_itemsets() {
+	for (std::unique_ptr<ItemSet> const& is : this->states) {
+		std::unique_ptr<LR1ItemSet> js(new LR1ItemSet);
+		js->index = is->index;
+		js->accept = is->accept;
+		LookaheadMap& m = this->lookaheads.at(is->index);
+		for (Item const& i : is->kernel) {
+			LookaheadMap::iterator it = m.find(i);
+			if (it == m.end()) {
+				std::cout << "WHAT DO" << std::endl;
+			}
+			for (std::string const& s : (*(it->second))) {
+				js->kernel.emplace(i.first, i.second, s);
+			}
+		}
+		this->generate_closure(js.get());
+		this->lr1_states.push_back(std::move(js));
+	}
+	for (std::unique_ptr<ItemSet> const& is : this->states) {
+		LR1ItemSet* js = this->lr1_states.at(is->index).get();
+		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
+			js->next[kv.first] = this->lr1_states.at(kv.second->index).get();
+		}
+		for (LR1Item const& j : js->closure) {
+			if (j.is_done()) {
+				std::map<std::string, Production*>::iterator it = js->reductions.find(j.terminal);
+				if (it == js->reductions.end()) {
+					js->reductions[j.terminal] = j.production;
+				} else {
+					// TODO: handle
+					std::cout << "LALR reduce reduce conflict" << std::endl;
+				}
+			}
+		}
+	}
+}
+
+/*
+void Parser::prepare_reductions() {
+	for (std::unique_ptr<ItemSet> const& is : this->states) {
+		for (Item const& i : is->kernel) {
+			if (Parser::item_is_done(i)) {
+				std::cout << "preparing reductions for state " << is->index << " item ";
+				Parser::debug_item(i);
+				LookaheadMap& m = this->lookaheads.at(is->index);
+				LookaheadMap::iterator it = m.find(i);
+				if (it == m.end()) {
+					std::cout << "no lookaheads at state " << is->index << " for ";
+					Parser::debug_item(i);
+					continue;
+				}
+				for (std::string const& t : (*(it->second))) {
+					std::map<std::string, Production*>::iterator it = is->reductions.find(t);
+					if (it == is->reductions.end()) {
+						is->reductions[t] = i.first;
+					} else {
+						// TODO: handle
+						std::cout << "lalr reduce reduce conflict" << std::endl;
+					}
+					if ((i.first->target == Parser::ROOT) && (t == Lexer::TOKEN_END)) {
+						assert(is->accept);
+					} else {
+						assert(!(is->accept));
+					}
+				}
+			}
+		}
+	}
+}
+*/
+
 /*
  * Dragon book page 221
  */
@@ -635,6 +807,16 @@ void Parser::debug() {
 		for (Item const& x : is->kernel) {
 			std::cout << "\t";
 			Parser::debug_item(x);
+			std::cout << "\t\tLookaheads:" << std::endl;
+			std::cout << "\t\t";
+			LookaheadMap& m = this->lookaheads.at(is->index);
+			LookaheadMap::iterator it = m.find(x);
+			if (it == m.end()) {
+				std::cout << "(none)";
+				std::cout << std::endl;
+			} else {
+				Parser::debug_set(*(it->second));
+			}
 		}
 		std::cout << "Closure:" << std::endl;
 		for (Item const& x : is->closure) {

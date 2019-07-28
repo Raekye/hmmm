@@ -25,7 +25,7 @@ Example build: `mkdir build && cd build && cmake .. && make && make test`.
 
 ### Midori
 - lexer/finite automata now support ranges using interval trees
-- rewrote parser generator/parsing algorithm (SLR(1), LR(1))
+- rewrote parser generator/parsing algorithm several times (SLR(1), LR(1), LALR(1))
 
 ## Regex grammar
 - multiplication is repetition
@@ -201,5 +201,6 @@ dec_int
 - Parsing Theory Volume 2 LR(k) and LL(k) Parsing
 - Efficient Parsing for Natural Language: A Fast Algorithm for Practical Systems
 - http://scottmcpeak.com/elkhound/elkhound.ps
+- https://web.stanford.edu/class/archive/cs/cs143/cs143.1128/
 
 [1]: https://github.com/Raekye/bdel_and_dfr_compiler

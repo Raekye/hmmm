@@ -166,6 +166,30 @@ int test_lr1() {
 	return 0;
 }
 
+int test_lr2() {
+	ProductionHandler fn = [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return nullptr;
+	};
+	Parser p;
+	p.add_token("A", std::unique_ptr<RegexAST>(new RegexASTLiteral('a')));
+	p.add_token("B", std::unique_ptr<RegexAST>(new RegexASTLiteral('b')));
+	p.add_token("E", std::unique_ptr<RegexAST>(new RegexASTLiteral('e')));
+	p.add_production("s", { "A", "e", "A" }, fn);
+	p.add_production("s", { "B", "e", "B" }, fn);
+	p.add_production("s", { "A", "f", "B" }, fn);
+	p.add_production("s", { "B", "f", "A" }, fn);
+	p.add_production("e", { "E" }, fn);
+	p.add_production("f", { "E" }, fn);
+	p.generate("s");
+	p.debug();
+	std::stringstream ss;
+	ss << "aea";
+	FileInputStream fis(&ss);
+	p.parse(&fis);
+	return 0;
+}
+
 int main() {
 	ULong x = ~0;
 	std::cout << "-1 is " << x << std::endl;
@@ -178,6 +202,7 @@ int main() {
 	test_regex_engine();
 	*/
 	//test_lr1();
+	//test_lr2();
 	test_lalr();
 	return 0;
 }
