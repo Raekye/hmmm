@@ -117,9 +117,9 @@ std::unique_ptr<Parser> ParserGenerator::from_file(std::istream* is) {
 		return std::unique_ptr<ParserAST>(new ParserASTString(m->terminal(0)->token->lexeme));
 	});
 
-	p->generate("grammar");
+	p->generate(Parser::Type::LALR1, "grammar");
 	FileInputStream fis(is);
 	std::unique_ptr<MatchedNonterminal> m = p->parse(&fis);
-	ret->generate("root");
+	ret->generate(Parser::Type::LALR1, "root");
 	return ret;
 }

@@ -382,7 +382,7 @@ std::unique_ptr<Parser> RegexEngine::make() {
 		return std::unique_ptr<ParserAST>(new ParserASTString(m->terminal(0)->token->lexeme));
 	});
 
-	p->generate("regex");
+	p->generate(Parser::Type::LALR1, "regex");
 	return p;
 }
 

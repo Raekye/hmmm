@@ -25,7 +25,7 @@ Example build: `mkdir build && cd build && cmake .. && make && make test`.
 
 ### Midori
 - lexer/finite automata now support ranges using interval trees
-- rewrote parser generator/parsing algorithm several times (SLR(1), LR(1), LALR(1))
+- rewrote parser generator/parsing algorithm several times ([SLR(1)][2], [LR(1)][3], [LALR(1)][4])
 
 ## Regex grammar
 - multiplication is repetition
@@ -204,3 +204,6 @@ dec_int
 - https://web.stanford.edu/class/archive/cs/cs143/cs143.1128/
 
 [1]: https://github.com/Raekye/bdel_and_dfr_compiler
+[2]: https://github.com/Raekye/hmmm/tree/1130d9626c838b36b54155926df05da25e4e828f
+[3]: https://github.com/Raekye/hmmm/tree/ca9659d56b1876f5a325463ebcdb04aec0e3cfbe
+[4]: https://github.com/Raekye/hmmm/tree/a4cb4c7e844ef49d675a9faac622d8d57c8da184

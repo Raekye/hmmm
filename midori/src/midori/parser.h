@@ -5,18 +5,18 @@
 #include <vector>
 #include <set>
 #include <stack>
-#include <functional>
+#include <list>
 #include <tuple>
+#include <functional>
 #include "global.h"
 #include "lexer.h"
 
-struct Production;
-class MatchedNonterminal;
 class ParserAST;
+class MatchedNonterminal;
+struct Production;
 
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::function<std::unique_ptr<MatchedNonterminal>(std::unique_ptr<MatchedNonterminal>)> RewriteHandler;
-typedef std::pair<Production*, Int> Item;
 
 class ParserAST {
 public:
@@ -35,6 +35,33 @@ struct Production {
 	std::vector<std::string> symbols;
 	ProductionHandler handler;
 	RewriteHandler rewrite;
+
+	bool is_epsilon() const {
+		return this->symbols.size() == 0;
+	}
+};
+
+struct Item {
+	Production* production;
+	Int dot;
+	// for LR0 items, `terminal` is unused
+	std::string terminal;
+
+	Item(Production* p, Int d, std::string t) : production(p), dot(d), terminal(t) {
+		return;
+	}
+
+	bool is_done() const {
+		return this->dot == this->production->symbols.size();
+	}
+
+	std::string next_symbol() const {
+		return this->production->symbols.at(this->dot);
+	}
+
+	friend bool operator<(Item const& lhs, Item const& rhs) {
+		return std::tie(lhs.production->index, lhs.dot, lhs.terminal) < std::tie(rhs.production->index, rhs.dot, rhs.terminal);
+	}
 };
 
 struct ItemSet {
@@ -43,33 +70,6 @@ struct ItemSet {
 	std::set<Item> kernel;
 	std::set<Item> closure;
 	std::map<std::string, ItemSet*> next;
-	std::map<std::string, Production*> reductions;
-};
-
-struct LR1Item {
-	Production* production;
-	Int dot;
-	std::string terminal;
-
-	LR1Item(Production* p, Int d, std::string t) : production(p), dot(d), terminal(t) {
-		return;
-	}
-
-	bool is_done() const {
-		return this->dot == this->production->symbols.size();
-	}
-
-	friend bool operator<(LR1Item const& lhs, LR1Item const& rhs) {
-		return std::tie(lhs.production->index, lhs.dot, lhs.terminal) < std::tie(rhs.production->index, rhs.dot, rhs.terminal);
-	}
-};
-
-struct LR1ItemSet {
-	Int index;
-	bool accept;
-	std::set<LR1Item> kernel;
-	std::set<LR1Item> closure;
-	std::map<std::string, LR1ItemSet*> next;
 	std::map<std::string, Production*> reductions;
 };
 
@@ -104,14 +104,35 @@ private:
 	MatchedNonterminal(Production*, size_t);
 };
 
+struct GrammarConflict {
+	enum Type {
+		ShiftReduce,
+		ReduceReduce,
+	};
+
+	Type type;
+	ItemSet* state;
+	std::string symbol;
+
+	GrammarConflict(Type t, ItemSet* i, std::string s) : type(t), state(i), symbol(s) {
+		return;
+	}
+};
+
 class Parser {
 public:
+	enum Type {
+		LALR1,
+		LR1,
+	};
+
 	void add_token(std::string, std::unique_ptr<RegexAST>);
 	void add_skip(std::string);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler);
 	void add_production(std::string, std::vector<std::string>, ProductionHandler, RewriteHandler);
-	void generate(std::string);
+	void generate(Type, std::string);
 	std::unique_ptr<MatchedNonterminal> parse(IInputStream*);
+	std::vector<GrammarConflict> conflicts();
 	void reset();
 
 	void debug();
@@ -123,9 +144,6 @@ private:
 	static std::string const ROOT;
 	static std::string const TOKEN_MIDORI;
 
-	static bool production_is_epsilon(Production*);
-	static bool item_is_done(Item);
-
 	Lexer lexer;
 
 	std::set<std::string> terminals;
@@ -134,28 +152,41 @@ private:
 
 	std::set<std::string> nullable;
 	std::map<std::string, std::set<std::string>> firsts;
-	std::map<std::string, std::set<std::string>> follows;
 
-	std::vector<std::unique_ptr<ItemSet>> states;
-	std::map<std::set<Item>, ItemSet*> itemsets;
+	std::vector<std::unique_ptr<ItemSet>> lr0_states;
+	std::map<std::set<Item>, ItemSet*> lr0_itemsets;
 
-	std::vector<std::unique_ptr<LR1ItemSet>> lr1_states;
-	std::map<std::set<LR1Item>, LR1ItemSet*> lr1_itemsets;
+	std::vector<std::unique_ptr<ItemSet>> lr1_states;
+	std::map<std::set<Item>, ItemSet*> lr1_itemsets;
 
 	std::vector<LookaheadMap> lookaheads;
 	std::vector<PropagateLookaheadMap> lookahead_propagates;
 
+	std::vector<GrammarConflict> _conflicts;
+
 	std::stack<std::unique_ptr<Match>> symbol_buffer;
-	std::stack<Int> parse_stack;
-	std::stack<LR1ItemSet*> parse_stack_states;
+	std::stack<ItemSet*> parse_stack_states;
 	std::stack<std::unique_ptr<Match>> parse_stack_matches;
 
-	ItemSet* current_state() {
-		return this->states[this->parse_stack.top()].get();
-	}
 	bool symbol_is_token(std::string s) {
 		return this->terminals.find(s) != this->terminals.end();
 	}
+
+	void generate_first_sets();
+	// for LALR(1), first generate the LR(0) itemsets,
+	// later generate the LALR(1) itemsets as if they were LR(1)
+	// see the Dragon book pages 270 - 273
+	void generate_lr0_closure(ItemSet*);
+	void generate_lr1_closure(ItemSet*);
+	void generate_itemsets(Type);
+
+	ItemSet* register_state(Type, std::unique_ptr<ItemSet>, std::list<ItemSet*>*);
+
+	void discover_lookaheads();
+	void propagate_lookaheads();
+	void generate_lalr_itemsets();
+
+	void generate_reduction(ItemSet*, Item);
 
 	void push_symbol(std::unique_ptr<Match>);
 	void pull_symbols(std::unique_ptr<Match>);
@@ -164,24 +195,8 @@ private:
 	bool parse_advance(std::unique_ptr<Match>, bool*);
 	std::unique_ptr<Match> parse_symbol(std::string, std::unique_ptr<Match>, bool*);
 
-	void generate_first_sets();
-	void generate_follow_sets();
-	void generate_itemsets();
-	void generate_closure(std::set<Item>*, std::set<Item>*);
-
-	void generate_lr1_itemsets();
-	void generate_closure(LR1ItemSet*);
-	LR1ItemSet* generate_goto(LR1ItemSet*, std::string);
-	LR1ItemSet* register_state(std::unique_ptr<LR1ItemSet>);
-
-	void discover_lookaheads();
-	void propagate_lookaheads();
-	void generate_lalr_itemsets();
-	//void prepare_reductions();
-
 	static void debug_production(Production*, Int = -1, std::string = "");
 	static void debug_item(Item);
-	static void debug_item(LR1Item);
 	static void debug_set(std::set<std::string>);
 	static void debug_match(Match*, Int);
 };
