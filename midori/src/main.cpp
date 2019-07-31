@@ -32,19 +32,7 @@ int test_generator() {
 int main() {
 	ULong x = ~0;
 	std::cout << "-1 is " << x << std::endl;
-	//test_generator();
-	//test_regex_engine();
-	Parser p;
-	p.add_token("A", std::unique_ptr<RegexAST>(new RegexASTLiteral('a')));
-	p.add_production("n", { "n", "n" }, nullptr);
-	p.add_production("n", { "A" }, nullptr);
-	p.generate(Parser::Type::LR1, "n");
-	p.debug();
-	for (GrammarConflict gc : p.conflicts()) {
-		std::cout << gc.state->index << ", " << gc.symbol << ", " << gc.type << std::endl;
-	}
-	std::stringstream ss;
-	ss << "aaa";
-	FileInputStream fis(&ss);
+	test_generator();
+	test_regex_engine();
 	return 0;
 }

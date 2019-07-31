@@ -67,10 +67,21 @@ void Parser::generate(Type type, std::string start) {
 		this->generate_lalr_itemsets();
 	}
 
-	for (std::unique_ptr<ItemSet> const& i : this->lr1_states) {
-		for (std::map<std::string, ItemSet*>::value_type kv : i->next) {
-			if (i->reductions.find(kv.first) != i->reductions.end()) {
-				this->_conflicts.emplace_back(GrammarConflict::Type::ShiftReduce, i.get(), kv.first);
+	for (std::unique_ptr<ItemSet> const& is : this->lr1_states) {
+		for (std::map<std::string, ItemSet*>::value_type kv : is->next) {
+			std::map<std::string, Production*>::iterator it = is->reductions.find(kv.first);
+			if (it != is->reductions.end()) {
+				GrammarConflict gc;
+				gc.type = GrammarConflict::Type::ShiftReduce;
+				gc.state = is.get();
+				gc.symbol = kv.first;
+				for (Item const& i : kv.second->kernel) {
+					if (i.production->symbols.at(i.dot - 1) == kv.first) {
+						gc.productions.push_back(i.production);
+					}
+				}
+				gc.productions.push_back(it->second);
+				this->_conflicts.push_back(gc);
 			}
 		}
 	}
@@ -206,8 +217,7 @@ void Parser::generate_lr1_closure(ItemSet* itemset) {
 				std::string s2 = i.production->symbols.at(j);
 				std::map<std::string, std::set<std::string>>::iterator it = this->firsts.find(s2);
 				assert(it != this->firsts.end());
-				std::set<std::string> const& f = it->second;
-				l.insert(l.end(), f.begin(), f.end());
+				l.insert(l.end(), it->second.begin(), it->second.end());
 				if (this->nullable.find(s2) == this->nullable.end()) {
 					break;
 				}
@@ -265,7 +275,6 @@ void Parser::generate_itemsets(Type type) {
 
 ItemSet* Parser::register_state(Type type, std::unique_ptr<ItemSet> itemset, std::list<ItemSet*>* queue) {
 	ItemSet* ptr = itemset.get();
-	// TODO: why need to initialize?
 	itemset->accept = false;
 	for (Item const& i : itemset->kernel) {
 		if ((i.production->target == Parser::ROOT) && i.is_done()) {
@@ -305,47 +314,45 @@ void Parser::discover_lookaheads() {
 	s->insert(Lexer::TOKEN_END);
 	this->lookaheads.at(0)[start] = std::move(s);
 	for (std::unique_ptr<ItemSet> const& is : this->lr0_states) {
-		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
-			for (Item const& i : is->kernel) {
-				std::cout << "discovering lookaheads for state " << is->index << " kernel item ";
-				Parser::debug_item(i);
-				std::unique_ptr<ItemSet> js(new ItemSet);
-				js->kernel.emplace(i.production, i.dot, Parser::TOKEN_MIDORI);
-				this->generate_lr1_closure(js.get());
-				for (Item const& j : js->closure) {
-					std::cout << "\tLR1Item in closure: ";
-					Parser::debug_item(j);
-					if (j.is_done()) {
-						continue;
-					}
-					std::string s = j.production->symbols.at(j.dot);
-					Item i2(j.production, j.dot + 1, "");
-					ItemSet* next = is->next.at(s);
-					std::cout << "\tgetting from next state " << next->index << " item ";
+		for (Item const& i : is->kernel) {
+			std::cout << "discovering lookaheads for state " << is->index << " kernel item ";
+			Parser::debug_item(i);
+			std::unique_ptr<ItemSet> js(new ItemSet);
+			js->kernel.emplace(i.production, i.dot, Parser::TOKEN_MIDORI);
+			this->generate_lr1_closure(js.get());
+			for (Item const& j : js->closure) {
+				std::cout << "\tLR1Item in closure: ";
+				Parser::debug_item(j);
+				if (j.is_done()) {
+					continue;
+				}
+				std::string s = j.production->symbols.at(j.dot);
+				Item i2(j.production, j.dot + 1, "");
+				ItemSet* next = is->next.at(s);
+				std::cout << "\tgetting from next state " << next->index << " item ";
+				Parser::debug_item(i2);
+				assert(next->kernel.count(i2) == 1);
+				LookaheadMap& m = this->lookaheads.at(next->index);
+				LookaheadMap::iterator it = m.find(i2);
+				std::set<std::string>* x = nullptr;
+				if (it == m.end()) {
+					std::unique_ptr<std::set<std::string>> x2(new std::set<std::string>);
+					x = x2.get();
+					m[i2] = std::move(x2);
+				} else {
+					x = it->second.get();
+				}
+				if (j.terminal == Parser::TOKEN_MIDORI) {
+					std::cout << "propagating from ";
+					Parser::debug_item(i);
+					std::cout << "\tto ";
 					Parser::debug_item(i2);
-					assert(next->kernel.count(i2) == 1);
-					LookaheadMap& m = this->lookaheads.at(next->index);
-					LookaheadMap::iterator it = m.find(i2);
-					std::set<std::string>* x = nullptr;
-					if (it == m.end()) {
-						std::unique_ptr<std::set<std::string>> x2(new std::set<std::string>);
-						x = x2.get();
-						m[i2] = std::move(x2);
-					} else {
-						x = it->second.get();
-					}
-					if (j.terminal == Parser::TOKEN_MIDORI) {
-						std::cout << "propagating from ";
-						Parser::debug_item(i);
-						std::cout << "\tto ";
-						Parser::debug_item(i2);
-						std::cout << "\tin state " << next->index << std::endl;
-						this->lookahead_propagates.at(is->index)[i].push_back(x);
-					} else {
-						std::cout << "inserting " << j.terminal << " for state " << next->index << " kernel item ";
-						Parser::debug_item(i2);
-						x->insert(j.terminal);
-					}
+					std::cout << "\tin state " << next->index << std::endl;
+					this->lookahead_propagates.at(is->index)[i].push_back(x);
+				} else {
+					std::cout << "inserting " << j.terminal << " for state " << next->index << " kernel item ";
+					Parser::debug_item(i2);
+					x->insert(j.terminal);
 				}
 			}
 		}
@@ -387,9 +394,7 @@ void Parser::generate_lalr_itemsets() {
 		LookaheadMap& m = this->lookaheads.at(is->index);
 		for (Item const& i : is->kernel) {
 			LookaheadMap::iterator it = m.find(i);
-			if (it == m.end()) {
-				continue;
-			}
+			assert(it != m.end());
 			for (std::string const& s : (*(it->second))) {
 				js->kernel.emplace(i.production, i.dot, s);
 			}
@@ -415,12 +420,21 @@ void Parser::generate_reduction(ItemSet* is, Item i) {
 	if (it == is->reductions.end()) {
 		is->reductions[i.terminal] = i.production;
 	} else {
+		GrammarConflict gc;
+		gc.type = GrammarConflict::Type::ReduceReduce;
+		gc.state = is;
+		gc.symbol = i.terminal;
+		gc.productions.push_back(it->second);
+		gc.productions.push_back(i.production);
+		this->_conflicts.push_back(gc);
+		// prioritize longer rules, then rules added earlier (lower index)
 		size_t a = i.production->symbols.size();
-		size_t b = it->second->symbols.size();
-		if (std::tie(b, it->second->index) > std::tie(a, i.production->index)) {
+		Int b = -i.production->index;
+		size_t c = it->second->symbols.size();
+		Int d = -it->second->index;
+		if (std::tie(a, b) > std::tie(c, d)) {
 			is->reductions[i.terminal] = i.production;
 		}
-		this->_conflicts.emplace_back(GrammarConflict::Type::ReduceReduce, is, i.terminal);
 	}
 }
 

@@ -113,10 +113,7 @@ struct GrammarConflict {
 	Type type;
 	ItemSet* state;
 	std::string symbol;
-
-	GrammarConflict(Type t, ItemSet* i, std::string s) : type(t), state(i), symbol(s) {
-		return;
-	}
+	std::vector<Production*> productions;
 };
 
 class Parser {
@@ -174,7 +171,8 @@ private:
 
 	void generate_first_sets();
 	// for LALR(1), first generate the LR(0) itemsets,
-	// later generate the LALR(1) itemsets as if they were LR(1)
+	// then calculate the lookaheads for each kernel item,
+	// attach the lookaheads and generate the LR(1) closure
 	// see the Dragon book pages 270 - 273
 	void generate_lr0_closure(ItemSet*);
 	void generate_lr1_closure(ItemSet*);

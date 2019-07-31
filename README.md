@@ -198,12 +198,12 @@ dec_int
 - https://stackoverflow.com/questions/8242509/how-does-the-yacc-bison-lalr1-algorithm-treat-empty-rules
 - https://stackoverflow.com/questions/57120176/grammar-matching-regex-character-classes-trailing-dash/
 - Compilers: Principles, Techniques, and Tools (the Dragon book)
-- Parsing Theory Volume 2 LR(k) and LL(k) Parsing
+- Parsing Theory Volume 2: LR(k) and LL(k) Parsing
 - Efficient Parsing for Natural Language: A Fast Algorithm for Practical Systems
 - http://scottmcpeak.com/elkhound/elkhound.ps
 - https://web.stanford.edu/class/archive/cs/cs143/cs143.1128/
 
 [1]: https://github.com/Raekye/bdel_and_dfr_compiler
-[2]: https://github.com/Raekye/hmmm/tree/1130d9626c838b36b54155926df05da25e4e828f
-[3]: https://github.com/Raekye/hmmm/tree/ca9659d56b1876f5a325463ebcdb04aec0e3cfbe
-[4]: https://github.com/Raekye/hmmm/tree/a4cb4c7e844ef49d675a9faac622d8d57c8da184
+[2]: https://github.com/Raekye/hmmm/tree/1130d9626c838b36b54155926df05da25e4e828f/midori/src/midori/parser.cpp
+[3]: https://github.com/Raekye/hmmm/tree/ca9659d56b1876f5a325463ebcdb04aec0e3cfbe/midori/src/midori/parser.cpp
+[4]: https://github.com/Raekye/hmmm/tree/a4cb4c7e844ef49d675a9faac622d8d57c8da184/midori/src/midori/parser.cpp
