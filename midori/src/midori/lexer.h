@@ -6,6 +6,7 @@
 #include <vector>
 #include <istream>
 #include <functional>
+#include <memory>
 #include "global.h"
 #include "regex_ast.h"
 

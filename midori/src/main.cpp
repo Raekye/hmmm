@@ -22,7 +22,7 @@ int test_generator() {
 	std::fstream f("../src/parser.txt", std::fstream::in);
 	std::unique_ptr<Parser> p = ParserGenerator::from_file(&f);
 	std::stringstream ss;
-	ss << "a1ab2bc3cd4d";
+	ss << "a1ab2b \tc3cd4d";
 	FileInputStream fis(&ss);
 	std::unique_ptr<MatchedNonterminal> m = p->parse(&fis);
 	assert(m != nullptr);
@@ -32,7 +32,7 @@ int test_generator() {
 int main() {
 	ULong x = ~0;
 	std::cout << "-1 is " << x << std::endl;
-	test_generator();
 	test_regex_engine();
+	test_generator();
 	return 0;
 }

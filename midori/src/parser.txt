@@ -1,13 +1,19 @@
 
 
+%start: root
+
+%skip: WHITESPACE
+
 LETTER: /[a-z]
 NUMBER: /[0-9]
+WHITESPACE: /[ \t]+
 
 root: zip_list;
 
-zip_list:
-	zip_list zip
-	| $epsilon;
+zip_list
+	: zip_list zip
+	| $epsilon
+	;
 
 zip: half half;
 

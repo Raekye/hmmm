@@ -14,19 +14,29 @@
 class ParserAST;
 class MatchedNonterminal;
 struct Production;
+template <typename T> class ParserValue;
 
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::function<std::unique_ptr<MatchedNonterminal>(std::unique_ptr<MatchedNonterminal>)> RewriteHandler;
 
+
 class ParserAST {
 public:
 	virtual ~ParserAST() = 0;
+
+	template <typename T> T& get() {
+		// TODO: why does this compile?
+		return dynamic_cast<ParserValue<T>*>(this)->value;
+	}
 };
 
-class ParserASTString : public ParserAST {
+template <typename T> class ParserValue : public ParserAST {
 public:
-	std::string str;
-	ParserASTString(std::string);
+	T value;
+
+	ParserValue(T v) : value(std::move(v)) {
+		return;
+	}
 };
 
 struct Production {

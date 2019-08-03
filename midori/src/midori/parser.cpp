@@ -8,10 +8,6 @@ ParserAST::~ParserAST() {
 	return;
 }
 
-ParserASTString::ParserASTString(std::string s) : str(s) {
-	return;
-}
-
 Match::~Match() {
 	return;
 }
