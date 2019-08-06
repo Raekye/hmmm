@@ -190,8 +190,8 @@ void Lexer::debug() {
 			}
 		}
 		std::unique_ptr<RegexDFAState::Tree::SearchList> l = state->transitions.all();
-		for (RegexDFAState::Tree::SearchList::iterator it = l->begin(); it != l->end(); it++) {
-			std::cout << "\t\tRange " << (*it).first.first << " - " << (*it).first.second << " to " << (*it).second->id << std::endl;
+		for (RegexDFAState::Tree::SearchResult const& sr : (*l)) {
+			std::cout << "\t\tRange " << sr.first.first << " - " << sr.first.second << " to " << sr.second->id << std::endl;
 		}
 		std::cout << std::endl;
 	}

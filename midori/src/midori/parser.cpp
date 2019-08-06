@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "helper.h"
+#include <utility>
 
 std::string const Parser::ROOT = "$root";
 std::string const Parser::TOKEN_MIDORI = "#";
@@ -62,25 +63,7 @@ void Parser::generate(Type type, std::string start) {
 		this->propagate_lookaheads();
 		this->generate_lalr_itemsets();
 	}
-
-	for (std::unique_ptr<ItemSet> const& is : this->lr1_states) {
-		for (std::map<std::string, ItemSet*>::value_type kv : is->next) {
-			std::map<std::string, Production*>::iterator it = is->reductions.find(kv.first);
-			if (it != is->reductions.end()) {
-				GrammarConflict gc;
-				gc.type = GrammarConflict::Type::ShiftReduce;
-				gc.state = is.get();
-				gc.symbol = kv.first;
-				for (Item const& i : kv.second->kernel) {
-					if (i.production->symbols.at(i.dot - 1) == kv.first) {
-						gc.productions.push_back(i.production);
-					}
-				}
-				gc.productions.push_back(it->second);
-				this->_conflicts.push_back(gc);
-			}
-		}
-	}
+	this->generate_actions();
 }
 
 std::unique_ptr<MatchedNonterminal> Parser::parse(IInputStream* in) {
@@ -194,12 +177,12 @@ void Parser::generate_lr0_closure(ItemSet* is) {
 /*
  * Dragon book page 261
  */
-void Parser::generate_lr1_closure(ItemSet* itemset) {
-	std::list<Item> q(itemset->kernel.begin(), itemset->kernel.end());
+void Parser::generate_lr1_closure(ItemSet* is) {
+	std::list<Item> q(is->kernel.begin(), is->kernel.end());
 	while (!q.empty()) {
 		Item i = q.front();
 		q.pop_front();
-		if (itemset->closure.insert(i).second) {
+		if (is->closure.insert(i).second) {
 			if (i.is_done()) {
 				continue;
 			}
@@ -250,7 +233,7 @@ void Parser::generate_itemsets(Type type) {
 		for (Item const& i : is->closure) {
 			if (i.is_done()) {
 				if (type == Type::LR1) {
-					this->generate_reduction(is, i);
+					is->reductions[i.terminal].push_back(i.production);
 				}
 				continue;
 			}
@@ -269,15 +252,67 @@ void Parser::generate_itemsets(Type type) {
 	}
 }
 
-ItemSet* Parser::register_state(Type type, std::unique_ptr<ItemSet> itemset, std::list<ItemSet*>* queue) {
-	ItemSet* ptr = itemset.get();
-	itemset->accept = false;
-	for (Item const& i : itemset->kernel) {
+void Parser::generate_actions() {
+	for (std::unique_ptr<ItemSet> const& is : this->lr1_states) {
+		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
+			is->actions.emplace(std::piecewise_construct, std::forward_as_tuple(kv.first), std::forward_as_tuple(kv.second, nullptr));
+			std::map<std::string, std::vector<Production*>>::iterator it = is->reductions.find(kv.first);
+			if (it == is->reductions.end()) {
+				continue;
+			}
+			GrammarConflict gc;
+			gc.type = GrammarConflict::Type::ShiftReduce;
+			gc.state = is.get();
+			gc.symbol = kv.first;
+			for (Item const& i : kv.second->kernel) {
+				assert(i.production->symbols.at(i.dot - 1) == kv.first);
+				gc.productions.push_back(i.production);
+			}
+			gc.productions.insert(gc.productions.end(), it->second.begin(), it->second.end());
+			this->_conflicts.push_back(gc);
+		}
+		for (std::map<std::string, std::vector<Production*>>::value_type const& kv : is->reductions) {
+			std::map<std::string, Action>::iterator it = is->actions.find(kv.first);
+			if (it != is->actions.end()) {
+				continue;
+			}
+			Production* p = kv.second.front();
+			if (kv.second.size() > 1) {
+				GrammarConflict gc;
+				gc.type = GrammarConflict::Type::ReduceReduce;
+				gc.state = is.get();
+				gc.symbol = kv.first;
+				gc.productions.push_back(p);
+				size_t a = p->symbols.size();
+				Int b = -(p->index);
+				for (size_t i = 1; i < kv.second.size(); i++) {
+					Production* q = kv.second.at(i);
+					gc.productions.push_back(q);
+					// prioritize longer rules, then rules added earlier (lower index)
+					size_t c = q->symbols.size();
+					Int d = -(q->index);
+					if (std::tie(c, d) > std::tie(a, b)) {
+						p = q;
+						a = c;
+						b = d;
+					}
+				}
+				this->_conflicts.push_back(gc);
+			}
+			is->actions.emplace(std::piecewise_construct, std::forward_as_tuple(kv.first), std::forward_as_tuple(nullptr, p));
+		}
+	}
+}
+
+ItemSet* Parser::register_state(Type type, std::unique_ptr<ItemSet> is, std::list<ItemSet*>* queue) {
+	ItemSet* ptr = is.get();
+	is->accept = false;
+	for (Item const& i : is->kernel) {
 		if ((i.production->target == Parser::ROOT) && i.is_done()) {
 			if (type == Type::LR1) {
 				assert(i.terminal == Lexer::TOKEN_END);
 			}
-			itemset->accept = true;
+			is->accept = true;
 		}
 	}
 	std::vector<std::unique_ptr<ItemSet>>* v = nullptr;
@@ -291,12 +326,12 @@ ItemSet* Parser::register_state(Type type, std::unique_ptr<ItemSet> itemset, std
 		m = &(this->lr1_itemsets);
 		this->generate_lr1_closure(ptr);
 	}
-	std::map<std::set<Item>, ItemSet*>::iterator it = m->find(itemset->kernel);
+	std::map<std::set<Item>, ItemSet*>::iterator it = m->find(is->kernel);
 	if (it == m->end()) {
-		itemset->index = v->size();
+		is->index = v->size();
 		queue->push_back(ptr);
-		m->operator[](itemset->kernel) = ptr;
-		v->push_back(std::move(itemset));
+		m->operator[](is->kernel) = ptr;
+		v->push_back(std::move(is));
 		return ptr;
 	}
 	return it->second;
@@ -405,31 +440,8 @@ void Parser::generate_lalr_itemsets() {
 		}
 		for (Item const& j : js->closure) {
 			if (j.is_done()) {
-				this->generate_reduction(js, j);
+				js->reductions[j.terminal].push_back(j.production);
 			}
-		}
-	}
-}
-
-void Parser::generate_reduction(ItemSet* is, Item i) {
-	std::map<std::string, Production*>::iterator it = is->reductions.find(i.terminal);
-	if (it == is->reductions.end()) {
-		is->reductions[i.terminal] = i.production;
-	} else {
-		GrammarConflict gc;
-		gc.type = GrammarConflict::Type::ReduceReduce;
-		gc.state = is;
-		gc.symbol = i.terminal;
-		gc.productions.push_back(it->second);
-		gc.productions.push_back(i.production);
-		this->_conflicts.push_back(gc);
-		// prioritize longer rules, then rules added earlier (lower index)
-		size_t a = i.production->symbols.size();
-		Int b = -i.production->index;
-		size_t c = it->second->symbols.size();
-		Int d = -it->second->index;
-		if (std::tie(a, b) > std::tie(c, d)) {
-			is->reductions[i.terminal] = i.production;
 		}
 	}
 }
@@ -486,59 +498,63 @@ bool Parser::parse_advance(std::unique_ptr<Match> s, bool* accept) {
 	}
 	std::cout << "no rules, expected to see" << std::endl;
 	ItemSet* curr = this->parse_stack_states.top();
-	for (std::map<std::string, ItemSet*>::value_type const& kv : curr->next) {
-		std::cout << kv.first << " -> " << kv.second->index << std::endl;
-	}
-	for (std::map<std::string, Production*>::value_type const& kv : curr->reductions) {
-		std::cout << kv.first << " <- ";
-		Parser::debug_production(kv.second);
+	for (std::map<std::string, Action>::value_type const& kv : curr->actions) {
+		std::cout << kv.first;
+		if (kv.second.shift != nullptr) {
+			assert(kv.second.reduce == nullptr);
+			std::cout << " -> " << kv.second.shift->index << std::endl;
+		} else {
+			assert(kv.second.reduce != nullptr);
+			std::cout << " <- ";
+			Parser::debug_production(kv.second.reduce);
+		}
 	}
 	return true;
 }
 
 std::unique_ptr<Match> Parser::parse_symbol(std::string tag, std::unique_ptr<Match> s, bool* accept) {
 	ItemSet* curr = this->parse_stack_states.top();
-	std::map<std::string, ItemSet*>::iterator shift = curr->next.find(tag);
-	std::map<std::string, Production*>::iterator reduce = curr->reductions.find(tag);
-	if (shift != curr->next.end()) {
-		if (reduce != curr->reductions.end()) {
-			std::cout << "shift reduce conflict" << std::endl;
-		}
-		std::cout << "shifting to " << shift->second->index << std::endl;
-		this->parse_stack_states.push(shift->second);
+	std::map<std::string, Action>::iterator it = curr->actions.find(tag);
+	if (it == curr->actions.end()) {
+		return s;
+	}
+	ItemSet* shift = it->second.shift;
+	Production* reduce = it->second.reduce;
+	if (shift != nullptr) {
+		assert(reduce == nullptr);
+		std::cout << "shifting to " << shift->index << std::endl;
+		this->parse_stack_states.push(shift);
 		this->parse_stack_matches.push(std::move(s));
 		return nullptr;
 	}
-	if (reduce != curr->reductions.end()) {
-		if (curr->accept && tag == Lexer::TOKEN_END) {
-			std::cout << "accepting" << std::endl;
-			*accept = true;
-			return nullptr;
-		}
-		this->push_symbol(std::move(s));
-		std::cout << "reducing via rule ";
-		Parser::debug_production(reduce->second);
-		std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(reduce->second));
-		size_t n = reduce->second->symbols.size();
-		for (size_t i = 0; i < n; i++) {
-			this->parse_stack_states.pop();
-			std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
-			this->parse_stack_matches.pop();
-			mnt->terms[n - i - 1] = std::move(m);
-		}
-		if (reduce->second->handler != nullptr) {
-			mnt->value = reduce->second->handler(mnt.get());
-		}
-		if (reduce->second->rewrite != nullptr) {
-			std::unique_ptr<MatchedNonterminal> transformed = reduce->second->rewrite(std::move(mnt));
-			// TODO: why no cast?
-			this->pull_symbols(std::move(transformed));
-			return nullptr;
-		}
-		this->push_symbol(std::move(mnt));
+	assert(reduce != nullptr);
+	if (curr->accept && tag == Lexer::TOKEN_END) {
+		std::cout << "accepting" << std::endl;
+		*accept = true;
 		return nullptr;
 	}
-	return s;
+	this->push_symbol(std::move(s));
+	std::cout << "reducing via rule ";
+	Parser::debug_production(reduce);
+	std::unique_ptr<MatchedNonterminal> mnt(new MatchedNonterminal(reduce));
+	size_t n = reduce->symbols.size();
+	for (size_t i = 0; i < n; i++) {
+		this->parse_stack_states.pop();
+		std::unique_ptr<Match> m = std::move(this->parse_stack_matches.top());
+		this->parse_stack_matches.pop();
+		mnt->terms[n - i - 1] = std::move(m);
+	}
+	if (reduce->handler != nullptr) {
+		mnt->value = reduce->handler(mnt.get());
+	}
+	if (reduce->rewrite != nullptr) {
+		std::unique_ptr<MatchedNonterminal> transformed = reduce->rewrite(std::move(mnt));
+		// TODO: why no cast?
+		this->pull_symbols(std::move(transformed));
+		return nullptr;
+	}
+	this->push_symbol(std::move(mnt));
+	return nullptr;
 }
 
 #pragma mark - Parser - debug
@@ -635,9 +651,11 @@ void Parser::debug() {
 			std::cout << "\t" << kv.first << " -> " << kv.second->index << std::endl;
 		}
 		std::cout << "Reductions:" << std::endl;
-		for (std::map<std::string, Production*>::value_type const& kv : is->reductions) {
-			std::cout << "\t" << kv.first << " -> ";
-			Parser::debug_production(kv.second);
+		for (std::map<std::string, std::vector<Production*>>::value_type const& kv : is->reductions) {
+			for (Production* const p : kv.second) {
+				std::cout << "\t" << kv.first << " -> ";
+				Parser::debug_production(p);
+			}
 		}
 		std::cout << "=== done " << is->index << std::endl;
 		std::cout << std::endl;
@@ -659,9 +677,11 @@ void Parser::debug() {
 			std::cout << "\t" << kv.first << " -> " << kv.second->index << std::endl;
 		}
 		std::cout << "Reductions:" << std::endl;
-		for (std::map<std::string, Production*>::value_type const& kv : is->reductions) {
-			std::cout << "\t" << kv.first << " -> ";
-			Parser::debug_production(kv.second);
+		for (std::map<std::string, std::vector<Production*>>::value_type const& kv : is->reductions) {
+			for (Production* const p : kv.second) {
+				std::cout << "\t" << kv.first << " -> ";
+				Parser::debug_production(p);
+			}
 		}
 		std::cout << "=== done " << is->index << std::endl;
 		std::cout << std::endl;

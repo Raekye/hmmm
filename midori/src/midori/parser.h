@@ -13,8 +13,9 @@
 
 class ParserAST;
 class MatchedNonterminal;
-struct Production;
 template <typename T> class ParserValue;
+struct Production;
+struct ItemSet;
 
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::function<std::unique_ptr<MatchedNonterminal>(std::unique_ptr<MatchedNonterminal>)> RewriteHandler;
@@ -37,6 +38,37 @@ public:
 	ParserValue(T v) : value(std::move(v)) {
 		return;
 	}
+};
+
+class Match {
+public:
+	virtual ~Match() = 0;
+};
+
+class MatchedTerminal : public Match {
+public:
+	std::unique_ptr<Token> token;
+
+	MatchedTerminal(std::unique_ptr<Token>);
+};
+
+class MatchedNonterminal : public Match {
+public:
+	Production* production;
+	std::vector<std::unique_ptr<Match>> terms;
+	std::unique_ptr<ParserAST> value;
+
+	MatchedNonterminal();
+	MatchedNonterminal(Production*);
+	MatchedTerminal* terminal(Int i) {
+		return dynamic_cast<MatchedTerminal*>(this->terms.at(i).get());
+	}
+	MatchedNonterminal* nonterminal(Int i) {
+		return dynamic_cast<MatchedNonterminal*>(this->terms.at(i).get());
+	}
+
+private:
+	MatchedNonterminal(Production*, size_t);
 };
 
 struct Production {
@@ -74,44 +106,23 @@ struct Item {
 	}
 };
 
+struct Action {
+	ItemSet* shift;
+	Production* reduce;
+
+	Action(ItemSet* s, Production* r) : shift(s), reduce(r) {
+		return;
+	}
+};
+
 struct ItemSet {
 	Int index;
 	bool accept;
 	std::set<Item> kernel;
 	std::set<Item> closure;
 	std::map<std::string, ItemSet*> next;
-	std::map<std::string, Production*> reductions;
-};
-
-class Match {
-public:
-	virtual ~Match() = 0;
-};
-
-class MatchedTerminal : public Match {
-public:
-	std::unique_ptr<Token> token;
-
-	MatchedTerminal(std::unique_ptr<Token>);
-};
-
-class MatchedNonterminal : public Match {
-public:
-	Production* production;
-	std::vector<std::unique_ptr<Match>> terms;
-	std::unique_ptr<ParserAST> value;
-
-	MatchedNonterminal();
-	MatchedNonterminal(Production*);
-	MatchedTerminal* terminal(Int i) {
-		return dynamic_cast<MatchedTerminal*>(this->terms.at(i).get());
-	}
-	MatchedNonterminal* nonterminal(Int i) {
-		return dynamic_cast<MatchedNonterminal*>(this->terms.at(i).get());
-	}
-
-private:
-	MatchedNonterminal(Production*, size_t);
+	std::map<std::string, std::vector<Production*>> reductions;
+	std::map<std::string, Action> actions;
 };
 
 struct GrammarConflict {
@@ -187,14 +198,13 @@ private:
 	void generate_lr0_closure(ItemSet*);
 	void generate_lr1_closure(ItemSet*);
 	void generate_itemsets(Type);
+	void generate_actions();
 
 	ItemSet* register_state(Type, std::unique_ptr<ItemSet>, std::list<ItemSet*>*);
 
 	void discover_lookaheads();
 	void propagate_lookaheads();
 	void generate_lalr_itemsets();
-
-	void generate_reduction(ItemSet*, Item);
 
 	void push_symbol(std::unique_ptr<Match>);
 	void pull_symbols(std::unique_ptr<Match>);

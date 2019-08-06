@@ -42,23 +42,23 @@ void RegexNFAState::add(Interval i, RegexNFAState* s) {
 	}
 	std::unique_ptr<UnicodeIntervalTree::SearchList> overlaps = this->transitions.pop(Interval(last, i.second));
 	size_t j = 0;
-	for (UnicodeIntervalTree::SearchList::iterator it = overlaps->begin(); it != overlaps->end(); it++) {
+	for (UnicodeIntervalTree::SearchResult const& sr : (*overlaps)) {
 		j++;
-		UInt a = (*it).first.first;
-		UInt b = (*it).first.second;
+		UInt a = sr.first.first;
+		UInt b = sr.first.second;
 		UInt c = std::max(a, last);
 		UInt d = std::min(b, i.second);
-		StateList cd = (*it).second;
+		StateList cd = sr.second;
 		cd.push_back(s);
 		this->transitions.insert(Interval(c, d), cd);
 		if (a < last) {
-			this->transitions.insert(Interval(a, last - 1), (*it).second);
+			this->transitions.insert(Interval(a, last - 1), sr.second);
 		} else if (a > last) {
 			this->transitions.insert(Interval(last, a - 1), { s });
 		}
 		if (b > i.second) {
 			assert(j == overlaps->size());
-			this->transitions.insert(Interval(i.second + 1, b), (*it).second);
+			this->transitions.insert(Interval(i.second + 1, b), sr.second);
 		}
 		last = b + 1;
 	}
@@ -123,15 +123,15 @@ std::unique_ptr<RegexDFA> RegexNFA::to_dfa() {
 		std::map<RegexNFAState::UnicodeIntervalTree::Interval, GroupedNFAState> transitions;
 		for (RegexNFAState* const s : curr) {
 			for (UInt i = 0; i < RegexDFAState::OPTIMIZED_CHARS; i++ ){
-				for (RegexNFAState* s2 : s->_transitions[i]) {
+				for (RegexNFAState* const s2 : s->_transitions[i]) {
 					GroupedNFAState& next = _transitions[i];
 					this->generate_star(s2, next);
 				}
 			}
 			std::unique_ptr<RegexNFAState::UnicodeIntervalTree::SearchList> l = s->transitions.all();
-			for (RegexNFAState::UnicodeIntervalTree::SearchList::iterator it = l->begin(); it != l->end(); it++) {
-				for (RegexNFAState* const s2 : (*it).second) {
-					GroupedNFAState& next = transitions[(*it).first];
+			for (RegexNFAState::UnicodeIntervalTree::SearchResult const& sr : (*l)) {
+				for (RegexNFAState* const s2 : sr.second) {
+					GroupedNFAState& next = transitions[sr.first];
 					this->generate_star(s2, next);
 				}
 			}
