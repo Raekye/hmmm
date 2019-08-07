@@ -2,8 +2,9 @@
 #include "helper.h"
 #include <utility>
 
+Precedence const Precedence::UNDEFINED(0, Precedence::Associativity::NONE);
 std::string const Parser::ROOT = "$root";
-std::string const Parser::TOKEN_MIDORI = "#";
+std::string const Parser::TOKEN_MIDORI = "$#";
 
 ParserAST::~ParserAST() {
 	return;
@@ -15,13 +16,7 @@ Match::~Match() {
 MatchedTerminal::MatchedTerminal(std::unique_ptr<Token> t) : token(std::move(t)) {
 	return;
 }
-MatchedNonterminal::MatchedNonterminal() : MatchedNonterminal(nullptr, 0) {
-	return;
-}
-MatchedNonterminal::MatchedNonterminal(Production* p) : MatchedNonterminal(p, p->symbols.size()) {
-	return;
-}
-MatchedNonterminal::MatchedNonterminal(Production* p, size_t n) : production(p) , terms(n), value(nullptr) {
+MatchedNonterminal::MatchedNonterminal(Production* p) : production(p), terms((p == nullptr) ? 0 : p->symbols.size()), value(nullptr) {
 	return;
 }
 
@@ -34,25 +29,62 @@ void Parser::add_skip(std::string symbol) {
 	this->lexer.add_skip(symbol);
 }
 
-void Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler) {
-	this->add_production(target, symbols, handler, nullptr);
+Int Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler) {
+	return this->add_production(target, symbols, handler, nullptr);
 }
-void Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler, RewriteHandler rewrite) {
+Int Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler, RewriteHandler rewrite) {
+	Int n = this->productions.size();
 	std::unique_ptr<Production> p(new Production);
-	p->index = this->productions.size();
+	p->index = n;
 	p->target = target;
 	p->symbols = symbols;
+	(void) p->precedence;
 	p->handler = handler;
 	p->rewrite = rewrite;
 	this->nonterminals[target].push_back(p.get());
 	this->productions.push_back(std::move(p));
+	return n;
+}
+
+bool Parser::set_precedence_class(std::string precedence, UInt level, Precedence::Associativity assoc) {
+	std::map<UInt, std::string>::iterator it = this->precedence_levels.find(level);
+	if (it != this->precedence_levels.end()) {
+		if (precedence != it->second) {
+			return false;
+		}
+	}
+	std::map<std::string, Precedence>::iterator it2 = this->precedence_classes.find(precedence);
+	if (it2 == this->precedence_classes.end()) {
+		this->precedence_classes.emplace(std::piecewise_construct, std::forward_as_tuple(precedence), std::forward_as_tuple(level, assoc));
+	} else {
+		this->precedence_levels.erase(it2->second.level);
+		it2->second.level = level;
+		it2->second.assoc = assoc;
+	}
+	this->precedence_levels[level] = precedence;
+	return true;
+}
+
+bool Parser::set_precedence(std::string symbol, std::string precedence) {
+	if (this->precedence_classes.find(precedence) == this->precedence_classes.end()) {
+		return false;
+	}
+	this->precedence[symbol] = precedence;
+	return true;
+}
+
+bool Parser::set_precedence(Int production, std::string precedence) {
+	if (this->precedence_classes.find(precedence) == this->precedence_classes.end()) {
+		return false;
+	}
+	Production* p = this->productions.at(production).get();
+	p->precedence = precedence;
+	return true;
 }
 
 void Parser::generate(Type type, std::string start) {
 	this->terminals.insert(Lexer::TOKEN_END);
-	this->add_production(Parser::ROOT, { start }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		return std::move(m->value);
-	});
+	this->add_production(Parser::ROOT, { start }, nullptr);
 	this->lexer.generate();
 	this->generate_first_sets();
 	this->generate_itemsets(type);
@@ -79,7 +111,7 @@ std::unique_ptr<MatchedNonterminal> Parser::parse(IInputStream* in) {
 			for (std::string const& tag : t->tags) {
 				std::cout << " " << tag;
 			}
-			std::cout << ": " << t->lexeme << " (" << t->loc.line << ", " << t->loc.column << ")" <<std::endl;
+			std::cout << ": \"" << t->lexeme << "\" (" << t->loc.line << ", " << t->loc.column << ")" <<std::endl;
 			if (t->tags.at(0) == Lexer::TOKEN_BAD) {
 				std::cout << "Bad token " << std::endl;
 				break;
@@ -117,6 +149,28 @@ std::vector<GrammarConflict> Parser::conflicts() {
 }
 
 #pragma mark - Parser - private
+
+Precedence Parser::precedence_of(std::string token) {
+	std::map<std::string, std::string>::iterator it = this->precedence.find(token);
+	if (it == this->precedence.end()) {
+		return Precedence::UNDEFINED;
+	}
+	return this->precedence_classes.at(it->second);
+}
+
+Precedence Parser::precedence_of(Production* p) {
+	if (p->precedence.length() > 0) {
+		std::map<std::string, Precedence>::iterator it = this->precedence_classes.find(p->precedence);
+		assert(it != this->precedence_classes.end());
+		return it->second;
+	}
+	for (std::vector<std::string>::reverse_iterator it = p->symbols.rbegin(); it != p->symbols.rend(); it++) {
+		if (this->symbol_is_token(*it)) {
+			return this->precedence_of(*it);
+		}
+	}
+	return Precedence::UNDEFINED;
+}
 
 /*
  * Dragon book page 221
@@ -254,28 +308,7 @@ void Parser::generate_itemsets(Type type) {
 
 void Parser::generate_actions() {
 	for (std::unique_ptr<ItemSet> const& is : this->lr1_states) {
-		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
-			is->actions.emplace(std::piecewise_construct, std::forward_as_tuple(kv.first), std::forward_as_tuple(kv.second, nullptr));
-			std::map<std::string, std::vector<Production*>>::iterator it = is->reductions.find(kv.first);
-			if (it == is->reductions.end()) {
-				continue;
-			}
-			GrammarConflict gc;
-			gc.type = GrammarConflict::Type::ShiftReduce;
-			gc.state = is.get();
-			gc.symbol = kv.first;
-			for (Item const& i : kv.second->kernel) {
-				assert(i.production->symbols.at(i.dot - 1) == kv.first);
-				gc.productions.push_back(i.production);
-			}
-			gc.productions.insert(gc.productions.end(), it->second.begin(), it->second.end());
-			this->_conflicts.push_back(gc);
-		}
 		for (std::map<std::string, std::vector<Production*>>::value_type const& kv : is->reductions) {
-			std::map<std::string, Action>::iterator it = is->actions.find(kv.first);
-			if (it != is->actions.end()) {
-				continue;
-			}
 			Production* p = kv.second.front();
 			if (kv.second.size() > 1) {
 				GrammarConflict gc;
@@ -300,6 +333,50 @@ void Parser::generate_actions() {
 				this->_conflicts.push_back(gc);
 			}
 			is->actions.emplace(std::piecewise_construct, std::forward_as_tuple(kv.first), std::forward_as_tuple(nullptr, p));
+		}
+		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
+			std::map<std::string, Action>::iterator it = is->actions.find(kv.first);
+			if (it == is->actions.end()) {
+				is->actions.emplace(std::piecewise_construct, std::forward_as_tuple(kv.first), std::forward_as_tuple(kv.second, nullptr));
+				continue;
+			}
+			assert(it->second.shift == nullptr);
+			assert(it->second.reduce != nullptr);
+			Precedence ps = this->precedence_of(kv.first);
+			Precedence pr = this->precedence_of(it->second.reduce);
+			if (ps.is_defined() || pr.is_defined()) {
+				if (pr.level > ps.level) {
+					continue;
+				} if (ps.level > pr.level) {
+					it->second.shift = kv.second;
+					it->second.reduce = nullptr;
+					continue;
+				} else if (ps.level == pr.level) {
+					assert(ps.assoc == pr.assoc);
+					if (ps.assoc == Precedence::Associativity::LEFT) {
+						continue;
+					} else if (ps.assoc == Precedence::Associativity::RIGHT) {
+						it->second.shift = kv.second;
+						it->second.reduce = nullptr;
+						continue;
+					} else if (ps.assoc == Precedence::Associativity::NONASSOC) {
+						is->actions.erase(it);
+						continue;
+					}
+				}
+			}
+			GrammarConflict gc;
+			gc.type = GrammarConflict::Type::ShiftReduce;
+			gc.state = is.get();
+			gc.symbol = kv.first;
+			for (Item const& i : kv.second->kernel) {
+				assert(i.production->symbols.at(i.dot - 1) == kv.first);
+				gc.productions.push_back(i.production);
+			}
+			gc.productions.push_back(it->second.reduce);
+			this->_conflicts.push_back(gc);
+			it->second.shift = kv.second;
+			it->second.reduce = nullptr;
 		}
 	}
 }
@@ -681,6 +758,18 @@ void Parser::debug() {
 			for (Production* const p : kv.second) {
 				std::cout << "\t" << kv.first << " -> ";
 				Parser::debug_production(p);
+			}
+		}
+		std::cout << "Actions:" << std::endl;
+		for (std::map<std::string, Action>::value_type const& kv : is->actions) {
+			std::cout << kv.first;
+			if (kv.second.shift != nullptr) {
+				assert(kv.second.reduce == nullptr);
+				std::cout << " -> " << kv.second.shift->index << std::endl;
+			} else {
+				assert(kv.second.reduce != nullptr);
+				std::cout << " <- ";
+				Parser::debug_production(kv.second.reduce);
 			}
 		}
 		std::cout << "=== done " << is->index << std::endl;

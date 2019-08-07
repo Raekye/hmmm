@@ -332,7 +332,7 @@ std::unique_ptr<Parser> RegexEngine::make() {
 		return std::unique_ptr<ParserAST>(new ParserValueRange(RegexASTGroup::Range((UInt) l1, (UInt) l2)));
 	});
 	p->add_production("mul_range", { "LBRACE", "dec_int", "RBRACE" }, nullptr, [](std::unique_ptr<MatchedNonterminal> m) -> std::unique_ptr<MatchedNonterminal> {
-		std::unique_ptr<MatchedNonterminal> ret(new MatchedNonterminal);
+		std::unique_ptr<MatchedNonterminal> ret(new MatchedNonterminal(nullptr));
 		LocationInfo loc;
 		std::unique_ptr<MatchedTerminal> t0(new MatchedTerminal(std::unique_ptr<Token>(new Token({ "DEC" }, "0", loc))));
 		std::unique_ptr<MatchedTerminal> t1(new MatchedTerminal(std::unique_ptr<Token>(new Token({ "COMMA" }, "", loc))));

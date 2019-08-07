@@ -20,7 +20,6 @@ struct ItemSet;
 typedef std::function<std::unique_ptr<ParserAST>(MatchedNonterminal*)> ProductionHandler;
 typedef std::function<std::unique_ptr<MatchedNonterminal>(std::unique_ptr<MatchedNonterminal>)> RewriteHandler;
 
-
 class ParserAST {
 public:
 	virtual ~ParserAST() = 0;
@@ -58,7 +57,6 @@ public:
 	std::vector<std::unique_ptr<Match>> terms;
 	std::unique_ptr<ParserAST> value;
 
-	MatchedNonterminal();
 	MatchedNonterminal(Production*);
 	MatchedTerminal* terminal(Int i) {
 		return dynamic_cast<MatchedTerminal*>(this->terms.at(i).get());
@@ -66,15 +64,35 @@ public:
 	MatchedNonterminal* nonterminal(Int i) {
 		return dynamic_cast<MatchedNonterminal*>(this->terms.at(i).get());
 	}
+};
 
-private:
-	MatchedNonterminal(Production*, size_t);
+struct Precedence {
+	enum Associativity {
+		LEFT,
+		RIGHT,
+		NONASSOC,
+		NONE,
+	};
+
+	static Precedence const UNDEFINED;
+
+	UInt level;
+	Associativity assoc;
+
+	Precedence(UInt l, Associativity a) : level(l), assoc(a) {
+		return;
+	}
+
+	bool is_defined() const {
+		return this->level > 0;
+	}
 };
 
 struct Production {
 	Int index;
 	std::string target;
 	std::vector<std::string> symbols;
+	std::string precedence;
 	ProductionHandler handler;
 	RewriteHandler rewrite;
 
@@ -146,8 +164,11 @@ public:
 
 	void add_token(std::string, std::unique_ptr<RegexAST>);
 	void add_skip(std::string);
-	void add_production(std::string, std::vector<std::string>, ProductionHandler);
-	void add_production(std::string, std::vector<std::string>, ProductionHandler, RewriteHandler);
+	Int add_production(std::string, std::vector<std::string>, ProductionHandler);
+	Int add_production(std::string, std::vector<std::string>, ProductionHandler, RewriteHandler);
+	bool set_precedence_class(std::string, UInt level, Precedence::Associativity);
+	bool set_precedence(std::string, std::string);
+	bool set_precedence(Int, std::string);
 	void generate(Type, std::string);
 	std::unique_ptr<MatchedNonterminal> parse(IInputStream*);
 	std::vector<GrammarConflict> conflicts();
@@ -167,6 +188,10 @@ private:
 	std::set<std::string> terminals;
 	std::map<std::string, std::vector<Production*>> nonterminals;
 	std::vector<std::unique_ptr<Production>> productions;
+
+	std::map<std::string, std::string> precedence;
+	std::map<std::string, Precedence> precedence_classes;
+	std::map<UInt, std::string> precedence_levels;
 
 	std::set<std::string> nullable;
 	std::map<std::string, std::set<std::string>> firsts;
@@ -189,6 +214,9 @@ private:
 	bool symbol_is_token(std::string s) {
 		return this->terminals.find(s) != this->terminals.end();
 	}
+
+	Precedence precedence_of(std::string);
+	Precedence precedence_of(Production*);
 
 	void generate_first_sets();
 	// for LALR(1), first generate the LR(0) itemsets,

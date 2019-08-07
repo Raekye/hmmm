@@ -175,3 +175,78 @@ TEST_F(ParserTest, RegexGroup) {
 		ASSERT_NE(p.parse(&fis), nullptr);
 	}
 }
+
+TEST_F(ParserTest, Precedence) {
+	auto prepare = [](Parser* p) -> void {
+		p->add_token("a", std::unique_ptr<RegexAST>(new RegexASTLiteral('a')));
+		p->add_token("plus", std::unique_ptr<RegexAST>(new RegexASTLiteral('+')));
+		p->add_token("minus", std::unique_ptr<RegexAST>(new RegexASTLiteral('-')));
+		p->set_precedence("plus", "precedence");
+		p->set_precedence("minus", "precedence");
+		p->add_production("expr", { "expr", "plus", "expr" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+			Int x = m->nonterminal(0)->value->get<Int>();
+			Int y = m->nonterminal(2)->value->get<Int>();
+			std::cout << "x " << x << ", y " << y << std::endl;
+			return std::unique_ptr<ParserAST>(new ParserValue<Int>(x + y));
+		});
+		p->add_production("expr", { "expr", "minus", "expr" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+			Int x = m->nonterminal(0)->value->get<Int>();
+			Int y = m->nonterminal(2)->value->get<Int>();
+			return std::unique_ptr<ParserAST>(new ParserValue<Int>(x - y));
+		});
+		p->add_production("expr", { "a" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+			return std::unique_ptr<ParserAST>(new ParserValue<Int>(1));
+		});
+	};
+	for (Parser::Type const t : this->types) {
+		Parser p;
+		prepare(&p);
+		p.generate(t, "expr");
+		ASSERT_EQ(p.conflicts().size(), 4);
+		std::stringstream ss;
+		ss << "a-a+a";
+		FileInputStream fis(&ss);
+		std::unique_ptr<MatchedNonterminal> m = p.parse(&fis);
+		Int z = m->value->get<Int>();
+		ASSERT_EQ(z, -1);
+	}
+	for (Parser::Type const t : this->types) {
+		Parser p;
+		p.set_precedence_class("precedence", 1, Precedence::Associativity::LEFT);
+		prepare(&p);
+		p.generate(t, "expr");
+		ASSERT_EQ(p.conflicts().size(), 0);
+		std::stringstream ss;
+		ss << "a-a+a";
+		FileInputStream fis(&ss);
+		std::unique_ptr<MatchedNonterminal> m = p.parse(&fis);
+		Int z = m->value->get<Int>();
+		ASSERT_EQ(z, 1);
+	}
+	for (Parser::Type const t : this->types) {
+		Parser p;
+		p.set_precedence_class("precedence", 1, Precedence::Associativity::RIGHT);
+		prepare(&p);
+		p.generate(t, "expr");
+		ASSERT_EQ(p.conflicts().size(), 0);
+		std::stringstream ss;
+		ss << "a-a+a";
+		FileInputStream fis(&ss);
+		std::unique_ptr<MatchedNonterminal> m = p.parse(&fis);
+		Int z = m->value->get<Int>();
+		ASSERT_EQ(z, -1);
+	}
+	for (Parser::Type const t : this->types) {
+		Parser p;
+		p.set_precedence_class("precedence", 1, Precedence::Associativity::NONE);
+		p.set_precedence_class("precedence", 1, Precedence::Associativity::NONASSOC);
+		prepare(&p);
+		p.generate(t, "expr");
+		ASSERT_EQ(p.conflicts().size(), 0);
+		std::stringstream ss;
+		ss << "a-a+a";
+		FileInputStream fis(&ss);
+		std::unique_ptr<MatchedNonterminal> m = p.parse(&fis);
+		ASSERT_EQ(m, nullptr);
+	}
+}
