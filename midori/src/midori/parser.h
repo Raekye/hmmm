@@ -112,7 +112,7 @@ struct Item {
 	}
 
 	bool is_done() const {
-		return this->dot == this->production->symbols.size();
+		return this->dot == (Int) this->production->symbols.size();
 	}
 
 	std::string next_symbol() const {
@@ -141,6 +141,36 @@ struct ItemSet {
 	std::map<std::string, ItemSet*> next;
 	std::map<std::string, std::vector<Production*>> reductions;
 	std::map<std::string, Action> actions;
+};
+
+struct LalrTransition {
+	ItemSet* state;
+	std::string nonterminal;
+
+	LalrTransition(ItemSet* is, std::string s) : state(is), nonterminal(s) {
+		return;
+	}
+
+	friend bool operator==(LalrTransition const& lhs, LalrTransition const& rhs) {
+		return std::tie(lhs.state->index, lhs.nonterminal) == std::tie(rhs.state->index, rhs.nonterminal);
+	}
+
+	friend bool operator<(LalrTransition const& lhs, LalrTransition const& rhs) {
+		return std::tie(lhs.state->index, lhs.nonterminal) < std::tie(rhs.state->index, rhs.nonterminal);
+	}
+};
+
+struct LalrLookback {
+	ItemSet* state;
+	Production* production;
+
+	LalrLookback(ItemSet* is, Production* p) : state(is), production(p) {
+		return;
+	}
+
+	friend bool operator<(LalrLookback const& lhs, LalrLookback const& rhs) {
+		return std::tie(lhs.state->index, lhs.production->index) < std::tie(rhs.state->index, rhs.production->index);
+	}
 };
 
 struct GrammarConflict {
@@ -179,6 +209,8 @@ public:
 private:
 	typedef std::map<Item, std::unique_ptr<std::set<std::string>>> LookaheadMap;
 	typedef std::map<Item, std::vector<std::set<std::string>*>> PropagateLookaheadMap;
+	template <typename T> using GraphRelation = std::function<std::set<T>&(T)>;
+	template <typename T, typename U> using GraphFunction = std::function<std::set<U>&(T)>;
 
 	static std::string const ROOT;
 	static std::string const TOKEN_MIDORI;
@@ -204,6 +236,14 @@ private:
 
 	std::vector<LookaheadMap> lookaheads;
 	std::vector<PropagateLookaheadMap> lookahead_propagates;
+
+	std::vector<LalrTransition> nonterminal_transitions;
+	std::map<LalrTransition, std::set<std::string>> directly_reads_relation;
+	std::map<LalrTransition, std::set<LalrTransition>> reads_relation;
+	std::map<LalrTransition, std::set<std::string>> reads;
+	std::map<LalrTransition, std::set<LalrTransition>> includes_relation;
+	std::map<LalrTransition, std::set<LalrLookback>> lookback_relation;
+	std::map<LalrTransition, std::set<std::string>> follows;
 
 	std::vector<GrammarConflict> _conflicts;
 
@@ -234,6 +274,15 @@ private:
 	void propagate_lookaheads();
 	void generate_lalr_itemsets();
 
+	// DeRemer and Pennello's LALR algorithm
+	template <typename T, typename U> static void digraph(std::vector<T>*, GraphRelation<T>, GraphFunction<T, U>, std::map<T, std::set<U>>*);
+	template <typename T, typename U> static void traverse(T, std::stack<T>*, std::map<T, Int>*, std::vector<T>*, GraphRelation<T>, GraphFunction<T, U>, std::map<T, std::set<U>>*);
+	void generate_reads_relations();
+	void generate_read_sets();
+	void generate_includes_lookback();
+	void generate_follow_sets();
+	void generate_lookaheads();
+
 	void push_symbol(std::unique_ptr<Match>);
 	void pull_symbols(std::unique_ptr<Match>);
 	std::unique_ptr<Match> next_symbol(IInputStream*);
@@ -245,6 +294,7 @@ private:
 	static void debug_item(Item);
 	static void debug_set(std::set<std::string>);
 	static void debug_match(Match*, Int);
+	static void debug_lalr_transition(LalrTransition);
 };
 
 #endif /* MIDORI_PARSER_H_INCLUDED */

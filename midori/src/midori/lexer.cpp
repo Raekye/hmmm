@@ -68,7 +68,7 @@ std::unique_ptr<Token> Lexer::scan(IInputStream* in) {
 	// TODO: trailing newline in files?
 	while (true) {
 		std::unique_ptr<Token> t = this->_scan(in);
-		Int i = 0;
+		size_t i = 0;
 		for (std::string const& s : t->tags) {
 			if (this->skip.find(s) != this->skip.end()) {
 				break;

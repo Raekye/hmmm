@@ -91,7 +91,6 @@ std::unique_ptr<Parser> RegexEngine::make() {
 	});
 
 	p->add_production("lr_mul", { "not_lr", "STAR" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		MatchedNonterminal* n1 = m->nonterminal(0);
 		std::unique_ptr<RegexAST>& r = m->nonterminal(0)->value->get<std::unique_ptr<RegexAST>>();
 		std::unique_ptr<RegexAST> ret(new RegexASTMultiplication(std::move(r), 0, 0));
 		return std::unique_ptr<ParserAST>(new ParserValueRegex(std::move(ret)));

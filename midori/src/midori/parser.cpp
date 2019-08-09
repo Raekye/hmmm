@@ -89,11 +89,19 @@ void Parser::generate(Type type, std::string start) {
 	this->generate_first_sets();
 	this->generate_itemsets(type);
 	if (type == Type::LALR1) {
+		/*
 		this->lookaheads.resize(this->lr0_states.size());
 		this->lookahead_propagates.resize(this->lr0_states.size());
 		this->discover_lookaheads();
 		this->propagate_lookaheads();
 		this->generate_lalr_itemsets();
+		*/
+		this->generate_reads_relations();
+		this->generate_read_sets();
+		this->generate_includes_lookback();
+		this->generate_follow_sets();
+		this->generate_lookaheads();
+		this->lr1_states = std::move(this->lr0_states);
 	}
 	this->generate_actions();
 }
@@ -245,7 +253,7 @@ void Parser::generate_lr1_closure(ItemSet* is) {
 				continue;
 			}
 			std::vector<std::string> l;
-			Int j = i.dot + 1;
+			size_t j = (size_t) (i.dot + 1);
 			while (j < i.production->symbols.size()) {
 				std::string s2 = i.production->symbols.at(j);
 				std::map<std::string, std::set<std::string>>::iterator it = this->firsts.find(s2);
@@ -270,7 +278,6 @@ void Parser::generate_lr1_closure(ItemSet* is) {
 
 void Parser::generate_itemsets(Type type) {
 	std::unique_ptr<ItemSet> start(new ItemSet);
-	std::map<std::string, std::vector<Production*>>::iterator it = this->nonterminals.find(Parser::ROOT);
 	std::vector<Production*>& v = this->nonterminals.at(Parser::ROOT);
 	assert(v.size() == 1);
 	std::string s = "";
@@ -523,6 +530,180 @@ void Parser::generate_lalr_itemsets() {
 	}
 }
 
+template <typename T, typename U> void Parser::digraph(std::vector<T>* nodes, GraphRelation<T> r, GraphFunction<T, U> g, std::map<T, std::set<U>>* f) {
+	std::map<T, Int> weights;
+	std::stack<T> stack;
+	for (T const& x : (*nodes)) {
+		if (weights[x] == 0) {
+			traverse(x, &stack, &weights, nodes, r, g, f);
+		}
+	}
+}
+
+template <typename T, typename U> void Parser::traverse(T x, std::stack<T>* stack, std::map<T, Int>* weights, std::vector<T>* nodes, GraphRelation<T> r, GraphFunction<T, U> g, std::map<T, std::set<U>>* f) {
+	stack->push(x);
+	size_t d = stack->size();
+	weights->operator[](x) = (Int) d;
+	f->operator[](x) = g(x);
+	typename std::map<T, Int>::iterator it_x = weights->find(x);
+	std::set<U>& f_x = f->operator[](x);
+	for (T const& y : r(x)) {
+		if (weights->operator[](y) == 0) {
+			traverse(y, stack, weights, nodes, r, g, f);
+		}
+		assert(it_x->second > 0);
+		typename std::map<T, Int>::iterator it_y = weights->find(y);
+		assert(it_y != weights->end());
+		assert(it_y->second != 0);
+		if ((it_y->second > 0) && (it_y->second < it_x->second)) {
+			it_x->second = it_y->second;
+		}
+		std::set<U>& f_y = f->operator[](y);
+		f_x.insert(f_y.begin(), f_y.end());
+	}
+	if (it_x->second == (Int) d) {
+		while (true) {
+			T z = stack->top();
+			stack->pop();
+			weights->operator[](z) = -1;
+			f->operator[](z) = f_x;
+			if (z == x) {
+				break;
+			}
+		}
+	}
+}
+
+void Parser::generate_reads_relations() {
+	ItemSet* root = this->lr0_states.front().get();
+	assert(root->kernel.size() == 1);
+	std::string start = root->kernel.begin()->next_symbol();
+	this->directly_reads_relation[LalrTransition(root, start)].insert(Lexer::TOKEN_END);
+
+	for (std::unique_ptr<ItemSet> const& is : this->lr0_states) {
+		std::set<std::string> x;
+		for (Item const& i : is->closure) {
+			if (i.is_done()) {
+				continue;
+			}
+			std::string s = i.next_symbol();
+			if (this->nonterminals.find(s) == this->nonterminals.end()) {
+				continue;
+			}
+			if (!x.insert(s).second) {
+				continue;
+			}
+			this->nonterminal_transitions.emplace_back(is.get(), s);
+			LalrTransition& lt = this->nonterminal_transitions.back();
+			std::set<std::string>& y = this->directly_reads_relation[lt];
+			std::set<LalrTransition>& z = this->reads_relation[lt];
+			ItemSet* js = is->next.at(s);
+			for (Item const& j : js->closure) {
+				if (j.is_done()) {
+					continue;
+				}
+				std::string s2 = j.next_symbol();
+				if (this->terminals.find(s2) != this->terminals.end()) {
+					y.insert(s2);
+				}
+				if (this->nullable.find(s2) != this->nullable.end()) {
+					z.emplace(js, s2);
+				}
+			}
+		}
+	}
+}
+
+void Parser::generate_read_sets() {
+	std::map<LalrTransition, std::set<std::string>>& drr = this->directly_reads_relation;
+	std::map<LalrTransition, std::set<LalrTransition>>& rr = this->reads_relation;
+	GraphRelation<LalrTransition> r = [ &rr ](LalrTransition lt) -> std::set<LalrTransition>& {
+		return rr.at(lt);
+	};
+	GraphFunction<LalrTransition, std::string> g = [ &drr ](LalrTransition lt) -> std::set<std::string>& {
+		return drr.at(lt);
+	};
+	Parser::digraph<LalrTransition, std::string>(&(this->nonterminal_transitions), r, g, &(this->reads));
+}
+
+void Parser::generate_includes_lookback() {
+	for (LalrTransition const& lt : this->nonterminal_transitions) {
+		std::cout << "Looking at transition ";
+		Parser::debug_lalr_transition(lt);
+		std::vector<LalrTransition> includes;
+		std::set<LalrLookback>& lookback = this->lookback_relation[lt];
+		for (Item const& i : lt.state->closure) {
+			if (i.production->target != lt.nonterminal) {
+				continue;
+			}
+			std::cout << "\tLooking at item ";
+			Parser::debug_item(i);
+			ItemSet* js = lt.state;
+			for (size_t k = (size_t) i.dot; k < i.production->symbols.size(); k++) {
+				std::string s = i.production->symbols.at(k);
+				LalrTransition lt2(js, s);
+				js = js->next.at(s);
+				std::cout << "\t\tGot transition ";
+				Parser::debug_lalr_transition(lt2);
+				if (this->reads_relation.find(lt2) == this->reads_relation.end()) {
+					continue;
+				}
+				size_t l = k + 1;
+				while (l < i.production->symbols.size()) {
+					std::string s = i.production->symbols.at(l);
+					if (this->nullable.find(s) == this->nullable.end()) {
+						break;
+					}
+					l++;
+				}
+				if (l == i.production->symbols.size()) {
+					includes.push_back(lt2);
+				}
+			}
+			if (i.dot == 0) {
+				for (Item const& j : js->closure) {
+					if ((j.production == i.production) && j.is_done()) {
+						lookback.emplace(js, j.production);
+					}
+				}
+			}
+		}
+		//assert(std::set<LalrTransition>(includes.begin(), includes.end()).size() == includes.size());
+		for (LalrTransition const& lt2 : includes) {
+			this->includes_relation[lt2].insert(lt);
+		}
+	}
+}
+
+void Parser::generate_follow_sets() {
+	std::map<LalrTransition, std::set<LalrTransition>>& ir = this->includes_relation;
+	std::map<LalrTransition, std::set<std::string>>& rs = this->reads;
+	GraphRelation<LalrTransition> r = [ &ir ](LalrTransition lt) -> std::set<LalrTransition>& {
+		return ir[lt];
+	};
+	GraphFunction<LalrTransition, std::string> g = [ &rs ](LalrTransition lt) -> std::set<std::string>& {
+		return rs.at(lt);
+	};
+	Parser::digraph<LalrTransition, std::string>(&(this->nonterminal_transitions), r, g, &(this->follows));
+}
+
+void Parser::generate_lookaheads() {
+	std::map<Int, std::map<std::string, std::set<Production*>>> m;
+	for (std::map<LalrTransition, std::set<LalrLookback>>::value_type const& kv : this->lookback_relation) {
+		for (LalrLookback const& ll : kv.second) {
+			for (std::string const& s : this->follows.at(kv.first)) {
+				m[ll.state->index][s].insert(ll.production);
+			}
+		}
+	}
+	for (std::map<Int, std::map<std::string, std::set<Production*>>>::value_type const& kv : m) {
+		for (std::map<std::string, std::set<Production*>>::value_type const& kv2 : kv.second) {
+			std::vector<Production*>& v = this->lr0_states.at(kv.first)->reductions[kv2.first];
+			v.insert(v.end(), kv2.second.begin(), kv2.second.end());
+		}
+	}
+}
+
 void Parser::push_symbol(std::unique_ptr<Match> s) {
 	this->symbol_buffer.push(std::move(s));
 }
@@ -592,6 +773,15 @@ bool Parser::parse_advance(std::unique_ptr<Match> s, bool* accept) {
 std::unique_ptr<Match> Parser::parse_symbol(std::string tag, std::unique_ptr<Match> s, bool* accept) {
 	ItemSet* curr = this->parse_stack_states.top();
 	std::map<std::string, Action>::iterator it = curr->actions.find(tag);
+	if (curr->accept && tag == Lexer::TOKEN_END) {
+		if (it != curr->actions.end()) {
+			assert(it->second.shift == nullptr);
+			assert(it->second.reduce != nullptr);
+		}
+		std::cout << "accepting" << std::endl;
+		*accept = true;
+		return nullptr;
+	}
 	if (it == curr->actions.end()) {
 		return s;
 	}
@@ -605,11 +795,13 @@ std::unique_ptr<Match> Parser::parse_symbol(std::string tag, std::unique_ptr<Mat
 		return nullptr;
 	}
 	assert(reduce != nullptr);
+	/*
 	if (curr->accept && tag == Lexer::TOKEN_END) {
 		std::cout << "accepting" << std::endl;
 		*accept = true;
 		return nullptr;
 	}
+	*/
 	this->push_symbol(std::move(s));
 	std::cout << "reducing via rule ";
 	Parser::debug_production(reduce);
@@ -693,6 +885,10 @@ void Parser::debug_match(Match* m, Int levels) {
 	}
 }
 
+void Parser::debug_lalr_transition(LalrTransition lt) {
+	std::cout << "(" << lt.state->index << ", " << lt.nonterminal << ")" << std::endl;
+}
+
 void Parser::debug() {
 	std::cout << "===== Hmmmmm" << std::endl;
 	this->lexer.debug();
@@ -701,6 +897,7 @@ void Parser::debug() {
 		std::cout << "\t" << kv.first << ": ";
 		Parser::debug_set(kv.second);
 	}
+	std::cout << std::endl;
 	for (std::unique_ptr<ItemSet> const& is : this->lr0_states) {
 		std::cout << "=== Item Set " << is->index << std::endl;
 		std::cout << "Kernel:" << std::endl;
@@ -737,6 +934,66 @@ void Parser::debug() {
 		std::cout << "=== done " << is->index << std::endl;
 		std::cout << std::endl;
 	}
+	std::cout << "=== Nonterminal transitions" << std::endl;
+	for (LalrTransition const& lt : this->nonterminal_transitions) {
+		std::cout << "- ";
+		Parser::debug_lalr_transition(lt);
+	}
+	std::cout << std::endl;
+	std::cout << "=== Directly reads relation" << std::endl;
+	for (std::map<LalrTransition, std::set<std::string>>::value_type const& kv : this->directly_reads_relation) {
+		std::cout << "- ";
+		Parser::debug_lalr_transition(kv.first);
+		std::cout << "\t- ";
+		Parser::debug_set(kv.second);
+	}
+	std::cout << std::endl;
+	std::cout << "=== Reads relation" << std::endl;
+	for (std::map<LalrTransition, std::set<LalrTransition>>::value_type const& kv : this->reads_relation) {
+		std::cout << "- ";
+		Parser::debug_lalr_transition(kv.first);
+		for (LalrTransition const& lt : kv.second) {
+			std::cout << "\t- ";
+			Parser::debug_lalr_transition(lt);
+		}
+	}
+	std::cout << std::endl;
+	std::cout << "=== Read sets" << std::endl;
+	for (std::map<LalrTransition, std::set<std::string>>::value_type const& kv : this->reads) {
+		std::cout << "- ";
+		Parser::debug_lalr_transition(kv.first);
+		std::cout << "\t- ";
+		Parser::debug_set(kv.second);
+	}
+	std::cout << std::endl;
+	std::cout << "=== Includes relation" << std::endl;
+	for (std::map<LalrTransition, std::set<LalrTransition>>::value_type const& kv : this->includes_relation) {
+		std::cout << "- ";
+		Parser::debug_lalr_transition(kv.first);
+		for (LalrTransition const& lt : kv.second) {
+			std::cout << "\t- ";
+			Parser::debug_lalr_transition(lt);
+		}
+	}
+	std::cout << std::endl;
+	std::cout << "=== Lookback relation" << std::endl;
+	for (std::map<LalrTransition, std::set<LalrLookback>>::value_type const& kv : this->lookback_relation) {
+		std::cout << "- ";
+		Parser::debug_lalr_transition(kv.first);
+		for (LalrLookback const& lt : kv.second) {
+			std::cout << "\t- " << lt.state->index << " -> ";
+			Parser::debug_production(lt.production);
+		}
+	}
+	std::cout << std::endl;
+	std::cout << "=== Follow sets" << std::endl;
+	for (std::map<LalrTransition, std::set<std::string>>::value_type const& kv : this->follows) {
+		std::cout << "- ";
+		Parser::debug_lalr_transition(kv.first);
+		std::cout << "\t- ";
+		Parser::debug_set(kv.second);
+	}
+	std::cout << std::endl;
 	for (std::unique_ptr<ItemSet> const& is : this->lr1_states) {
 		std::cout << "=== LR1 Item Set " << is->index << ", accept " << is->accept << std::endl;
 		std::cout << "Kernel:" << std::endl;

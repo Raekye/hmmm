@@ -53,6 +53,7 @@ foreach(t ${TESTS})
 
 	target_link_libraries(${t}_test midori)
 
+	target_compile_options(${t}_test PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-unknown-pragmas)
 	add_test(NAME ${t}_test COMMAND ${t}_test)
 endforeach()
 

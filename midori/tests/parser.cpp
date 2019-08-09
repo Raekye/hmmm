@@ -67,7 +67,7 @@ TEST_F(ParserTest, Epsilon) {
 	}
 }
 
-TEST_F(ParserTest, LALR1) {
+TEST_F(ParserTest, LALR) {
 	for (Parser::Type const t : this->types) {
 		Parser p;
 		p.add_token("EQUALS", std::unique_ptr<RegexAST>(new RegexASTLiteral('=')));
@@ -78,9 +78,31 @@ TEST_F(ParserTest, LALR1) {
 		p.add_production("l", { "STAR", "r" }, nullptr);
 		p.add_production("l", { "ID" }, nullptr);
 		p.add_production("r", { "l" }, nullptr);
-		p.generate(Parser::Type::LALR1, "s");
+		p.generate(t, "s");
 		std::stringstream ss;
 		ss << "*i=i";
+		FileInputStream fis(&ss);
+		ASSERT_NE(p.parse(&fis), nullptr);
+	}
+}
+
+TEST_F(ParserTest, LALR2) {
+	for (Parser::Type const t : this->types) {
+		Parser p;
+		p.add_token("EQUALS", std::unique_ptr<RegexAST>(new RegexASTLiteral('=')));
+		p.add_token("F", std::unique_ptr<RegexAST>(new RegexASTLiteral('f')));
+		p.add_token("PLUS", std::unique_ptr<RegexAST>(new RegexASTLiteral('+')));
+		p.add_token("TIMES", std::unique_ptr<RegexAST>(new RegexASTLiteral('*')));
+		p.add_production("g", { "e", "EQUALS", "e" }, nullptr);
+		p.add_production("g", { "F" }, nullptr);
+		p.add_production("e", { "t" }, nullptr);
+		p.add_production("e", { "e", "PLUS", "t" }, nullptr);
+		p.add_production("t", { "F" }, nullptr);
+		p.add_production("t", { "t", "TIMES", "F" }, nullptr);
+		p.generate(t, "g");
+		ASSERT_EQ(p.conflicts().size(), 0);
+		std::stringstream ss;
+		ss << "f=f*f+f";
 		FileInputStream fis(&ss);
 		ASSERT_NE(p.parse(&fis), nullptr);
 	}
@@ -195,6 +217,7 @@ TEST_F(ParserTest, Precedence) {
 			return std::unique_ptr<ParserAST>(new ParserValue<Int>(x - y));
 		});
 		p->add_production("expr", { "a" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+			(void) m;
 			return std::unique_ptr<ParserAST>(new ParserValue<Int>(1));
 		});
 	};
