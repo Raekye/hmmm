@@ -12,3 +12,4 @@ set(SOURCES
 
 add_library(midori SHARED ${SOURCES})
 target_compile_options(midori PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-unknown-pragmas)
+target_link_libraries(midori PUBLIC coverage)

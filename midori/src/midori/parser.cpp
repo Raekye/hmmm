@@ -33,7 +33,7 @@ Int Parser::add_production(std::string target, std::vector<std::string> symbols,
 	return this->add_production(target, symbols, handler, nullptr);
 }
 Int Parser::add_production(std::string target, std::vector<std::string> symbols, ProductionHandler handler, RewriteHandler rewrite) {
-	Int n = this->productions.size();
+	UInt n = this->productions.size();
 	std::unique_ptr<Production> p(new Production);
 	p->index = n;
 	p->target = target;
@@ -98,7 +98,7 @@ void Parser::generate(Type type, std::string start) {
 		*/
 		this->generate_reads_relations();
 		this->generate_read_sets();
-		this->generate_includes_lookback();
+		this->generate_includes_lookback_relations();
 		this->generate_follow_sets();
 		this->generate_lookaheads();
 		this->lr1_states = std::move(this->lr0_states);
@@ -253,7 +253,7 @@ void Parser::generate_lr1_closure(ItemSet* is) {
 				continue;
 			}
 			std::vector<std::string> l;
-			size_t j = (size_t) (i.dot + 1);
+			size_t j = i.dot + 1;
 			while (j < i.production->symbols.size()) {
 				std::string s2 = i.production->symbols.at(j);
 				std::map<std::string, std::set<std::string>>::iterator it = this->firsts.find(s2);
@@ -530,6 +530,9 @@ void Parser::generate_lalr_itemsets() {
 	}
 }
 
+// see The Theory and Practice of Compiler Writing, page 382
+// see Tarjan's strongly connected components algorithm
+// - https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 template <typename T, typename U> void Parser::digraph(std::vector<T>* nodes, GraphRelation<T> r, GraphFunction<T, U> g, std::map<T, std::set<U>>* f) {
 	std::map<T, Int> weights;
 	std::stack<T> stack;
@@ -542,8 +545,8 @@ template <typename T, typename U> void Parser::digraph(std::vector<T>* nodes, Gr
 
 template <typename T, typename U> void Parser::traverse(T x, std::stack<T>* stack, std::map<T, Int>* weights, std::vector<T>* nodes, GraphRelation<T> r, GraphFunction<T, U> g, std::map<T, std::set<U>>* f) {
 	stack->push(x);
-	size_t d = stack->size();
-	weights->operator[](x) = (Int) d;
+	Int d = (Int) stack->size();
+	weights->operator[](x) = d;
 	f->operator[](x) = g(x);
 	typename std::map<T, Int>::iterator it_x = weights->find(x);
 	std::set<U>& f_x = f->operator[](x);
@@ -561,7 +564,7 @@ template <typename T, typename U> void Parser::traverse(T x, std::stack<T>* stac
 		std::set<U>& f_y = f->operator[](y);
 		f_x.insert(f_y.begin(), f_y.end());
 	}
-	if (it_x->second == (Int) d) {
+	if (it_x->second == d) {
 		while (true) {
 			T z = stack->top();
 			stack->pop();
@@ -574,6 +577,9 @@ template <typename T, typename U> void Parser::traverse(T x, std::stack<T>* stac
 	}
 }
 
+// see Efficient Computation of LALR(1) Look-Ahead Sets, DeRemer and Pennello (1982)
+// - https://dl.acm.org/citation.cfm?id=357187
+// see The Theory and Practice of Compiler Writing, pages 375-383
 void Parser::generate_reads_relations() {
 	ItemSet* root = this->lr0_states.front().get();
 	assert(root->kernel.size() == 1);
@@ -595,6 +601,7 @@ void Parser::generate_reads_relations() {
 			}
 			this->nonterminal_transitions.emplace_back(is.get(), s);
 			LalrTransition& lt = this->nonterminal_transitions.back();
+			// create the mapping even if the sets end up being empty
 			std::set<std::string>& y = this->directly_reads_relation[lt];
 			std::set<LalrTransition>& z = this->reads_relation[lt];
 			ItemSet* js = is->next.at(s);
@@ -615,18 +622,18 @@ void Parser::generate_reads_relations() {
 }
 
 void Parser::generate_read_sets() {
-	std::map<LalrTransition, std::set<std::string>>& drr = this->directly_reads_relation;
-	std::map<LalrTransition, std::set<LalrTransition>>& rr = this->reads_relation;
-	GraphRelation<LalrTransition> r = [ &rr ](LalrTransition lt) -> std::set<LalrTransition>& {
-		return rr.at(lt);
+	std::map<LalrTransition, std::set<std::string>>* drr = &(this->directly_reads_relation);
+	std::map<LalrTransition, std::set<LalrTransition>>* rr = &(this->reads_relation);
+	GraphRelation<LalrTransition> r = [ rr ](LalrTransition lt) -> std::set<LalrTransition>& {
+		return rr->at(lt);
 	};
-	GraphFunction<LalrTransition, std::string> g = [ &drr ](LalrTransition lt) -> std::set<std::string>& {
-		return drr.at(lt);
+	GraphFunction<LalrTransition, std::string> g = [ drr ](LalrTransition lt) -> std::set<std::string>& {
+		return drr->at(lt);
 	};
 	Parser::digraph<LalrTransition, std::string>(&(this->nonterminal_transitions), r, g, &(this->reads));
 }
 
-void Parser::generate_includes_lookback() {
+void Parser::generate_includes_lookback_relations() {
 	for (LalrTransition const& lt : this->nonterminal_transitions) {
 		std::cout << "Looking at transition ";
 		Parser::debug_lalr_transition(lt);
@@ -649,14 +656,15 @@ void Parser::generate_includes_lookback() {
 					continue;
 				}
 				size_t l = k + 1;
-				while (l < i.production->symbols.size()) {
-					std::string s = i.production->symbols.at(l);
-					if (this->nullable.find(s) == this->nullable.end()) {
+				size_t n = i.production->symbols.size();
+				while (l < n) {
+					std::string s2 = i.production->symbols.at(l);
+					if (this->nullable.find(s2) == this->nullable.end()) {
 						break;
 					}
 					l++;
 				}
-				if (l == i.production->symbols.size()) {
+				if (l == n) {
 					includes.push_back(lt2);
 				}
 			}
@@ -676,13 +684,13 @@ void Parser::generate_includes_lookback() {
 }
 
 void Parser::generate_follow_sets() {
-	std::map<LalrTransition, std::set<LalrTransition>>& ir = this->includes_relation;
-	std::map<LalrTransition, std::set<std::string>>& rs = this->reads;
-	GraphRelation<LalrTransition> r = [ &ir ](LalrTransition lt) -> std::set<LalrTransition>& {
-		return ir[lt];
+	std::map<LalrTransition, std::set<LalrTransition>>* ir = &(this->includes_relation);
+	std::map<LalrTransition, std::set<std::string>>* rs = &(this->reads);
+	GraphRelation<LalrTransition> r = [ ir ](LalrTransition lt) -> std::set<LalrTransition>& {
+		return ir->operator[](lt);
 	};
-	GraphFunction<LalrTransition, std::string> g = [ &rs ](LalrTransition lt) -> std::set<std::string>& {
-		return rs.at(lt);
+	GraphFunction<LalrTransition, std::string> g = [ rs ](LalrTransition lt) -> std::set<std::string>& {
+		return rs->at(lt);
 	};
 	Parser::digraph<LalrTransition, std::string>(&(this->nonterminal_transitions), r, g, &(this->follows));
 }

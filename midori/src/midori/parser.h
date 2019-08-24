@@ -89,7 +89,7 @@ struct Precedence {
 };
 
 struct Production {
-	Int index;
+	UInt index;
 	std::string target;
 	std::vector<std::string> symbols;
 	std::string precedence;
@@ -103,7 +103,7 @@ struct Production {
 
 struct Item {
 	Production* production;
-	Int dot;
+	UInt dot;
 	// for LR0 items, `terminal` is unused
 	std::string terminal;
 
@@ -112,7 +112,7 @@ struct Item {
 	}
 
 	bool is_done() const {
-		return this->dot == (Int) this->production->symbols.size();
+		return this->dot == this->production->symbols.size();
 	}
 
 	std::string next_symbol() const {
@@ -134,7 +134,7 @@ struct Action {
 };
 
 struct ItemSet {
-	Int index;
+	UInt index;
 	bool accept;
 	std::set<Item> kernel;
 	std::set<Item> closure;
@@ -279,7 +279,7 @@ private:
 	template <typename T, typename U> static void traverse(T, std::stack<T>*, std::map<T, Int>*, std::vector<T>*, GraphRelation<T>, GraphFunction<T, U>, std::map<T, std::set<U>>*);
 	void generate_reads_relations();
 	void generate_read_sets();
-	void generate_includes_lookback();
+	void generate_includes_lookback_relations();
 	void generate_follow_sets();
 	void generate_lookaheads();
 

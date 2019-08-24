@@ -12,7 +12,7 @@ Example build: `mkdir build && cd build && cmake .. && make && make test`.
 - `sayaka`: successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
 - `siyu`: hand written LL(1) regex parser, NFA state generator, DFA state generator, lexer-generator, and parser-generator
 - `tk`: successor to `siyu/`, completed LALR(1) parser generator
-- `midori`: successor to `tk/`, hmmmm
+- `midori`: successor to `tk/`, fixed/much improved LALR(1) parser generator
 
 ### Siyu
 - hand written, recursive descent basic regex parser (builds AST)
@@ -25,7 +25,12 @@ Example build: `mkdir build && cd build && cmake .. && make && make test`.
 
 ### Midori
 - lexer/finite automata now support ranges using interval trees
-- rewrote parser generator/parsing algorithm several times ([SLR(1)][2], [LR(1)][3], [LALR(1)][4])
+- rewrote parser generator/parsing algorithm several times:
+	- [SLR(1)][2]
+	- [LR(1)][3]
+	- [LALR(1)][4] based on the dragon book
+	- [LALR(1)][5] using DeRemer and Pennello's [lookahead algorithm][6], based on [PLY][7],
+		and as described in The Theory and Practice of Compiler Writing, and Parsing Theory Volume 2
 
 ## Regex grammar
 - multiplication is repetition
@@ -197,8 +202,10 @@ dec_int
 - https://web.cs.dal.ca/~sjackson/lalr1.html
 - https://stackoverflow.com/questions/8242509/how-does-the-yacc-bison-lalr1-algorithm-treat-empty-rules
 - https://stackoverflow.com/questions/57120176/grammar-matching-regex-character-classes-trailing-dash/
-- Compilers: Principles, Techniques, and Tools (the Dragon book)
+- Compilers: Principles, Techniques, and Tools (the dragon book)
 - Parsing Theory Volume 2: LR(k) and LL(k) Parsing
+- The Theory and Practice of Compiler Writing
+- Efficient Computation of LALR(1) Look-Ahead Sets, DeRemer and Pennello (1982) ([link][6])
 - Efficient Parsing for Natural Language: A Fast Algorithm for Practical Systems
 - http://scottmcpeak.com/elkhound/elkhound.ps
 - https://web.stanford.edu/class/archive/cs/cs143/cs143.1128/
@@ -207,3 +214,6 @@ dec_int
 [2]: https://github.com/Raekye/hmmm/tree/1130d9626c838b36b54155926df05da25e4e828f/midori/src/midori/parser.cpp
 [3]: https://github.com/Raekye/hmmm/tree/ca9659d56b1876f5a325463ebcdb04aec0e3cfbe/midori/src/midori/parser.cpp
 [4]: https://github.com/Raekye/hmmm/tree/a4cb4c7e844ef49d675a9faac622d8d57c8da184/midori/src/midori/parser.cpp
+[5]: https://github.com/Raekye/hmmm/tree/b0b7932e6c7ba5db770fd2ebe5ea3c5b6bfe0a79/midori/src/midori/parser.cpp
+[6]: https://dl.acm.org/citation.cfm?id=357187
+[7]: https://github.com/dabeaz/ply
