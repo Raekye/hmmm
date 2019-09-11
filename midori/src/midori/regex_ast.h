@@ -15,7 +15,7 @@ class IRegexASTVisitor;
 
 class RegexAST {
 public:
-	virtual ~RegexAST();
+	virtual ~RegexAST() = 0;
 	virtual void accept(IRegexASTVisitor*) = 0;
 };
 

@@ -7,9 +7,20 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/parser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/regex_engine.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/generator.cpp
-	#${CMAKE_CURRENT_SOURCE_DIR}/glr.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/lang.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/types.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/type_checker.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/codegen.cpp
 	)
+
+find_package(LLVM REQUIRED CONFIG)
+
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
+
+llvm_map_components_to_libnames(llvm_libs core orcjit native)
 
 add_library(midori SHARED ${SOURCES})
 target_compile_options(midori PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-unknown-pragmas)
-target_link_libraries(midori PUBLIC coverage)
+target_link_libraries(midori PUBLIC ${llvm_libs})
+#target_link_libraries(midori PUBLIC coverage)

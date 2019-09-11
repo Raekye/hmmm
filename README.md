@@ -9,10 +9,10 @@ Starting from `midori`, CMake is used.
 Example build: `mkdir build && cd build && cmake .. && make && make test`.
 
 - `madoka`: one of my first passes, arguably my first success I could call a "compiler". Pre 2014-summer
-- `sayaka`: successor to `madoka/`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
+- `sayaka`: successor to `madoka`, had ideas on what to do differently. The ideas were pre 2014-summer, most of the work on it is post 2014-summer
 - `siyu`: hand written LL(1) regex parser, NFA state generator, DFA state generator, lexer-generator, and parser-generator
-- `tk`: successor to `siyu/`, completed LALR(1) parser generator
-- `midori`: successor to `tk/`, fixed/much improved LALR(1) parser generator
+- `tk`: successor to `siyu`, completed LALR(1) parser generator
+- `midori`: successor to `tk`, fixed/much improved LALR(1) parser generator, starting code gen
 
 ### Siyu
 - hand written, recursive descent basic regex parser (builds AST)
@@ -31,6 +31,7 @@ Example build: `mkdir build && cd build && cmake .. && make && make test`.
 	- [LALR(1)][4] based on the dragon book
 	- [LALR(1)][5] using DeRemer and Pennello's [lookahead algorithm][6], based on [PLY][7],
 		and as described in The Theory and Practice of Compiler Writing, and Parsing Theory Volume 2
+- re-implemented calculator in `madoka`
 
 ## Regex grammar
 - multiplication is repetition
@@ -177,6 +178,7 @@ dec_int
 - bison
 - gdb (debug)
 - valgrind (debug)
+- lcov (coverage)
 
 ## Flex and Bison stuff
 - http://flex.sourceforge.net/manual/

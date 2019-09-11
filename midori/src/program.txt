@@ -1,0 +1,18 @@
+
+
+var a: Int = 3;
+var b: Int = a;
+var c: Int = a * b * b;
+b = b / a;
+if a {
+	var d: Int = c;
+	while b {
+		var e: Int = 10;
+	}
+}
+def putchar(x: Int) -> Int;
+putchar(97);
+var z: Int = 42;
+var y: Long;
+a = 0xa;
+a;
