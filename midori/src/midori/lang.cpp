@@ -3,7 +3,7 @@
 #include <cstdlib>
 
 typedef ParserValue<std::unique_ptr<LangAST>> ParserValueLang;
-typedef ParserValue<std::vector<std::unique_ptr<LangAST>>> ParserValueBlock;
+typedef ParserValue<std::unique_ptr<LangASTBlock>> ParserValueBlock;
 typedef ParserValue<std::vector<std::unique_ptr<LangASTExpression>>> ParserValueExprList;
 typedef ParserValue<std::vector<std::unique_ptr<LangASTDecl>>> ParserValueDeclList;
 
@@ -11,8 +11,20 @@ LangAST::~LangAST() {
 	return;
 }
 
+LangASTExpression::~LangASTExpression() {
+	return;
+}
+
+LangASTVoid::~LangASTVoid() {
+	return;
+}
+
 ILangASTVisitor::~ILangASTVisitor() {
 	return;
+}
+
+void LangASTBlock::accept(ILangASTVisitor* v) {
+	v->visit(this);
 }
 
 void LangASTIdent::accept(ILangASTVisitor* v) {
@@ -20,6 +32,10 @@ void LangASTIdent::accept(ILangASTVisitor* v) {
 }
 
 void LangASTDecl::accept(ILangASTVisitor* v) {
+	v->visit(this);
+}
+
+void LangASTUnOp::accept(ILangASTVisitor* v) {
 	v->visit(this);
 }
 
@@ -59,6 +75,18 @@ void LangASTPrinter::f() {
 	std::cout << std::string(this->indents, '\t');
 }
 
+void LangASTPrinter::visit(LangASTBlock* v) {
+	f();
+	std::cout << "{" << std::endl;
+	this->indents++;
+	for (std::unique_ptr<LangAST> const& l : v->lines) {
+		l->accept(this);
+	}
+	this->indents--;
+	f();
+	std::cout << "}" << std::endl;
+}
+
 void LangASTPrinter::visit(LangASTIdent* v) {
 	f();
 	std::cout << "{ ident " << v->name << " }" << std::endl;
@@ -69,25 +97,37 @@ void LangASTPrinter::visit(LangASTDecl* v) {
 	std::cout << "{ decl " << v->name << ": " << v->type << " }" << std::endl;
 }
 
+void LangASTPrinter::visit(LangASTUnOp* v) {
+	f();
+	std::cout << "unop " << v->op << " {" << std::endl;
+	this->indents++;
+	v->expr->accept(this);
+	this->indents--;
+	f();
+	std::cout << "} endunop " << (char) v->op << std::endl;
+}
+
 void LangASTPrinter::visit(LangASTBinOp* v) {
 	f();
-	std::cout << "op " << (char) v->op << " {" << std::endl;
+	std::cout << "binop " << v->op << " {" << std::endl;
 	this->indents++;
 	v->left->accept(this);
+	f();
+	std::cout << std::string(8, '=') << std::endl;
 	v->right->accept(this);
 	this->indents--;
 	f();
-	std::cout << "} endop " << (char) v->op << std::endl;
+	std::cout << "} endbinop " << (char) v->op << std::endl;
 }
 
 void LangASTPrinter::visit(LangASTInt* v) {
 	f();
-	std::cout << "{ decl " << v->value << " }" << std::endl;
+	std::cout << "{ literal int " << v->value << " }" << std::endl;
 }
 
 void LangASTPrinter::visit(LangASTDouble* v) {
 	f();
-	std::cout << "{ decl " << v->value << " }" << std::endl;
+	std::cout << "{ literal float " << v->value << " }" << std::endl;
 }
 
 void LangASTPrinter::visit(LangASTIf* v) {
@@ -97,8 +137,14 @@ void LangASTPrinter::visit(LangASTIf* v) {
 	v->predicate->accept(this);
 	f();
 	std::cout << std::string(8, '=') << std::endl;
-	for (std::unique_ptr<LangAST> const& l : v->block) {
-		l->accept(this);
+	v->block_if->accept(this);
+	if (v->block_else != nullptr) {
+		this->indents--;
+		f();
+		std::cout << "} else {" << std::endl;
+		this->indents++;
+		v->block_else->accept(this);
+
 	}
 	this->indents--;
 	f();
@@ -112,9 +158,7 @@ void LangASTPrinter::visit(LangASTWhile* v) {
 	v->predicate->accept(this);
 	f();
 	std::cout << std::string(8, '=') << std::endl;
-	for (std::unique_ptr<LangAST> const& l : v->block) {
-		l->accept(this);
-	}
+	v->block->accept(this);
 	this->indents--;
 	f();
 	std::cout << "} endwhile " << std::endl;
@@ -137,9 +181,7 @@ void LangASTPrinter::visit(LangASTFunction* v) {
 	}
 	std::cout << ") {" << std::endl;
 	this->indents++;
-	for (std::unique_ptr<LangAST> const& l : v->body) {
-		l->accept(this);
-	}
+	v->body->accept(this);
 	this->indents--;
 	f();
 	std::cout << "} endfunction " << v->proto->name << std::endl;
@@ -147,7 +189,7 @@ void LangASTPrinter::visit(LangASTFunction* v) {
 
 void LangASTPrinter::visit(LangASTCall* v) {
 	f();
-	std::cout << "call " << v->function << "{" << std::endl;
+	std::cout << "call " << v->function << " {" << std::endl;
 	this->indents++;
 	for (std::unique_ptr<LangASTExpression> const& a : v->args) {
 		a->accept(this);
@@ -161,9 +203,9 @@ Lang::Lang() {
 	this->generate();
 }
 
-std::vector<std::unique_ptr<LangAST>> Lang::parse(IInputStream* is) {
+std::unique_ptr<LangASTBlock> Lang::parse(IInputStream* is) {
 	std::unique_ptr<MatchedNonterminal> code = this->parser.parse(is);
-	return std::move(code->value->get<std::vector<std::unique_ptr<LangAST>>>());
+	return std::move(code->value->get<std::unique_ptr<LangASTBlock>>());
 }
 
 void Lang::generate() {
@@ -179,15 +221,19 @@ void Lang::generate() {
 	p->add_token("LET", re.parse("let"));
 	p->add_token("DEF", re.parse("def"));
 	p->add_token("IF", re.parse("if"));
+	p->add_token("ELSE", re.parse("else"));
 	p->add_token("WHILE", re.parse("while"));
 	p->add_token("BREAK", re.parse("break"));
 	p->add_token("IDENTIFIER", re.parse("[a-z][a-zA-Z0-9_]*"));
 	p->add_token("TYPE", re.parse("[A-Z][a-zA-Z0-9_]*"));
 	p->add_token("EQUALS", re.parse("="));
+	p->add_token("NOT", re.parse("!"));
 	p->add_token("LPAREN", re.parse("\\("));
 	p->add_token("RPAREN", re.parse("\\)"));
 	p->add_token("LBRACE", re.parse("\\{"));
 	p->add_token("RBRACE", re.parse("\\}"));
+	p->add_token("LANGLE", re.parse("<"));
+	p->add_token("RANGLE", re.parse(">"));
 	p->add_token("SEMICOLON", re.parse(";"));
 	p->add_token("COLON", re.parse(":"));
 	p->add_token("PLUS", re.parse("\\+"));
@@ -201,13 +247,13 @@ void Lang::generate() {
 	});
 
 	p->add_production("lines", { "lines", "line_entry" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		std::vector<std::unique_ptr<LangAST>> v = std::move(m->nonterminal(0)->value->get<std::vector<std::unique_ptr<LangAST>>>());
-		v.push_back(std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangAST>>()));
-		return std::unique_ptr<ParserAST>(new ParserValueBlock(std::move(v)));
+		std::unique_ptr<LangASTBlock> b = std::move(m->nonterminal(0)->value->get<std::unique_ptr<LangASTBlock>>());
+		b->lines.push_back(std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangAST>>()));
+		return std::unique_ptr<ParserAST>(new ParserValueBlock(std::move(b)));
 	});
 	p->add_production("lines", {}, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserValueBlock({}));
+		return std::unique_ptr<ParserAST>(new ParserValueBlock(std::unique_ptr<LangASTBlock>(new LangASTBlock({}))));
 	});
 
 	p->add_production("line_entry", { "statement", "SEMICOLON" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
@@ -253,8 +299,15 @@ void Lang::generate() {
 	p->add_production("expression", { "LPAREN", "statement", "RPAREN" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::move(m->nonterminal(1)->value);
 	});
+	p->add_production("expression", { "un_op", "statement" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		LangASTUnOp::Op op = m->nonterminal(0)->value->get<LangASTUnOp::Op>();
+		std::unique_ptr<LangAST> e = std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangAST>>());
+		std::unique_ptr<LangASTExpression> e2(dynamic_cast<LangASTExpression*>(e.release()));
+		std::unique_ptr<LangAST> u(new LangASTUnOp(op, std::move(e2)));
+		return std::unique_ptr<ParserAST>(new ParserValueLang(std::move(u)));
+	});
 	p->add_production("expression", { "statement", "bin_op", "statement" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		Int op = m->nonterminal(1)->value->get<Int>();
+		LangASTBinOp::Op op = m->nonterminal(1)->value->get<LangASTBinOp::Op>();
 		std::unique_ptr<LangAST> l = std::move(m->nonterminal(0)->value->get<std::unique_ptr<LangAST>>());
 		std::unique_ptr<LangAST> r = std::move(m->nonterminal(2)->value->get<std::unique_ptr<LangAST>>());
 		std::unique_ptr<LangASTExpression> l2(dynamic_cast<LangASTExpression*>(l.release()));
@@ -268,25 +321,58 @@ void Lang::generate() {
 		return std::unique_ptr<ParserAST>(new ParserValueLang(std::unique_ptr<LangAST>(new LangASTCall(name, std::move(args)))));
 	});
 
+	p->add_production("un_op", { "MINUS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTUnOp::Op>(LangASTUnOp::Op::MINUS));
+	});
+	p->add_production("un_op", { "NOT" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTUnOp::Op>(LangASTUnOp::Op::NOT));
+	});
+
 	p->add_production("bin_op", { "PLUS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserValue<Int>('+'));
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::PLUS));
 	});
 	p->add_production("bin_op", { "MINUS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserValue<Int>('-'));
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::MINUS));
 	});
 	p->add_production("bin_op", { "STAR" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserValue<Int>('*'));
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::STAR));
 	});
 	p->add_production("bin_op", { "SLASH" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserValue<Int>('/'));
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::SLASH));
 	});
 	p->add_production("bin_op", { "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
-		return std::unique_ptr<ParserAST>(new ParserValue<Int>('='));
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::ASSIGN));
+	});
+	p->add_production("bin_op", { "EQUALS", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::EQ));
+	});
+	p->add_production("bin_op", { "NOT", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::NE));
+	});
+	p->add_production("bin_op", { "LANGLE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::LT));
+	});
+	p->add_production("bin_op", { "RANGLE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::GT));
+	});
+	p->add_production("bin_op", { "LANGLE", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::LE));
+	});
+	p->add_production("bin_op", { "RANGLE", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::GE));
 	});
 
 	p->add_production("args_list", { "args_list", "expression" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
@@ -304,15 +390,34 @@ void Lang::generate() {
 	p->add_production("if_block", { "IF", "statement", "LBRACE", "lines", "RBRACE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		std::unique_ptr<LangAST> p = std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangAST>>());
 		std::unique_ptr<LangASTExpression> p2(dynamic_cast<LangASTExpression*>(p.release()));
-		std::vector<std::unique_ptr<LangAST>> b = std::move(m->nonterminal(3)->value->get<std::vector<std::unique_ptr<LangAST>>>());
-		std::unique_ptr<LangAST> i(new LangASTIf(std::move(p2), std::move(b)));
+		std::unique_ptr<LangASTBlock> b = std::move(m->nonterminal(3)->value->get<std::unique_ptr<LangASTBlock>>());
+		std::unique_ptr<LangAST> i(new LangASTIf(std::move(p2), std::move(b), nullptr));
+		return std::unique_ptr<ParserAST>(new ParserValueLang(std::move(i)));
+	});
+	p->add_production("if_block", { "IF", "statement", "LBRACE", "lines", "RBRACE", "ELSE", "LBRACE", "lines", "RBRACE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::unique_ptr<LangAST> p = std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangAST>>());
+		std::unique_ptr<LangASTExpression> p2(dynamic_cast<LangASTExpression*>(p.release()));
+		std::unique_ptr<LangASTBlock> b1 = std::move(m->nonterminal(3)->value->get<std::unique_ptr<LangASTBlock>>());
+		std::unique_ptr<LangASTBlock> b2 = std::move(m->nonterminal(5)->value->get<std::unique_ptr<LangASTBlock>>());
+		std::unique_ptr<LangAST> i(new LangASTIf(std::move(p2), std::move(b1), std::move(b2)));
+		return std::unique_ptr<ParserAST>(new ParserValueLang(std::move(i)));
+	});
+	p->add_production("if_block", { "IF", "statement", "LBRACE", "lines", "RBRACE", "ELSE", "if_block" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::unique_ptr<LangAST> p = std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangAST>>());
+		std::unique_ptr<LangASTExpression> p2(dynamic_cast<LangASTExpression*>(p.release()));
+		std::unique_ptr<LangASTBlock> b1 = std::move(m->nonterminal(3)->value->get<std::unique_ptr<LangASTBlock>>());
+		std::unique_ptr<LangAST> elif = std::move(m->nonterminal(5)->value->get<std::unique_ptr<LangAST>>());
+		std::vector<std::unique_ptr<LangAST>> v;
+		v.push_back(std::move(elif));
+		std::unique_ptr<LangASTBlock> b2(new LangASTBlock(std::move(v)));
+		std::unique_ptr<LangAST> i(new LangASTIf(std::move(p2), std::move(b1), std::move(b2)));
 		return std::unique_ptr<ParserAST>(new ParserValueLang(std::move(i)));
 	});
 
 	p->add_production("while_block", { "WHILE", "statement", "LBRACE", "lines", "RBRACE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		std::unique_ptr<LangAST> p = std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangAST>>());
 		std::unique_ptr<LangASTExpression> p2(dynamic_cast<LangASTExpression*>(p.release()));
-		std::vector<std::unique_ptr<LangAST>> b = std::move(m->nonterminal(3)->value->get<std::vector<std::unique_ptr<LangAST>>>());
+		std::unique_ptr<LangASTBlock> b = std::move(m->nonterminal(3)->value->get<std::unique_ptr<LangASTBlock>>());
 		std::unique_ptr<LangAST> i(new LangASTWhile(std::move(p2), std::move(b)));
 		return std::unique_ptr<ParserAST>(new ParserValueLang(std::move(i)));
 	});

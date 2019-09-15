@@ -11,6 +11,7 @@ bool Type::is_primitive() {
 // TODO: why this works? isn't the types map uninitialized
 TypeManager::TypeManager(llvm::LLVMContext* c) {
 	this->_void_type = this->register_type("Void", nullptr);
+	llvm::IntegerType* llvm_int1 = llvm::Type::getInt1Ty(*c);
 	llvm::IntegerType* llvm_int8 = llvm::Type::getInt8Ty(*c);
 	llvm::IntegerType* llvm_int16 = llvm::Type::getInt16Ty(*c);
 	llvm::IntegerType* llvm_int32 = llvm::Type::getInt32Ty(*c);
@@ -18,6 +19,7 @@ TypeManager::TypeManager(llvm::LLVMContext* c) {
 	llvm::Type* llvm_float = llvm::Type::getFloatTy(*c);
 	llvm::Type* llvm_double = llvm::Type::getDoubleTy(*c);
 	std::map<std::string, llvm::Type*> m = {
+		{ "Bool", llvm_int1 },
 		{ "Byte", llvm_int8 },
 		{ "UByte", llvm_int8 },
 		{ "Short", llvm_int16 },

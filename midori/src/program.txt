@@ -1,18 +1,33 @@
 
 
+def putchar(x: Int) -> Int;
 var a: Int = 3;
 var b: Int = a;
 var c: Int = a * b * b;
 b = b / a;
-if a {
+if a != 0 {
 	var d: Int = c;
-	while b {
-		var e: Int = 10;
-	}
+	putchar(98);
 }
-def putchar(x: Int) -> Int;
+if 1 <= 0 {
+	putchar(99);
+}
 putchar(97);
+var x: Int = 0;
+while x < 10 {
+	putchar(97 + x);
+	x = x + 1;
+}
+putchar(97);
+putchar(10);
+var n: Int = 0;
+if !(n > 1) {
+	putchar(99);
+}
+putchar(10);
 var z: Int = 42;
-var y: Long;
+var y: Long = 10;
+var f1: Float = 9;
+var f2: Double = 8 * 7;
 a = 0xa;
 a;

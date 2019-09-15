@@ -15,9 +15,12 @@
 class CodeGen : public ILangASTVisitor {
 public:
 	CodeGen();
-	std::error_code dump(std::string path);
+	void process(LangAST*);
+	std::error_code dump(std::string);
+	virtual void visit(LangASTBlock*) override;
 	virtual void visit(LangASTIdent*) override;
 	virtual void visit(LangASTDecl*) override;
+	virtual void visit(LangASTUnOp*) override;
 	virtual void visit(LangASTBinOp*) override;
 	virtual void visit(LangASTInt*) override;
 	virtual void visit(LangASTDouble*) override;
@@ -33,9 +36,10 @@ private:
 	llvm::Module module;
 	std::list<std::map<std::string, llvm::Value*>> frames;
 	llvm::Value* ret;
-	llvm::Function* ret_function;
 	TypeManager type_manager;
 
+	void push_scope();
+	void pop_scope();
 	llvm::Value* named_value(std::string);
 	llvm::Function* get_function(std::string);
 };

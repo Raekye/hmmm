@@ -38,15 +38,13 @@ int test_lang() {
 	Lang l;
 	std::fstream f("../src/program.txt", std::fstream::in);
 	FileInputStream fis(&f);
-	std::vector<std::unique_ptr<LangAST>> program = l.parse(&fis);
+	std::unique_ptr<LangASTBlock> program = l.parse(&fis);
 	LangASTPrinter p;
-	for (std::unique_ptr<LangAST> const& l : program) {
-		l->accept(&p);
-	}
+	program->accept(&p);
 	CodeGen cg;
 	std::unique_ptr<LangASTPrototype> proto(new LangASTPrototype("main", "Int", {}));
 	LangASTFunction g(std::move(proto), std::move(program));
-	g.accept(&cg);
+	cg.process(&g);
 	cg.dump("program.bc");
 	return 0;
 }
@@ -69,7 +67,7 @@ int main(int argc, char* argv[]) {
 	test_lang();
 	int y = 2;
 	foo(y);
-	std::cout << "y is " << x << std::endl;
+	std::cout << "y is " << y << std::endl;
 	llvm::llvm_shutdown();
 	return 0;
 }

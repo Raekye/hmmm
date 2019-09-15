@@ -2,6 +2,7 @@
 #define MIDORI_LANG_H_INCLUDED
 
 #include "parser.h"
+#include "types.h"
 #include <memory>
 
 class ILangASTVisitor;
@@ -16,9 +17,28 @@ public:
 };
 
 class LangASTExpression : public LangAST {
+public:
+	Type* type;
+
+	LangASTExpression() : type(nullptr) {
+		return;
+	}
+	virtual ~LangASTExpression() = 0;
 };
 
-class LangASTBlock : public LangAST {
+class LangASTVoid : public LangAST {
+public:
+	virtual ~LangASTVoid() = 0;
+};
+
+class LangASTBlock : public LangASTVoid {
+public:
+	std::vector<std::unique_ptr<LangAST>> lines;
+
+	LangASTBlock(std::vector<std::unique_ptr<LangAST>> v) : lines(std::move(v)) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor*);
 };
 
 template <typename T> class LangASTLiteral : public LangASTExpression {
@@ -41,13 +61,41 @@ public:
 	virtual void accept(ILangASTVisitor*) override;
 };
 
+class LangASTUnOp : public LangASTExpression {
+public:
+	enum Op {
+		MINUS,
+		NOT,
+	};
+	Op op;
+	std::unique_ptr<LangASTExpression> expr;
+
+	LangASTUnOp(Op op, std::unique_ptr<LangASTExpression> e) : op(op), expr(std::move(e)) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor*) override;
+};
+
 class LangASTBinOp : public LangASTExpression {
 public:
-	Int op;
+	enum Op {
+		PLUS,
+		MINUS,
+		STAR,
+		SLASH,
+		ASSIGN,
+		EQ,
+		NE,
+		LT,
+		GT,
+		LE,
+		GE,
+	};
+	Op op;
 	std::unique_ptr<LangASTExpression> left;
 	std::unique_ptr<LangASTExpression> right;
 
-	LangASTBinOp(Int op, std::unique_ptr<LangASTExpression> l, std::unique_ptr<LangASTExpression> r) : op(op), left(std::move(l)), right(std::move(r)) {
+	LangASTBinOp(Op op, std::unique_ptr<LangASTExpression> l, std::unique_ptr<LangASTExpression> r) : op(op), left(std::move(l)), right(std::move(r)) {
 		return;
 	}
 	virtual void accept(ILangASTVisitor*) override;
@@ -56,37 +104,43 @@ public:
 class LangASTDecl : public LangASTExpression {
 public:
 	std::string name;
-	std::string type;
+	std::string type_name;
 
-	LangASTDecl(std::string n, std::string t) : name(n), type(t) {
+	LangASTDecl(std::string n, std::string t) : name(n), type_name(t) {
 		return;
 	}
 	virtual void accept(ILangASTVisitor*) override;
 };
 
-class LangASTIf : public LangASTBlock {
+class LangASTIf : public LangASTVoid {
 public:
 	std::unique_ptr<LangASTExpression> predicate;
-	std::vector<std::unique_ptr<LangAST>> block;
+	std::unique_ptr<LangASTBlock> block_if;
+	std::unique_ptr<LangASTBlock> block_else;
 
-	LangASTIf(std::unique_ptr<LangASTExpression> p, std::vector<std::unique_ptr<LangAST>> b) : predicate(std::move(p)), block(std::move(b)) {
+	LangASTIf(std::unique_ptr<LangASTExpression> p
+			, std::unique_ptr<LangASTBlock> b1
+			, std::unique_ptr<LangASTBlock> b2)
+		: predicate(std::move(p))
+		, block_if(std::move(b1))
+		, block_else(std::move(b2)) {
 		return;
 	}
 	virtual void accept(ILangASTVisitor*) override;
 };
 
-class LangASTWhile : public LangASTBlock {
+class LangASTWhile : public LangASTVoid {
 public:
 	std::unique_ptr<LangASTExpression> predicate;
-	std::vector<std::unique_ptr<LangAST>> block;
+	std::unique_ptr<LangASTBlock> block;
 
-	LangASTWhile(std::unique_ptr<LangASTExpression> p, std::vector<std::unique_ptr<LangAST>> b) : predicate(std::move(p)), block(std::move(b)) {
+	LangASTWhile(std::unique_ptr<LangASTExpression> p, std::unique_ptr<LangASTBlock> b) : predicate(std::move(p)), block(std::move(b)) {
 		return;
 	}
 	virtual void accept(ILangASTVisitor*) override;
 };
 
-class LangASTPrototype : public LangASTBlock {
+class LangASTPrototype : public LangASTVoid {
 public:
 	std::string name;
 	std::string return_type;
@@ -98,12 +152,12 @@ public:
 	virtual void accept(ILangASTVisitor*) override;
 };
 
-class LangASTFunction : public LangASTBlock {
+class LangASTFunction : public LangASTVoid {
 public:
 	std::unique_ptr<LangASTPrototype> proto;
-	std::vector<std::unique_ptr<LangAST>> body;
+	std::unique_ptr<LangASTBlock> body;
 
-	LangASTFunction(std::unique_ptr<LangASTPrototype> p, std::vector<std::unique_ptr<LangAST>> b) : proto(std::move(p)), body(std::move(b)) {
+	LangASTFunction(std::unique_ptr<LangASTPrototype> p, std::unique_ptr<LangASTBlock> b) : proto(std::move(p)), body(std::move(b)) {
 		return;
 	}
 	virtual void accept(ILangASTVisitor*) override;
@@ -123,8 +177,10 @@ public:
 class ILangASTVisitor {
 public:
 	virtual ~ILangASTVisitor() = 0;
+	virtual void visit(LangASTBlock*) = 0;
 	virtual void visit(LangASTIdent*) = 0;
 	virtual void visit(LangASTDecl*) = 0;
+	virtual void visit(LangASTUnOp*) = 0;
 	virtual void visit(LangASTBinOp*) = 0;
 	virtual void visit(LangASTInt*) = 0;
 	virtual void visit(LangASTDouble*) = 0;
@@ -138,8 +194,10 @@ public:
 class LangASTPrinter : public ILangASTVisitor {
 public:
 	LangASTPrinter();
+	virtual void visit(LangASTBlock*) override;
 	virtual void visit(LangASTIdent*) override;
 	virtual void visit(LangASTDecl*) override;
+	virtual void visit(LangASTUnOp*) override;
 	virtual void visit(LangASTBinOp*) override;
 	virtual void visit(LangASTInt*) override;
 	virtual void visit(LangASTDouble*) override;
@@ -157,7 +215,7 @@ private:
 class Lang {
 public:
 	Lang();
-	std::vector<std::unique_ptr<LangAST>> parse(IInputStream*);
+	std::unique_ptr<LangASTBlock> parse(IInputStream*);
 
 private:
 	Parser parser;
