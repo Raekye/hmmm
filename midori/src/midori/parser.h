@@ -205,6 +205,7 @@ public:
 	void reset();
 
 	void debug();
+	void debug_grammar_conflict(GrammarConflict);
 
 private:
 	typedef std::map<Item, std::unique_ptr<std::set<std::string>>> LookaheadMap;
@@ -290,6 +291,7 @@ private:
 	bool parse_advance(std::unique_ptr<Match>, bool*);
 	std::unique_ptr<Match> parse_symbol(std::string, std::unique_ptr<Match>, bool*);
 
+	static void debug_itemset(ItemSet*);
 	static void debug_production(Production*, Int = -1, std::string = "");
 	static void debug_item(Item);
 	static void debug_set(std::set<std::string>);

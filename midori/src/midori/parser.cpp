@@ -897,6 +897,56 @@ void Parser::debug_lalr_transition(LalrTransition lt) {
 	std::cout << "(" << lt.state->index << ", " << lt.nonterminal << ")" << std::endl;
 }
 
+void Parser::debug_itemset(ItemSet* is) {
+	std::cout << "=== LR1 Item Set " << is->index << ", accept " << is->accept << std::endl;
+	std::cout << "Kernel:" << std::endl;
+	for (Item const& x : is->kernel) {
+		std::cout << "\t";
+		Parser::debug_item(x);
+	}
+	std::cout << "Closure:" << std::endl;
+	for (Item const& x : is->closure) {
+		std::cout << "\t";
+		Parser::debug_item(x);
+	}
+	std::cout << "Next states:" << std::endl;
+	for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
+		std::cout << "\t" << kv.first << " -> " << kv.second->index << std::endl;
+	}
+	std::cout << "Reductions:" << std::endl;
+	for (std::map<std::string, std::vector<Production*>>::value_type const& kv : is->reductions) {
+		for (Production* const p : kv.second) {
+			std::cout << "\t" << kv.first << " -> ";
+			Parser::debug_production(p);
+		}
+	}
+	std::cout << "Actions:" << std::endl;
+	for (std::map<std::string, Action>::value_type const& kv : is->actions) {
+		std::cout << kv.first;
+		if (kv.second.shift != nullptr) {
+			assert(kv.second.reduce == nullptr);
+			std::cout << " -> " << kv.second.shift->index << std::endl;
+		} else {
+			assert(kv.second.reduce != nullptr);
+			std::cout << " <- ";
+			Parser::debug_production(kv.second.reduce);
+		}
+	}
+	std::cout << "=== done " << is->index << std::endl;
+	std::cout << std::endl;
+}
+
+void Parser::debug_grammar_conflict(GrammarConflict gc) {
+	std::cout << "==== conflict " << (gc.type == GrammarConflict::Type::ShiftReduce ? "shift-reduce" : "reduce-reduce") << " for symbol " << gc.symbol << std::endl;
+	Parser::debug_itemset(gc.state);
+	std::cout << "=== Productions" << std::endl;
+	for (Production* const p : gc.productions) {
+		std::cout << "- ";
+		Parser::debug_production(p);
+		std::cout << std::endl;
+	}
+}
+
 void Parser::debug() {
 	std::cout << "===== Hmmmmm" << std::endl;
 	this->lexer.debug();
@@ -1003,41 +1053,6 @@ void Parser::debug() {
 	}
 	std::cout << std::endl;
 	for (std::unique_ptr<ItemSet> const& is : this->lr1_states) {
-		std::cout << "=== LR1 Item Set " << is->index << ", accept " << is->accept << std::endl;
-		std::cout << "Kernel:" << std::endl;
-		for (Item const& x : is->kernel) {
-			std::cout << "\t";
-			Parser::debug_item(x);
-		}
-		std::cout << "Closure:" << std::endl;
-		for (Item const& x : is->closure) {
-			std::cout << "\t";
-			Parser::debug_item(x);
-		}
-		std::cout << "Next states:" << std::endl;
-		for (std::map<std::string, ItemSet*>::value_type const& kv : is->next) {
-			std::cout << "\t" << kv.first << " -> " << kv.second->index << std::endl;
-		}
-		std::cout << "Reductions:" << std::endl;
-		for (std::map<std::string, std::vector<Production*>>::value_type const& kv : is->reductions) {
-			for (Production* const p : kv.second) {
-				std::cout << "\t" << kv.first << " -> ";
-				Parser::debug_production(p);
-			}
-		}
-		std::cout << "Actions:" << std::endl;
-		for (std::map<std::string, Action>::value_type const& kv : is->actions) {
-			std::cout << kv.first;
-			if (kv.second.shift != nullptr) {
-				assert(kv.second.reduce == nullptr);
-				std::cout << " -> " << kv.second.shift->index << std::endl;
-			} else {
-				assert(kv.second.reduce != nullptr);
-				std::cout << " <- ";
-				Parser::debug_production(kv.second.reduce);
-			}
-		}
-		std::cout << "=== done " << is->index << std::endl;
-		std::cout << std::endl;
+		Parser::debug_itemset(is.get());
 	}
 }

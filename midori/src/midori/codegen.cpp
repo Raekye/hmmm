@@ -199,15 +199,21 @@ void CodeGen::visit(LangASTPrototype* v) {
 }
 
 void CodeGen::visit(LangASTFunction* v) {
+	this->push_scope();
+	llvm::BasicBlock* old = this->builder.GetInsertBlock();
 	v->proto->accept(this);
 	llvm::Function* f = llvm::dyn_cast<llvm::Function>(this->ret);
 	llvm::BasicBlock* bb = llvm::BasicBlock::Create(this->context, "entry", f);
 	this->builder.SetInsertPoint(bb);
 
-	this->push_scope();
 	std::map<std::string, llvm::Value*>& m = this->frames.front();
+	Int i = 0;
 	for (llvm::Argument& a : f->args()) {
-		m[a.getName()] = &a;
+		v->proto->args.at(i)->accept(this);
+		llvm::Value* alloc = this->ret;
+		this->builder.CreateStore(&a, alloc);
+		m[a.getName()] = alloc;
+		i++;
 	}
 	v->body->accept(this);
 	llvm::Value* z = llvm::ConstantInt::get(this->type_manager.get("Int")->llvm_type, 0, true);
@@ -218,6 +224,7 @@ void CodeGen::visit(LangASTFunction* v) {
 	f->print(llvm::errs());
 
 	this->pop_scope();
+	this->builder.SetInsertPoint(old);
 	this->ret = f;
 }
 

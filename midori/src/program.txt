@@ -1,6 +1,12 @@
 
 
 def putchar(x: Int) -> Int;
+
+def put2(x: Int) -> Int {
+	var y: Int = x + 1;
+	putchar(x);
+	putchar(y);
+}
 var a: Int = 3;
 var b: Int = a;
 var c: Int = a * b * b;
@@ -27,7 +33,11 @@ if !(n > 1) {
 putchar(10);
 var z: Int = 42;
 var y: Long = 10;
-var f1: Float = 9;
-var f2: Double = 8 * 7;
+{
+	var f1: Float = 9;
+	var f2: Double = 8 * 7;
+}
+put2(97);
+putchar(10);
 a = 0xa;
 a;

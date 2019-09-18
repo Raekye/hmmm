@@ -1,7 +1,7 @@
 #include "type_checker.h"
 
 TypeChecker::TypeChecker(TypeManager* tm) : type_manager(tm) {
-	return;
+	this->push_scope();
 }
 
 void TypeChecker::visit(LangASTBlock* v) {
@@ -87,6 +87,7 @@ void TypeChecker::visit(LangASTPrototype* v) {
 }
 
 void TypeChecker::visit(LangASTFunction* v) {
+	v->proto->accept(this);
 	this->push_scope();
 	v->body->accept(this);
 	this->pop_scope();
