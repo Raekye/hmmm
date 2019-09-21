@@ -8,8 +8,14 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/ExecutionEngine/OrcMCJITReplacement.h"
+#include "llvm/ExecutionEngine/MCJIT.h"
+//#include "llvm/ExecutionEngine/Interpreter.h"
+#include <cassert>
 
-CodeGen::CodeGen() : builder(this->context), module("midori", this->context), type_manager(&(this->context)) {
+CodeGen::CodeGen() : builder(this->context), module(new llvm::Module("midori", this->context)), type_manager(&(this->context)) {
 	llvm::BasicBlock::Create(this->context, "main");
 }
 
@@ -17,14 +23,20 @@ void CodeGen::process(LangAST* program) {
 	TypeChecker tc(&(this->type_manager));
 	program->accept(&tc);
 	program->accept(this);
+	llvm::verifyModule(*(this->module), &(llvm::errs()));
 }
 
 std::error_code CodeGen::dump(std::string path) {
 	std::error_code ec;
 	llvm::raw_fd_ostream o(path, ec, llvm::sys::fs::OpenFlags::F_None);
-	llvm::WriteBitcodeToFile(&(this->module), o);
-	o.close();
+	llvm::WriteBitcodeToFile(this->module.get(), o);
 	return ec;
+}
+
+void CodeGen::run() {
+	llvm::Function* f = this->get_function("main");
+	llvm::ExecutionEngine* ee = llvm::EngineBuilder(std::move(this->module)).create();
+	ee->runFunction(f, {});
 }
 
 void CodeGen::visit(LangASTBlock* v) {
@@ -82,36 +94,78 @@ void CodeGen::visit(LangASTBinOp* v) {
 	}
 	v->left->accept(this);
 	llvm::Value* lhs = this->ret;
+	llvm::Type* type = lhs->getType();
+	this->ret = nullptr;
 	switch (v->op) {
 	case LangASTBinOp::Op::PLUS:
-		this->ret = this->builder.CreateAdd(lhs, rhs, "addtmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateAdd(lhs, rhs, "addtmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFAdd(lhs, rhs, "addftmp");
+		}
 		break;
 	case LangASTBinOp::Op::MINUS:
-		this->ret = this->builder.CreateSub(lhs, rhs, "subtmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateSub(lhs, rhs, "subtmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFSub(lhs, rhs, "subftmp");
+		}
 		break;
 	case LangASTBinOp::Op::STAR:
-		this->ret = this->builder.CreateMul(lhs, rhs, "multmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateMul(lhs, rhs, "multmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFMul(lhs, rhs, "mulftmp");
+		}
 		break;
 	case LangASTBinOp::Op::SLASH:
-		this->ret = this->builder.CreateSDiv(lhs, rhs, "divtmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateSDiv(lhs, rhs, "divtmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFDiv(lhs, rhs, "divftmp");
+		}
 		break;
 	case LangASTBinOp::Op::EQ:
-		this->ret = this->builder.CreateICmpEQ(lhs, rhs, "eqtmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateICmpEQ(lhs, rhs, "eqtmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFCmpOEQ(lhs, rhs, "eqftmp");
+		}
 		break;
 	case LangASTBinOp::Op::NE:
-		this->ret = this->builder.CreateICmpNE(lhs, rhs, "netmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateICmpNE(lhs, rhs, "netmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFCmpONE(lhs, rhs, "neftmp");
+		}
 		break;
 	case LangASTBinOp::Op::LT:
-		this->ret = this->builder.CreateICmpSLT(lhs, rhs, "lttmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateICmpSLT(lhs, rhs, "lttmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFCmpOLT(lhs, rhs, "ltftmp");
+		}
 		break;
 	case LangASTBinOp::Op::GT:
-		this->ret = this->builder.CreateICmpSGT(lhs, rhs, "gttmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateICmpSGT(lhs, rhs, "gttmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFCmpOGT(lhs, rhs, "gtftmp");
+		}
 		break;
 	case LangASTBinOp::Op::LE:
-		this->ret = this->builder.CreateICmpSLE(lhs, rhs, "letmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateICmpSGE(lhs, rhs, "getmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFCmpOGE(lhs, rhs, "geftmp");
+		}
 		break;
 	case LangASTBinOp::Op::GE:
-		this->ret = this->builder.CreateICmpSGE(lhs, rhs, "getmp");
+		if (type->isIntegerTy()) {
+			this->ret = this->builder.CreateICmpSLE(lhs, rhs, "letmp");
+		} else if (type->isFloatingPointTy()) {
+			this->ret = this->builder.CreateFCmpOLE(lhs, rhs, "leftmp");
+		}
 		break;
 	default:
 		this->ret = nullptr;
@@ -139,13 +193,17 @@ void CodeGen::visit(LangASTIf* v) {
 	llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(this->context, "then", f);
 	llvm::BasicBlock* else_bb = llvm::BasicBlock::Create(this->context, "else");
 	llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(this->context, "ifcont");
+	int x = 0;
 
 	this->builder.CreateCondBr(cond, then_bb, else_bb);
 
 	this->builder.SetInsertPoint(then_bb);
 	v->block_if->accept(this);
 
-	this->builder.CreateBr(merge_bb);
+	if (this->builder.GetInsertBlock()->getTerminator() == nullptr) {
+		this->builder.CreateBr(merge_bb);
+		x++;
+	}
 
 	f->getBasicBlockList().push_back(else_bb);
 	this->builder.SetInsertPoint(else_bb);
@@ -154,10 +212,15 @@ void CodeGen::visit(LangASTIf* v) {
 		v->block_else->accept(this);
 	}
 
-	this->builder.CreateBr(merge_bb);
+	if (this->builder.GetInsertBlock()->getTerminator() == nullptr) {
+		this->builder.CreateBr(merge_bb);
+		x++;
+	}
 
-	f->getBasicBlockList().push_back(merge_bb);
-	this->builder.SetInsertPoint(merge_bb);
+	if (x > 0) {
+		f->getBasicBlockList().push_back(merge_bb);
+		this->builder.SetInsertPoint(merge_bb);
+	}
 	this->pop_scope();
 	this->ret = nullptr;
 }
@@ -176,7 +239,9 @@ void CodeGen::visit(LangASTWhile* v) {
 	f->getBasicBlockList().push_back(loop_bb);
 	this->builder.SetInsertPoint(loop_bb);
 	v->block->accept(this);
-	this->builder.CreateBr(cond_bb);
+	if (this->builder.GetInsertBlock()->getTerminator() == nullptr) {
+		this->builder.CreateBr(cond_bb);
+	}
 	f->getBasicBlockList().push_back(after_bb);
 	this->builder.SetInsertPoint(after_bb);
 	this->pop_scope();
@@ -189,7 +254,7 @@ void CodeGen::visit(LangASTPrototype* v) {
 		arg_types.push_back(a->type->llvm_type);
 	}
 	llvm::FunctionType* ft = llvm::FunctionType::get(this->type_manager.get(v->return_type)->llvm_type, arg_types, false);
-	llvm::Function* f = llvm::Function::Create(ft, llvm::Function::ExternalLinkage, v->name, &(this->module));
+	llvm::Function* f = llvm::Function::Create(ft, llvm::Function::ExternalLinkage, v->name, this->module.get());
 	Int i = 0;
 	for (llvm::Argument& a : f->args()) {
 		a.setName(v->args.at(i)->name);
@@ -216,16 +281,27 @@ void CodeGen::visit(LangASTFunction* v) {
 		i++;
 	}
 	v->body->accept(this);
-	llvm::Value* z = llvm::ConstantInt::get(this->type_manager.get("Int")->llvm_type, 0, true);
-	this->builder.CreateRet(z);
-
-	llvm::verifyFunction(*f);
+	if (this->builder.GetInsertBlock()->getTerminator() == nullptr) {
+		if (v->proto->return_type == this->type_manager.void_type()->name) {
+			this->builder.CreateRetVoid();
+		}
+	}
 
 	f->print(llvm::errs());
+	llvm::verifyFunction(*f, &(llvm::errs()));
 
 	this->pop_scope();
 	this->builder.SetInsertPoint(old);
 	this->ret = f;
+}
+
+void CodeGen::visit(LangASTReturn* v) {
+	if (v->val == nullptr) {
+		this->ret = this->builder.CreateRetVoid();
+		return;
+	}
+	v->val->accept(this);
+	this->ret = this->builder.CreateRet(this->ret);
 }
 
 void CodeGen::visit(LangASTCall* v) {
@@ -238,6 +314,10 @@ void CodeGen::visit(LangASTCall* v) {
 	for (std::unique_ptr<LangASTExpression> const& a : v->args) {
 		a->accept(this);
 		args.push_back(this->ret);
+	}
+	if (f->getReturnType() == this->type_manager.void_type()->llvm_type) {
+		this->ret = this->builder.CreateCall(f, args);
+		return;
 	}
 	this->ret = this->builder.CreateCall(f, args, "calltmp");
 }
@@ -261,7 +341,7 @@ llvm::Value* CodeGen::named_value(std::string s) {
 }
 
 llvm::Function* CodeGen::get_function(std::string name) {
-	if (llvm::Function* f = this->module.getFunction(name)) {
+	if (llvm::Function* f = this->module->getFunction(name)) {
 		return f;
 	}
 	return nullptr;

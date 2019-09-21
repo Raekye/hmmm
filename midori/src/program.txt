@@ -1,11 +1,22 @@
 
 
 def putchar(x: Int) -> Int;
+def foobar(x: Int) -> Void;
 
 def put2(x: Int) -> Int {
 	var y: Int = x + 1;
 	putchar(x);
 	putchar(y);
+	return y * x;
+}
+def put3(x: Int) -> Void {
+	putchar(x);
+	putchar(x + 2);
+	putchar(x + 2 * 2);
+	if x == 97 {
+		return;
+	} else {
+	}
 }
 var a: Int = 3;
 var b: Int = a;
@@ -39,5 +50,15 @@ var y: Long = 10;
 }
 put2(97);
 putchar(10);
+put3(97);
+putchar(10);
 a = 0xa;
-a;
+def foo() -> Void {
+	var x: Int = 0;
+	while x < 10 {
+		return;
+	}
+	putchar(101);
+}
+putint(123);
+return a;

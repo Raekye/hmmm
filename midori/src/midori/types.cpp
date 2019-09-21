@@ -10,7 +10,7 @@ bool Type::is_primitive() {
 
 // TODO: why this works? isn't the types map uninitialized
 TypeManager::TypeManager(llvm::LLVMContext* c) {
-	this->_void_type = this->register_type("Void", nullptr);
+	this->_void_type = this->register_type("Void", llvm::Type::getVoidTy(*c));
 	llvm::IntegerType* llvm_int1 = llvm::Type::getInt1Ty(*c);
 	llvm::IntegerType* llvm_int8 = llvm::Type::getInt8Ty(*c);
 	llvm::IntegerType* llvm_int16 = llvm::Type::getInt16Ty(*c);
@@ -47,8 +47,8 @@ Type* TypeManager::register_type(std::string name, llvm::Type* llvm_type) {
 }
 
 Type* TypeManager::get(std::string name) {
-	std::map<std::string, Type*>::iterator it = this->primitives.find(name);
-	return (it == this->primitives.end()) ? nullptr : it->second;
+	std::map<std::string, std::unique_ptr<Type>>::iterator it = this->types.find(name);
+	return (it == this->types.end()) ? nullptr : it->second.get();
 }
 
 bool TypeManager::is_primitive(std::string name) {

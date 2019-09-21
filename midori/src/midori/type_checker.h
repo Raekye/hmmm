@@ -20,6 +20,7 @@ public:
 	virtual void visit(LangASTWhile*) override;
 	virtual void visit(LangASTPrototype*) override;
 	virtual void visit(LangASTFunction*) override;
+	virtual void visit(LangASTReturn*) override;
 	virtual void visit(LangASTCall*) override;
 
 private:

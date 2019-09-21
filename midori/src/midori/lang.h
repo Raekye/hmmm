@@ -163,6 +163,15 @@ public:
 	virtual void accept(ILangASTVisitor*) override;
 };
 
+class LangASTReturn : public LangASTVoid {
+public:
+	std::unique_ptr<LangASTExpression> val;
+	LangASTReturn(std::unique_ptr<LangASTExpression> v) : val(std::move(v)) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor*) override;
+};
+
 class LangASTCall : public LangASTExpression {
 public:
 	std::string function;
@@ -188,6 +197,7 @@ public:
 	virtual void visit(LangASTWhile*) = 0;
 	virtual void visit(LangASTPrototype*) = 0;
 	virtual void visit(LangASTFunction*) = 0;
+	virtual void visit(LangASTReturn*) = 0;
 	virtual void visit(LangASTCall*) = 0;
 };
 
@@ -205,6 +215,7 @@ public:
 	virtual void visit(LangASTWhile*) override;
 	virtual void visit(LangASTPrototype*) override;
 	virtual void visit(LangASTFunction*) override;
+	virtual void visit(LangASTReturn*) override;
 	virtual void visit(LangASTCall*) override;
 
 private:

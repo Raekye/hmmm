@@ -94,6 +94,12 @@ void TypeChecker::visit(LangASTFunction* v) {
 	this->ret(this->type_manager->void_type(), nullptr);
 }
 
+void TypeChecker::visit(LangASTReturn* v) {
+	if (v->val != nullptr) {
+		v->val->accept(this);
+	}
+}
+
 void TypeChecker::visit(LangASTCall* v) {
 	LangASTPrototype* f = this->find_function(v->function);
 	Int i = 0;

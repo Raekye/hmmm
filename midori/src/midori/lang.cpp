@@ -65,6 +65,10 @@ void LangASTFunction::accept(ILangASTVisitor* v) {
 	v->visit(this);
 }
 
+void LangASTReturn::accept(ILangASTVisitor* v) {
+	v->visit(this);
+}
+
 void LangASTCall::accept(ILangASTVisitor* v) {
 	v->visit(this);
 }
@@ -189,6 +193,17 @@ void LangASTPrinter::visit(LangASTFunction* v) {
 	std::cout << "} endfunction " << v->proto->name << std::endl;
 }
 
+void LangASTPrinter::visit(LangASTReturn* v) {
+	f();
+	std::cout << "return";
+	if (v->val == nullptr) {
+		std::cout << std::endl;
+	} else {
+		std::cout << " ";
+		v->val->accept(this);
+	}
+}
+
 void LangASTPrinter::visit(LangASTCall* v) {
 	f();
 	std::cout << "call " << v->function << " {" << std::endl;
@@ -226,6 +241,7 @@ void Lang::generate() {
 	p->add_token("ELSE", re.parse("else"));
 	p->add_token("WHILE", re.parse("while"));
 	p->add_token("BREAK", re.parse("break"));
+	p->add_token("RETURN", re.parse("return"));
 	p->add_token("IDENTIFIER", re.parse("[a-z][a-zA-Z0-9_]*"));
 	p->add_token("TYPE", re.parse("[A-Z][a-zA-Z0-9_]*"));
 	p->add_token("EQUALS", re.parse("="));
@@ -244,6 +260,10 @@ void Lang::generate() {
 	p->add_token("STAR", re.parse("\\*"));
 	p->add_token("SLASH", re.parse("/"));
 	p->add_token("ARROW", re.parse("->"));
+	p->add_token("EQ", re.parse("=="));
+	p->add_token("NE", re.parse("!="));
+	p->add_token("LE", re.parse("<="));
+	p->add_token("GE", re.parse(">="));
 
 	p->add_production("code", { "lines" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::move(m->nonterminal(0)->value);
@@ -294,6 +314,9 @@ void Lang::generate() {
 	p->add_production("expression_void", { "function_proto" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::move(m->nonterminal(0)->value);
 	});
+	p->add_production("expression_void", { "function_return" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		return std::move(m->nonterminal(0)->value);
+	});
 
 	p->add_production("var_declaration", { "VAR", "declaration" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		return std::move(m->nonterminal(1)->value);
@@ -332,6 +355,15 @@ void Lang::generate() {
 		std::unique_ptr<LangASTDecl> d2(dynamic_cast<LangASTDecl*>(d.release()));
 		args.push_back(std::move(d2));
 		return std::unique_ptr<ParserAST>(new ParserValueDeclList(std::move(args)));
+	});
+
+	p->add_production("function_return", { "RETURN" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		(void) m;
+		return std::unique_ptr<ParserAST>(new ParserValueLang(std::unique_ptr<LangAST>(new LangASTReturn(nullptr))));
+	});
+	p->add_production("function_return", { "RETURN", "expression" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::unique_ptr<LangASTExpression> v = std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangASTExpression>>());
+		return std::unique_ptr<ParserAST>(new ParserValueLang(std::unique_ptr<LangAST>(new LangASTReturn(std::move(v)))));
 	});
 
 	p->add_production("expression", { "identifier" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
@@ -409,11 +441,11 @@ void Lang::generate() {
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::SLASH));
 	});
-	p->add_production("bin_op", { "EQUALS", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("bin_op", { "EQ" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::EQ));
 	});
-	p->add_production("bin_op", { "NOT", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("bin_op", { "NE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::NE));
 	});
@@ -425,11 +457,11 @@ void Lang::generate() {
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::GT));
 	});
-	p->add_production("bin_op", { "LANGLE", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("bin_op", { "LE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::LE));
 	});
-	p->add_production("bin_op", { "RANGLE", "EQUALS" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("bin_op", { "GE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		(void) m;
 		return std::unique_ptr<ParserAST>(new ParserValue<LangASTBinOp::Op>(LangASTBinOp::Op::GE));
 	});
@@ -463,7 +495,7 @@ void Lang::generate() {
 	p->add_production("if_block", { "IF", "expression", "LBRACE", "lines", "RBRACE", "ELSE", "LBRACE", "lines", "RBRACE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		std::unique_ptr<LangASTExpression> p = std::move(m->nonterminal(1)->value->get<std::unique_ptr<LangASTExpression>>());
 		std::unique_ptr<LangASTBlock> b1 = std::move(m->nonterminal(3)->value->get<std::unique_ptr<LangASTBlock>>());
-		std::unique_ptr<LangASTBlock> b2 = std::move(m->nonterminal(5)->value->get<std::unique_ptr<LangASTBlock>>());
+		std::unique_ptr<LangASTBlock> b2 = std::move(m->nonterminal(7)->value->get<std::unique_ptr<LangASTBlock>>());
 		std::unique_ptr<LangAST> i(new LangASTIf(std::move(p), std::move(b1), std::move(b2)));
 		return std::unique_ptr<ParserAST>(new ParserValueLang(std::move(i)));
 	});
@@ -517,18 +549,26 @@ void Lang::generate() {
 
 	p->set_precedence_class("assign", 10, Precedence::Associativity::LEFT);
 	p->set_precedence("EQUALS", "assign");
-	p->set_precedence_class("binop_left", 20, Precedence::Associativity::LEFT);
-	p->set_precedence("PLUS", "binop_left");
-	p->set_precedence("MINUS", "binop_left");
-	p->set_precedence("STAR", "binop_left");
-	p->set_precedence("SLASH", "binop_left");
-	p->set_precedence("LANGLE", "binop_left");
-	p->set_precedence("RANGLE", "binop_left");
-	p->set_precedence_class("right", 30, Precedence::Associativity::RIGHT);
+	p->set_precedence_class("binop_left_eq", 20, Precedence::Associativity::LEFT);
+	p->set_precedence("EQ", "binop_left_eq");
+	p->set_precedence("NE", "binop_left_eq");
+	p->set_precedence("LANGLE", "binop_left_eq");
+	p->set_precedence("RANGLE", "binop_left_eq");
+	p->set_precedence("LE", "binop_left_eq");
+	p->set_precedence("GE", "binop_left_eq");
+	p->set_precedence_class("binop_left_add", 30, Precedence::Associativity::LEFT);
+	p->set_precedence("PLUS", "binop_left_add");
+	p->set_precedence("MINUS", "binop_left_add");
+	p->set_precedence_class("binop_left_mul", 40, Precedence::Associativity::LEFT);
+	p->set_precedence("STAR", "binop_left_mul");
+	p->set_precedence("SLASH", "binop_left_mul");
+	p->set_precedence_class("right", 50, Precedence::Associativity::RIGHT);
 	p->set_precedence("LPAREN", "right");
 	p->set_precedence("NOT", "right");
 
 	p->generate(Parser::Type::LALR1, "code");
+	std::cout << "===== LANG" << std::endl;
+	p->debug();
 	std::cout << "===== CONFLICTS" << std::endl;
 	for (GrammarConflict const& gc : p->conflicts()) {
 		p->debug_grammar_conflict(gc);

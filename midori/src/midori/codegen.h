@@ -17,6 +17,7 @@ public:
 	CodeGen();
 	void process(LangAST*);
 	std::error_code dump(std::string);
+	void run();
 	virtual void visit(LangASTBlock*) override;
 	virtual void visit(LangASTIdent*) override;
 	virtual void visit(LangASTDecl*) override;
@@ -28,12 +29,13 @@ public:
 	virtual void visit(LangASTWhile*) override;
 	virtual void visit(LangASTPrototype*) override;
 	virtual void visit(LangASTFunction*) override;
+	virtual void visit(LangASTReturn*) override;
 	virtual void visit(LangASTCall*) override;
 
 private:
 	llvm::LLVMContext context;
 	llvm::IRBuilder<> builder;
-	llvm::Module module;
+	std::unique_ptr<llvm::Module> module;
 	std::list<std::map<std::string, llvm::Value*>> frames;
 	llvm::Value* ret;
 	TypeManager type_manager;
