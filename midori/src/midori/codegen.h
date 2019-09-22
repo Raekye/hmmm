@@ -18,6 +18,9 @@ public:
 	void process(LangAST*);
 	std::error_code dump(std::string);
 	void run();
+	virtual void visit(LangASTBasicType*) override;
+	virtual void visit(LangASTPointerType*) override;
+	virtual void visit(LangASTArrayType*) override;
 	virtual void visit(LangASTBlock*) override;
 	virtual void visit(LangASTIdent*) override;
 	virtual void visit(LangASTDecl*) override;

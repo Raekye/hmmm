@@ -4,6 +4,20 @@ TypeChecker::TypeChecker(TypeManager* tm) : type_manager(tm) {
 	this->push_scope();
 }
 
+void TypeChecker::visit(LangASTBasicType* v) {
+	this->ret(this->type_manager->get(v->name), nullptr);
+}
+
+void TypeChecker::visit(LangASTPointerType* v) {
+	v->base->accept(this);
+	this->ret(this->ret()->pointer_ty(), nullptr);
+}
+
+void TypeChecker::visit(LangASTArrayType* v) {
+	v->base->accept(this);
+	this->ret(this->ret()->array_ty(), nullptr);
+}
+
 void TypeChecker::visit(LangASTBlock* v) {
 	this->push_scope();
 	for (std::unique_ptr<LangAST> const& l : v->lines) {
@@ -18,7 +32,8 @@ void TypeChecker::visit(LangASTIdent* v) {
 }
 
 void TypeChecker::visit(LangASTDecl* v) {
-	Type* t = this->type_manager->get(v->type_name);
+	v->decl_type->accept(this);
+	Type* t = this->ret();
 	this->frames.front()[v->name] = t;
 	this->ret(t, v);
 }
@@ -104,11 +119,17 @@ void TypeChecker::visit(LangASTCall* v) {
 	LangASTPrototype* f = this->find_function(v->function);
 	Int i = 0;
 	for (std::unique_ptr<LangASTExpression> const& a : v->args) {
-		this->want(f->args.at(i)->type);
+		Type* arg_type = f->args.at(i)->type;
+		this->want(arg_type);
 		a->accept(this);
+		if (arg_type != this->ret()) {
+			this->ret(nullptr, v);
+			return;
+		}
 		i++;
 	}
-	this->ret(this->type_manager->get(f->return_type), v);
+	f->return_type->accept(this);
+	this->ret(this->ret(), v);
 }
 
 void TypeChecker::push_scope() {

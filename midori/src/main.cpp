@@ -44,7 +44,7 @@ int test_lang() {
 	CodeGen cg;
 	std::vector<std::unique_ptr<LangASTDecl>> v;
 	//v.push_back(std::unique_ptr<LangASTDecl>(new LangASTDecl("foo", "Int")));
-	std::unique_ptr<LangASTPrototype> proto(new LangASTPrototype("main", "Int", std::move(v)));
+	std::unique_ptr<LangASTPrototype> proto(new LangASTPrototype("main", std::unique_ptr<LangASTType>(new LangASTBasicType("Int")), std::move(v)));
 	LangASTFunction g(std::move(proto), std::move(program));
 	cg.process(&g);
 	cg.dump("program.bc");

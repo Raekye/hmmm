@@ -39,6 +39,18 @@ void CodeGen::run() {
 	ee->runFunction(f, {});
 }
 
+void CodeGen::visit(LangASTBasicType* v) {
+	(void) v;
+}
+
+void CodeGen::visit(LangASTPointerType* v) {
+	(void) v;
+}
+
+void CodeGen::visit(LangASTArrayType* v) {
+	(void) v;
+}
+
 void CodeGen::visit(LangASTBlock* v) {
 	this->push_scope();
 	for (std::unique_ptr<LangAST> const& l : v->lines) {
@@ -53,7 +65,7 @@ void CodeGen::visit(LangASTIdent* v) {
 }
 
 void CodeGen::visit(LangASTDecl* v) {
-	llvm::Type* t = this->type_manager.get(v->type_name)->llvm_type;
+	llvm::Type* t = this->type_manager.get(v->decl_type->name)->llvm_type;
 	llvm::Value* x = this->builder.CreateAlloca(t, nullptr, v->name);
 	this->frames.front()[v->name] = x;
 	this->ret = x;
@@ -253,7 +265,7 @@ void CodeGen::visit(LangASTPrototype* v) {
 	for (std::unique_ptr<LangASTDecl> const& a : v->args) {
 		arg_types.push_back(a->type->llvm_type);
 	}
-	llvm::FunctionType* ft = llvm::FunctionType::get(this->type_manager.get(v->return_type)->llvm_type, arg_types, false);
+	llvm::FunctionType* ft = llvm::FunctionType::get(this->type_manager.get(v->return_type->name)->llvm_type, arg_types, false);
 	llvm::Function* f = llvm::Function::Create(ft, llvm::Function::ExternalLinkage, v->name, this->module.get());
 	Int i = 0;
 	for (llvm::Argument& a : f->args()) {
@@ -282,7 +294,7 @@ void CodeGen::visit(LangASTFunction* v) {
 	}
 	v->body->accept(this);
 	if (this->builder.GetInsertBlock()->getTerminator() == nullptr) {
-		if (v->proto->return_type == this->type_manager.void_type()->name) {
+		if (v->proto->return_type->name == this->type_manager.void_type()->name) {
 			this->builder.CreateRetVoid();
 		}
 	}

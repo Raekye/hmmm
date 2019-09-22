@@ -5,10 +5,45 @@
 #include "types.h"
 #include <memory>
 
-class ILangASTVisitor;
 template <typename T> class LangASTLiteral;
 typedef LangASTLiteral<Long> LangASTInt;
 typedef LangASTLiteral<double> LangASTDouble;
+
+class LangASTBasicType;
+class LangASTPointerType;
+class LangASTArrayType;
+class LangASTBlock;
+class LangASTIdent;
+class LangASTDecl;
+class LangASTUnOp;
+class LangASTBinOp;
+class LangASTIf;
+class LangASTWhile;
+class LangASTPrototype;
+class LangASTFunction;
+class LangASTReturn;
+class LangASTCall;
+
+class ILangASTVisitor {
+public:
+	virtual ~ILangASTVisitor() = 0;
+	virtual void visit(LangASTBasicType*) = 0;
+	virtual void visit(LangASTPointerType*) = 0;
+	virtual void visit(LangASTArrayType*) = 0;
+	virtual void visit(LangASTBlock*) = 0;
+	virtual void visit(LangASTIdent*) = 0;
+	virtual void visit(LangASTDecl*) = 0;
+	virtual void visit(LangASTUnOp*) = 0;
+	virtual void visit(LangASTBinOp*) = 0;
+	virtual void visit(LangASTInt*) = 0;
+	virtual void visit(LangASTDouble*) = 0;
+	virtual void visit(LangASTIf*) = 0;
+	virtual void visit(LangASTWhile*) = 0;
+	virtual void visit(LangASTPrototype*) = 0;
+	virtual void visit(LangASTFunction*) = 0;
+	virtual void visit(LangASTReturn*) = 0;
+	virtual void visit(LangASTCall*) = 0;
+};
 
 class LangAST {
 public:
@@ -31,6 +66,50 @@ public:
 	virtual ~LangASTVoid() = 0;
 };
 
+class LangASTType : public LangAST {
+public:
+	std::string name;
+
+	LangASTType(std::string s) : name(s) {
+		return;
+	}
+	virtual ~LangASTType() = 0;
+};
+
+class LangASTBasicType : public LangASTType {
+public:
+	LangASTBasicType(std::string s) : LangASTType(s) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor* v) {
+		v->visit(this);
+	}
+};
+
+class LangASTPointerType : public LangASTType {
+public:
+	std::unique_ptr<LangASTType> base;
+
+	LangASTPointerType(std::unique_ptr<LangASTType> t) : LangASTType(t->name + "*"), base(std::move(t)) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
+};
+
+class LangASTArrayType : public LangASTType {
+public:
+	std::unique_ptr<LangASTType> base;
+
+	LangASTArrayType(std::unique_ptr<LangASTType> t) : LangASTType(t->name + "*"), base(std::move(t)) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
+};
+
 class LangASTBlock : public LangASTVoid {
 public:
 	std::vector<std::unique_ptr<LangAST>> lines;
@@ -38,7 +117,9 @@ public:
 	LangASTBlock(std::vector<std::unique_ptr<LangAST>> v) : lines(std::move(v)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*);
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 template <typename T> class LangASTLiteral : public LangASTExpression {
@@ -48,7 +129,9 @@ public:
 	LangASTLiteral(T v) : value(v) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTIdent : public LangASTExpression {
@@ -58,7 +141,9 @@ public:
 	LangASTIdent(std::string s) : name(s) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTUnOp : public LangASTExpression {
@@ -73,7 +158,9 @@ public:
 	LangASTUnOp(Op op, std::unique_ptr<LangASTExpression> e) : op(op), expr(std::move(e)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTBinOp : public LangASTExpression {
@@ -98,18 +185,22 @@ public:
 	LangASTBinOp(Op op, std::unique_ptr<LangASTExpression> l, std::unique_ptr<LangASTExpression> r) : op(op), left(std::move(l)), right(std::move(r)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTDecl : public LangASTExpression {
 public:
 	std::string name;
-	std::string type_name;
+	std::unique_ptr<LangASTType> decl_type;
 
-	LangASTDecl(std::string n, std::string t) : name(n), type_name(t) {
+	LangASTDecl(std::string n, std::unique_ptr<LangASTType> t) : name(n), decl_type(std::move(t)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTIf : public LangASTVoid {
@@ -126,7 +217,9 @@ public:
 		, block_else(std::move(b2)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTWhile : public LangASTVoid {
@@ -137,19 +230,23 @@ public:
 	LangASTWhile(std::unique_ptr<LangASTExpression> p, std::unique_ptr<LangASTBlock> b) : predicate(std::move(p)), block(std::move(b)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTPrototype : public LangASTVoid {
 public:
 	std::string name;
-	std::string return_type;
+	std::unique_ptr<LangASTType> return_type;
 	std::vector<std::unique_ptr<LangASTDecl>> args;
 
-	LangASTPrototype(std::string n, std::string r, std::vector<std::unique_ptr<LangASTDecl>> a) : name(n), return_type(r), args(std::move(a)) {
+	LangASTPrototype(std::string n, std::unique_ptr<LangASTType> r, std::vector<std::unique_ptr<LangASTDecl>> a) : name(n), return_type(std::move(r)), args(std::move(a)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTFunction : public LangASTVoid {
@@ -160,7 +257,9 @@ public:
 	LangASTFunction(std::unique_ptr<LangASTPrototype> p, std::unique_ptr<LangASTBlock> b) : proto(std::move(p)), body(std::move(b)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTReturn : public LangASTVoid {
@@ -169,7 +268,9 @@ public:
 	LangASTReturn(std::unique_ptr<LangASTExpression> v) : val(std::move(v)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTCall : public LangASTExpression {
@@ -180,30 +281,17 @@ public:
 	LangASTCall(std::string f, std::vector<std::unique_ptr<LangASTExpression>> a) : function(f), args(std::move(a)) {
 		return;
 	}
-	virtual void accept(ILangASTVisitor*) override;
-};
-
-class ILangASTVisitor {
-public:
-	virtual ~ILangASTVisitor() = 0;
-	virtual void visit(LangASTBlock*) = 0;
-	virtual void visit(LangASTIdent*) = 0;
-	virtual void visit(LangASTDecl*) = 0;
-	virtual void visit(LangASTUnOp*) = 0;
-	virtual void visit(LangASTBinOp*) = 0;
-	virtual void visit(LangASTInt*) = 0;
-	virtual void visit(LangASTDouble*) = 0;
-	virtual void visit(LangASTIf*) = 0;
-	virtual void visit(LangASTWhile*) = 0;
-	virtual void visit(LangASTPrototype*) = 0;
-	virtual void visit(LangASTFunction*) = 0;
-	virtual void visit(LangASTReturn*) = 0;
-	virtual void visit(LangASTCall*) = 0;
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
 };
 
 class LangASTPrinter : public ILangASTVisitor {
 public:
 	LangASTPrinter();
+	virtual void visit(LangASTBasicType*) override;
+	virtual void visit(LangASTPointerType*) override;
+	virtual void visit(LangASTArrayType*) override;
 	virtual void visit(LangASTBlock*) override;
 	virtual void visit(LangASTIdent*) override;
 	virtual void visit(LangASTDecl*) override;

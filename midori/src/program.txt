@@ -2,6 +2,7 @@
 
 def putchar(x: Int) -> Int;
 def foobar(x: Int) -> Void;
+def putint(x: Int) -> Void;
 
 def put2(x: Int) -> Int {
 	var y: Int = x + 1;

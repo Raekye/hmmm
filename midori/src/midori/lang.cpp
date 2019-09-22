@@ -8,6 +8,7 @@ typedef ParserValue<std::unique_ptr<LangASTExpression>> ParserValueExpr;
 typedef ParserValue<std::unique_ptr<LangASTBlock>> ParserValueBlock;
 typedef ParserValue<std::vector<std::unique_ptr<LangASTExpression>>> ParserValueExprList;
 typedef ParserValue<std::vector<std::unique_ptr<LangASTDecl>>> ParserValueDeclList;
+typedef ParserValue<std::unique_ptr<LangASTType>> ParserValueType;
 
 LangAST::~LangAST() {
 	return;
@@ -21,56 +22,12 @@ LangASTVoid::~LangASTVoid() {
 	return;
 }
 
-ILangASTVisitor::~ILangASTVisitor() {
+LangASTType::~LangASTType() {
 	return;
 }
 
-void LangASTBlock::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTIdent::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTDecl::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTUnOp::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTBinOp::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-template <typename T> void LangASTLiteral<T>::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTIf::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTWhile::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTPrototype::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTFunction::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTReturn::accept(ILangASTVisitor* v) {
-	v->visit(this);
-}
-
-void LangASTCall::accept(ILangASTVisitor* v) {
-	v->visit(this);
+ILangASTVisitor::~ILangASTVisitor() {
+	return;
 }
 
 LangASTPrinter::LangASTPrinter() : indents(0) {
@@ -79,6 +36,18 @@ LangASTPrinter::LangASTPrinter() : indents(0) {
 
 void LangASTPrinter::f() {
 	std::cout << std::string(this->indents, '\t');
+}
+
+void LangASTPrinter::visit(LangASTBasicType* v) {
+	std::cout << v->name;
+}
+
+void LangASTPrinter::visit(LangASTPointerType* v) {
+	std::cout << v->name;
+}
+
+void LangASTPrinter::visit(LangASTArrayType* v) {
+	std::cout << v->name;
 }
 
 void LangASTPrinter::visit(LangASTBlock* v) {
@@ -100,7 +69,9 @@ void LangASTPrinter::visit(LangASTIdent* v) {
 
 void LangASTPrinter::visit(LangASTDecl* v) {
 	f();
-	std::cout << "{ decl " << v->name << ": " << v->type << " }" << std::endl;
+	std::cout << "{ decl " << v->name << ": ";
+	v->decl_type->accept(this);
+	std::cout << " }" << std::endl;
 }
 
 void LangASTPrinter::visit(LangASTUnOp* v) {
@@ -172,20 +143,26 @@ void LangASTPrinter::visit(LangASTWhile* v) {
 
 void LangASTPrinter::visit(LangASTPrototype* v) {
 	f();
-	std::cout << "prototype " << v->name << "(";
+	std::cout << "prototype " << v->name << " {" << std::endl;
+	this->indents++;
 	for (std::unique_ptr<LangASTDecl> const& a : v->args) {
-		std::cout << a->name << ": " << a->type << ", ";
+		a->accept(this);
 	}
-	std::cout << ")" << std::endl;
+	this->indents--;
+	f();
+	std::cout << "}" << std::endl;
 }
 
 void LangASTPrinter::visit(LangASTFunction* v) {
 	f();
-	std::cout << "function " << v->proto->name << "(";
+	std::cout << "function " << v->proto->name << " {" << std::endl;
+	this->indents++;
 	for (std::unique_ptr<LangASTDecl> const& a : v->proto->args) {
-		std::cout << a->name << ": " << a->type << ", ";
+		a->accept(this);
 	}
-	std::cout << ") {" << std::endl;
+	this->indents--;
+	f();
+	std::cout << "} body {" << std::endl;
 	this->indents++;
 	v->body->accept(this);
 	this->indents--;
@@ -252,6 +229,8 @@ void Lang::generate() {
 	p->add_token("RBRACE", re.parse("\\}"));
 	p->add_token("LANGLE", re.parse("<"));
 	p->add_token("RANGLE", re.parse(">"));
+	p->add_token("LBRACKET", re.parse("\\["));
+	p->add_token("RBRACKET", re.parse("\\]"));
 	p->add_token("SEMICOLON", re.parse(";"));
 	p->add_token("COLON", re.parse(":"));
 	p->add_token("COMMA", re.parse(","));
@@ -322,16 +301,29 @@ void Lang::generate() {
 		return std::move(m->nonterminal(1)->value);
 	});
 
-	p->add_production("declaration", { "IDENTIFIER", "COLON", "TYPE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
-		std::unique_ptr<LangAST> d(new LangASTDecl(m->terminal(0)->token->lexeme, m->terminal(2)->token->lexeme));
+	p->add_production("declaration", { "IDENTIFIER", "COLON", "type" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::unique_ptr<LangASTType> t = std::move(m->nonterminal(2)->value->get<std::unique_ptr<LangASTType>>());
+		std::unique_ptr<LangAST> d(new LangASTDecl(m->terminal(0)->token->lexeme, std::move(t)));
 		return std::unique_ptr<ParserAST>(new ParserValueLang(std::move(d)));
 	});
 
-	p->add_production("function_proto", { "DEF", "IDENTIFIER", "LPAREN", "decls_list", "RPAREN", "ARROW", "TYPE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+	p->add_production("type", { "TYPE" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		return std::unique_ptr<ParserAST>(new ParserValueType(std::unique_ptr<LangASTType>(new LangASTBasicType(m->terminal(0)->token->lexeme))));
+	});
+	p->add_production("type", { "type", "STAR" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::unique_ptr<LangASTType> t = std::move(m->nonterminal(0)->value->get<std::unique_ptr<LangASTType>>());
+		return std::unique_ptr<ParserAST>(new ParserValueType(std::unique_ptr<LangASTType>(new LangASTPointerType(std::move(t)))));
+	});
+	p->add_production("type", { "type", "LBRACKET", "RBRACKET" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
+		std::unique_ptr<LangASTType> t = std::move(m->nonterminal(0)->value->get<std::unique_ptr<LangASTType>>());
+		return std::unique_ptr<ParserAST>(new ParserValueType(std::unique_ptr<LangASTType>(new LangASTArrayType(std::move(t)))));
+	});
+
+	p->add_production("function_proto", { "DEF", "IDENTIFIER", "LPAREN", "decls_list", "RPAREN", "ARROW", "type" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {
 		std::string name = m->terminal(1)->token->lexeme;
-		std::string return_type = m->terminal(6)->token->lexeme;
+		std::unique_ptr<LangASTType> return_type = std::move(m->nonterminal(6)->value->get<std::unique_ptr<LangASTType>>());
 		std::vector<std::unique_ptr<LangASTDecl>> args = std::move(m->nonterminal(3)->value->get<std::vector<std::unique_ptr<LangASTDecl>>>());
-		return std::unique_ptr<ParserAST>(new ParserValueLang(std::unique_ptr<LangAST>(new LangASTPrototype(name, return_type, std::move(args)))));
+		return std::unique_ptr<ParserAST>(new ParserValueLang(std::unique_ptr<LangAST>(new LangASTPrototype(name, std::move(return_type), std::move(args)))));
 	});
 
 	p->add_production("decls_list", { "decls_list_nonempty" }, [](MatchedNonterminal* m) -> std::unique_ptr<ParserAST> {

@@ -9,6 +9,9 @@
 class TypeChecker : public ILangASTVisitor {
 public:
 	TypeChecker(TypeManager*);
+	virtual void visit(LangASTBasicType*) override;
+	virtual void visit(LangASTPointerType*) override;
+	virtual void visit(LangASTArrayType*) override;
 	virtual void visit(LangASTBlock*) override;
 	virtual void visit(LangASTIdent*) override;
 	virtual void visit(LangASTDecl*) override;
