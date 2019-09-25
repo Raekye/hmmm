@@ -1,8 +1,8 @@
 
 
-def putchar(x: Int) -> Int;
-def foobar(x: Int) -> Void;
-def putint(x: Int) -> Void;
+def putchar(x1: Int) -> Int;
+def foobar(x2: Int) -> Void;
+def putint(x3: Int) -> Void;
 
 def put2(x: Int) -> Int {
 	var y: Int = x + 1;
@@ -62,4 +62,27 @@ def foo() -> Void {
 	putchar(101);
 }
 putint(123);
+class MyClass {
+	x: Int;
+	y: Double;
+	z: MyClass*;
+}
+
+var myobj: MyClass;
+myobj.x = 13;
+myobj.y = 14;
+a = 0;
+putint(-a);
+putint(!a);
+a = 1;
+putint(-a);
+putint(!a);
+putint(myobj.x);
+class MyClass2 {
+	x: Int;
+	y: MyClass;
+}
+var myobj2: MyClass2;
+myobj2.y.x = 20;
+putint(myobj2.y.x);
 return a;

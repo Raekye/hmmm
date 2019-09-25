@@ -5,17 +5,17 @@ TypeChecker::TypeChecker(TypeManager* tm) : type_manager(tm) {
 }
 
 void TypeChecker::visit(LangASTBasicType* v) {
-	this->ret(this->type_manager->get(v->name), nullptr);
+	this->ret(this->type_manager->get(v->name));
 }
 
 void TypeChecker::visit(LangASTPointerType* v) {
 	v->base->accept(this);
-	this->ret(this->ret()->pointer_ty(), nullptr);
+	this->ret(this->ret()->pointer_ty());
 }
 
 void TypeChecker::visit(LangASTArrayType* v) {
 	v->base->accept(this);
-	this->ret(this->ret()->array_ty(), nullptr);
+	this->ret(this->ret()->array_ty());
 }
 
 void TypeChecker::visit(LangASTBlock* v) {
@@ -24,11 +24,49 @@ void TypeChecker::visit(LangASTBlock* v) {
 		l->accept(this);
 	}
 	this->pop_scope();
-	this->ret(this->type_manager->void_type(), nullptr);
+	this->ret(this->type_manager->void_type());
 }
 
-void TypeChecker::visit(LangASTIdent* v) {
-	this->ret(this->named_value_type(v->name), v);
+void TypeChecker::visit(LangASTLIdent* v) {
+	LangASTLIdent::NameOrIndex& ni = v->parts.at(0);
+	assert(ni.index == nullptr);
+	assert(ni.name.length() > 0);
+	Type* t = this->named_value_type(ni.name);
+	for (size_t i = 1; i < v->parts.size(); i++) {
+		LangASTLIdent::NameOrIndex& ni2 = v->parts.at(i);
+		if (ni2.index == nullptr) {
+			assert(ni2.name.length() > 0);
+			StructType* st = dynamic_cast<StructType*>(t);
+			assert(st != nullptr);
+			StructType::Field f = st->field(ni2.name);
+			assert(f.type != nullptr);
+			assert(f.index >= 0);
+			t = f.type;
+		} else {
+			assert(ni2.name.length() == 0);
+			ArrayType* at = dynamic_cast<ArrayType*>(t);
+			assert(at != nullptr);
+			t = at->base;
+		}
+	}
+	this->ret(t, v);
+}
+
+void TypeChecker::visit(LangASTRIdent* v) {
+	v->ident->accept(this);
+}
+
+void TypeChecker::visit(LangASTAssignment* v) {
+	v->left->accept(this);
+	Type* lhs = this->ret();
+	this->want(lhs);
+	v->right->accept(this);
+	Type* rhs = this->ret();
+	if (lhs != rhs) {
+		this->ret(nullptr, v);
+		return;
+	}
+	this->ret(lhs, v);
 }
 
 void TypeChecker::visit(LangASTDecl* v) {
@@ -82,7 +120,7 @@ void TypeChecker::visit(LangASTIf* v) {
 		v->block_else->accept(this);
 		this->pop_scope();
 	}
-	this->ret(this->type_manager->void_type(), nullptr);
+	this->ret(this->type_manager->void_type());
 }
 
 void TypeChecker::visit(LangASTWhile* v) {
@@ -90,7 +128,7 @@ void TypeChecker::visit(LangASTWhile* v) {
 	v->predicate->accept(this);
 	v->block->accept(this);
 	this->pop_scope();
-	this->ret(this->type_manager->void_type(), nullptr);
+	this->ret(this->type_manager->void_type());
 }
 
 void TypeChecker::visit(LangASTPrototype* v) {
@@ -98,7 +136,7 @@ void TypeChecker::visit(LangASTPrototype* v) {
 		a->accept(this);
 	}
 	this->function_frames.front()[v->name] = v;
-	this->ret(this->type_manager->void_type(), nullptr);
+	this->ret(this->type_manager->void_type());
 }
 
 void TypeChecker::visit(LangASTFunction* v) {
@@ -106,13 +144,14 @@ void TypeChecker::visit(LangASTFunction* v) {
 	this->push_scope();
 	v->body->accept(this);
 	this->pop_scope();
-	this->ret(this->type_manager->void_type(), nullptr);
+	this->ret(this->type_manager->void_type());
 }
 
 void TypeChecker::visit(LangASTReturn* v) {
 	if (v->val != nullptr) {
 		v->val->accept(this);
 	}
+	this->ret(this->type_manager->void_type());
 }
 
 void TypeChecker::visit(LangASTCall* v) {
@@ -130,6 +169,22 @@ void TypeChecker::visit(LangASTCall* v) {
 	}
 	f->return_type->accept(this);
 	this->ret(this->ret(), v);
+}
+
+void TypeChecker::visit(LangASTClassDef* v) {
+	StructType* c = this->type_manager->make_struct(v->name);
+	std::vector<StructType::Field> fields;
+	for (std::unique_ptr<LangASTDecl> const& f : v->fields) {
+		if (f->decl_type->name == v->name) {
+			this->ret(nullptr);
+			return;
+		}
+		f->decl_type->accept(this);
+		Type* t = this->ret();
+		fields.emplace_back(f->name, t);
+	}
+	c->set_fields(fields);
+	this->ret(this->type_manager->void_type());
 }
 
 void TypeChecker::push_scope() {

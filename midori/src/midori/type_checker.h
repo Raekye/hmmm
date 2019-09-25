@@ -13,7 +13,9 @@ public:
 	virtual void visit(LangASTPointerType*) override;
 	virtual void visit(LangASTArrayType*) override;
 	virtual void visit(LangASTBlock*) override;
-	virtual void visit(LangASTIdent*) override;
+	virtual void visit(LangASTLIdent*) override;
+	virtual void visit(LangASTRIdent*) override;
+	virtual void visit(LangASTAssignment*) override;
 	virtual void visit(LangASTDecl*) override;
 	virtual void visit(LangASTUnOp*) override;
 	virtual void visit(LangASTBinOp*) override;
@@ -25,6 +27,7 @@ public:
 	virtual void visit(LangASTFunction*) override;
 	virtual void visit(LangASTReturn*) override;
 	virtual void visit(LangASTCall*) override;
+	virtual void visit(LangASTClassDef*) override;
 
 private:
 	TypeManager* type_manager;
@@ -33,11 +36,20 @@ private:
 	std::list<std::map<std::string, Type*>> frames;
 	std::list<std::map<std::string, LangASTPrototype*>> function_frames;
 
+	void ret(Type* t) {
+		this->_ret = t;
+	}
 	void ret(Type* t, LangASTExpression* e) {
 		if (e != nullptr) {
 			e->type = t;
 		}
-		this->_ret = t;
+		this->ret(t);
+	}
+	void ret(Type* t, LangASTLValue* e) {
+		if (e != nullptr) {
+			e->type = t;
+		}
+		this->ret(t);
 	}
 	Type* ret() {
 		Type* t = this->_ret;

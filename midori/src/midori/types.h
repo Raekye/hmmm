@@ -1,6 +1,7 @@
 #ifndef MIDORI_TYPES_H_INCLUDED
 #define MIDORI_TYPES_H_INCLUDED
 
+#include "global.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
@@ -35,7 +36,24 @@ public:
 
 class StructType : public Type {
 public:
+	struct Field {
+		std::string name;
+		Type* type;
+		Int index;
+
+		Field(std::string s, Type* t) : name(s), type(t), index(-1) {
+			return;
+		}
+	};
+
 	StructType(std::string, llvm::Type*, TypeManager*);
+
+	void set_fields(std::vector<Field>);
+	Field field(std::string);
+
+private:
+	std::vector<Field> fields;
+	std::map<std::string, Field> fields_map;
 };
 
 class PointerType : public Type {

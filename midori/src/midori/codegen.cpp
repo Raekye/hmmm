@@ -13,6 +13,8 @@
 #include "llvm/ExecutionEngine/OrcMCJITReplacement.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
 //#include "llvm/ExecutionEngine/Interpreter.h"
+#include <tuple>
+#include <utility>
 #include <cassert>
 
 CodeGen::CodeGen() : builder(this->context), module(new llvm::Module("midori", this->context)), type_manager(&(this->context)) {
@@ -60,15 +62,57 @@ void CodeGen::visit(LangASTBlock* v) {
 	this->ret = nullptr;
 }
 
-void CodeGen::visit(LangASTIdent* v) {
-	this->ret = this->builder.CreateLoad(this->named_value(v->name), v->name);
+void CodeGen::visit(LangASTLIdent* v) {
+	LangASTLIdent::NameOrIndex& ni = v->parts.at(0);
+	assert(ni.index == nullptr);
+	assert(ni.name.length() > 0);
+	std::string name = ni.name;
+	Variable var = this->named_value(ni.name);
+	for (size_t i = 1; i < v->parts.size(); i++) {
+		LangASTLIdent::NameOrIndex& ni2 = v->parts.at(i);
+		if (ni2.index == nullptr) {
+			assert(ni2.name.length() > 0);
+			name += "." + ni2.name;
+			StructType* st = dynamic_cast<StructType*>(var.type);
+			assert(st != nullptr);
+			StructType::Field f = st->field(ni2.name);
+			assert(f.type != nullptr);
+			assert(f.index >= 0);
+			var.type = f.type;
+			var.value = this->builder.CreateStructGEP(st->llvm_type, var.value, f.index, name);
+		} else {
+			assert(ni2.name.length() == 0);
+			name += "[]";
+			ArrayType* at = dynamic_cast<ArrayType*>(var.type);
+			assert(at != nullptr);
+			ni2.index->accept(this);
+			llvm::Value* index = this->ret;
+			var.type = at->base;
+			var.value = this->builder.CreateGEP(at->llvm_type, var.value, index, name);
+		}
+	}
+	this->ret = var.value;
+}
+
+void CodeGen::visit(LangASTRIdent* v) {
+	v->ident->accept(this);
+	this->ret = this->builder.CreateLoad(this->ret, "load");
 }
 
 void CodeGen::visit(LangASTDecl* v) {
 	llvm::Type* t = this->type_manager.get(v->decl_type->name)->llvm_type;
 	llvm::Value* x = this->builder.CreateAlloca(t, nullptr, v->name);
-	this->frames.front()[v->name] = x;
+	this->set_named_value(v->name, Variable(v->type, x));
 	this->ret = x;
+}
+
+void CodeGen::visit(LangASTAssignment* v) {
+	v->left->accept(this);
+	llvm::Value* lhs = this->ret;
+	v->right->accept(this);
+	llvm::Value* rhs = this->ret;
+	this->builder.CreateStore(rhs, lhs);
+	// this->ret = rhs;
 }
 
 void CodeGen::visit(LangASTUnOp* v) {
@@ -87,25 +131,10 @@ void CodeGen::visit(LangASTUnOp* v) {
 }
 
 void CodeGen::visit(LangASTBinOp* v) {
-	v->right->accept(this);
-	llvm::Value* rhs = this->ret;
-	if (v->op == LangASTBinOp::Op::ASSIGN) {
-		std::string name;
-		if (LangASTIdent* i = dynamic_cast<LangASTIdent*>(v->left.get())) {
-			name = i->name;
-		} else if (LangASTDecl* d = dynamic_cast<LangASTDecl*>(v->left.get())) {
-			this->visit(d);
-			name = d->name;
-		} else {
-			this->ret = nullptr;
-			return;
-		}
-		llvm::Value* lhs = this->named_value(name);
-		this->ret = this->builder.CreateStore(rhs, lhs);
-		return;
-	}
 	v->left->accept(this);
 	llvm::Value* lhs = this->ret;
+	v->right->accept(this);
+	llvm::Value* rhs = this->ret;
 	llvm::Type* type = lhs->getType();
 	this->ret = nullptr;
 	switch (v->op) {
@@ -283,13 +312,11 @@ void CodeGen::visit(LangASTFunction* v) {
 	llvm::BasicBlock* bb = llvm::BasicBlock::Create(this->context, "entry", f);
 	this->builder.SetInsertPoint(bb);
 
-	std::map<std::string, llvm::Value*>& m = this->frames.front();
 	Int i = 0;
 	for (llvm::Argument& a : f->args()) {
 		v->proto->args.at(i)->accept(this);
 		llvm::Value* alloc = this->ret;
 		this->builder.CreateStore(&a, alloc);
-		m[a.getName()] = alloc;
 		i++;
 	}
 	v->body->accept(this);
@@ -334,6 +361,10 @@ void CodeGen::visit(LangASTCall* v) {
 	this->ret = this->builder.CreateCall(f, args, "calltmp");
 }
 
+void CodeGen::visit(LangASTClassDef* v) {
+	(void) v;
+}
+
 void CodeGen::push_scope() {
 	this->frames.emplace_front();
 }
@@ -342,14 +373,22 @@ void CodeGen::pop_scope() {
 	this->frames.pop_front();
 }
 
-llvm::Value* CodeGen::named_value(std::string s) {
-	for (std::map<std::string, llvm::Value*> const& f : this->frames) {
-		std::map<std::string, llvm::Value*>::const_iterator it = f.find(s);
+CodeGen::Variable CodeGen::named_value(std::string s) {
+	for (std::map<std::string, Variable> const& f : this->frames) {
+		std::map<std::string, Variable>::const_iterator it = f.find(s);
 		if (it != f.end()) {
 			return it->second;
 		}
 	}
-	return nullptr;
+	return Variable(nullptr, nullptr);
+}
+
+void CodeGen::set_named_value(std::string s, Variable v) {
+	std::map<std::string, Variable>& m = this->frames.front();
+	std::map<std::string, Variable>::iterator it;
+	bool inserted;
+	std::tie(it, inserted) = m.emplace(std::piecewise_construct, std::forward_as_tuple(s), std::forward_as_tuple(v));
+	assert(inserted);
 }
 
 llvm::Function* CodeGen::get_function(std::string name) {

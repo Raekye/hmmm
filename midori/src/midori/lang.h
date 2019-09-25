@@ -13,7 +13,9 @@ class LangASTBasicType;
 class LangASTPointerType;
 class LangASTArrayType;
 class LangASTBlock;
-class LangASTIdent;
+class LangASTLIdent;
+class LangASTRIdent;
+class LangASTAssignment;
 class LangASTDecl;
 class LangASTUnOp;
 class LangASTBinOp;
@@ -23,6 +25,7 @@ class LangASTPrototype;
 class LangASTFunction;
 class LangASTReturn;
 class LangASTCall;
+class LangASTClassDef;
 
 class ILangASTVisitor {
 public:
@@ -31,7 +34,9 @@ public:
 	virtual void visit(LangASTPointerType*) = 0;
 	virtual void visit(LangASTArrayType*) = 0;
 	virtual void visit(LangASTBlock*) = 0;
-	virtual void visit(LangASTIdent*) = 0;
+	virtual void visit(LangASTLIdent*) = 0;
+	virtual void visit(LangASTRIdent*) = 0;
+	virtual void visit(LangASTAssignment*) = 0;
 	virtual void visit(LangASTDecl*) = 0;
 	virtual void visit(LangASTUnOp*) = 0;
 	virtual void visit(LangASTBinOp*) = 0;
@@ -43,6 +48,7 @@ public:
 	virtual void visit(LangASTFunction*) = 0;
 	virtual void visit(LangASTReturn*) = 0;
 	virtual void visit(LangASTCall*) = 0;
+	virtual void visit(LangASTClassDef*) = 0;
 };
 
 class LangAST {
@@ -59,6 +65,16 @@ public:
 		return;
 	}
 	virtual ~LangASTExpression() = 0;
+};
+
+class LangASTLValue : public LangAST {
+public:
+	Type* type;
+
+	LangASTLValue() : type(nullptr) {
+		return;
+	}
+	virtual ~LangASTLValue() = 0;
 };
 
 class LangASTVoid : public LangAST {
@@ -134,11 +150,45 @@ public:
 	}
 };
 
-class LangASTIdent : public LangASTExpression {
+class LangASTLIdent : public LangASTLValue {
 public:
-	std::string name;
+	struct NameOrIndex {
+		std::string name;
+		std::unique_ptr<LangASTExpression> index;
 
-	LangASTIdent(std::string s) : name(s) {
+		NameOrIndex(std::string s, std::unique_ptr<LangASTExpression> i) : name(s), index(std::move(i)) {
+			return;
+		}
+	};
+
+	std::vector<NameOrIndex> parts;
+
+	LangASTLIdent(std::string s) {
+		this->parts.emplace_back(s, nullptr);
+	}
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
+};
+
+class LangASTRIdent : public LangASTExpression {
+public:
+	std::unique_ptr<LangASTLValue> ident;
+
+	LangASTRIdent(std::unique_ptr<LangASTLIdent> li) : ident(std::move(li)) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
+};
+
+class LangASTAssignment : public LangASTExpression {
+public:
+	std::unique_ptr<LangASTLValue> left;
+	std::unique_ptr<LangASTExpression> right;
+
+	LangASTAssignment(std::unique_ptr<LangASTLValue> l, std::unique_ptr<LangASTExpression> r) : left(std::move(l)), right(std::move(r)) {
 		return;
 	}
 	virtual void accept(ILangASTVisitor* v) override {
@@ -170,7 +220,6 @@ public:
 		MINUS,
 		STAR,
 		SLASH,
-		ASSIGN,
 		EQ,
 		NE,
 		LT,
@@ -190,7 +239,7 @@ public:
 	}
 };
 
-class LangASTDecl : public LangASTExpression {
+class LangASTDecl : public LangASTLValue {
 public:
 	std::string name;
 	std::unique_ptr<LangASTType> decl_type;
@@ -286,6 +335,19 @@ public:
 	}
 };
 
+class LangASTClassDef : public LangASTVoid {
+public:
+	std::string name;
+	std::vector<std::unique_ptr<LangASTDecl>> fields;
+
+	LangASTClassDef(std::string s, std::vector<std::unique_ptr<LangASTDecl>> v) : name(s), fields(std::move(v)) {
+		return;
+	}
+	virtual void accept(ILangASTVisitor* v) override {
+		v->visit(this);
+	}
+};
+
 class LangASTPrinter : public ILangASTVisitor {
 public:
 	LangASTPrinter();
@@ -293,7 +355,9 @@ public:
 	virtual void visit(LangASTPointerType*) override;
 	virtual void visit(LangASTArrayType*) override;
 	virtual void visit(LangASTBlock*) override;
-	virtual void visit(LangASTIdent*) override;
+	virtual void visit(LangASTLIdent*) override;
+	virtual void visit(LangASTRIdent*) override;
+	virtual void visit(LangASTAssignment*) override;
 	virtual void visit(LangASTDecl*) override;
 	virtual void visit(LangASTUnOp*) override;
 	virtual void visit(LangASTBinOp*) override;
@@ -305,6 +369,7 @@ public:
 	virtual void visit(LangASTFunction*) override;
 	virtual void visit(LangASTReturn*) override;
 	virtual void visit(LangASTCall*) override;
+	virtual void visit(LangASTClassDef*) override;
 
 private:
 	Int indents;

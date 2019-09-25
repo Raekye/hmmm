@@ -1,6 +1,8 @@
 #include "types.h"
+#include <tuple>
+#include <utility>
 
-Type::Type(std::string name, llvm::Type* type, TypeManager* m) : name(name), llvm_type(type), manager(m) {
+Type::Type(std::string name, llvm::Type* type, TypeManager* m) : name(name), llvm_type(type), manager(m), _pointer_ty(nullptr), _array_ty(nullptr) {
 	return;
 }
 
@@ -32,6 +34,30 @@ PrimitiveType::PrimitiveType(std::string name, llvm::Type* type, TypeManager* m)
 
 StructType::StructType(std::string name, llvm::Type* type, TypeManager* m) : Type(name, type, m) {
 	return;
+}
+
+void StructType::set_fields(std::vector<Field> v) {
+	std::vector<llvm::Type*> llvm_fields;
+	Int i = 0;
+	for (Field const& f : v) {
+		llvm_fields.push_back(f.type->llvm_type);
+		std::map<std::string, Field>::iterator it;
+		bool inserted;
+		std::tie(it, inserted) = this->fields_map.emplace(std::piecewise_construct, std::forward_as_tuple(f.name), std::forward_as_tuple(f));
+		assert(inserted);
+		it->second.index = i;
+		i++;
+	}
+	llvm::dyn_cast<llvm::StructType>(this->llvm_type)->setBody(llvm_fields);
+	this->fields = v;
+}
+
+StructType::Field StructType::field(std::string s) {
+	std::map<std::string, Field>::iterator it = this->fields_map.find(s);
+	if (it == this->fields_map.end()) {
+		return Field(s, nullptr);
+	}
+	return it->second;
 }
 
 PointerType::PointerType(Type* t) : Type(t->name + "*", llvm::PointerType::get(t->llvm_type, 0), t->manager), base(t) {
